@@ -610,7 +610,7 @@ public partial class MainWindow : Window
         _taramaCts?.Cancel();
         try { _tsharkProc?.Kill(entireProcessTree: true); } catch { }
         _tsharkProc = null;
-        MesajEkle("hata", "Yakalama kullanıcı tarafından durduruldu.");
+        MesajEkle("hata", "Tarama kullanıcı tarafından durduruldu.");
         TaramaDurumunuAyarla(false);
     }
 
@@ -741,8 +741,25 @@ public partial class MainWindow : Window
 
     private void BtnCihazlar_Click(object sender, RoutedEventArgs e)
     {
-        MesajEkle("sistem", "Cihaz listesi — yakında eklenecek.");
-        // TODO: ARP tarama implementasyonu
+        var exe = Path.Combine(AppBase, "tools", "Ip_Scanner", "advanced_ip_scanner.exe");
+        if (!File.Exists(exe))
+        {
+            MesajEkle("hata", $"Advanced IP Scanner bulunamadı:\n{exe}");
+            return;
+        }
+        try
+        {
+            Process.Start(new ProcessStartInfo(exe)
+            {
+                UseShellExecute  = true,
+                WorkingDirectory = Path.GetDirectoryName(exe)!,
+            });
+            MesajEkle("sistem", "Advanced IP Scanner başlatıldı.");
+        }
+        catch (Exception ex)
+        {
+            MesajEkle("hata", $"Advanced IP Scanner açılamadı: {ex.Message}");
+        }
     }
 
     private void BtnTemizle_Click(object sender, RoutedEventArgs e)

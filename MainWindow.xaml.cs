@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -19,6 +20,7 @@ public partial class MainWindow : Window
     private bool _taramaDevamEdiyor = false;
     private CancellationTokenSource? _taramaCts;
     private Process? _tsharkProc;
+    private Process? _ipScannerProc;
 
     // ─── Sabit yollar (AppBase = exe'nin bulunduğu klasör) ───────────
     // Single-file publish'te AppDomain.BaseDirectory geçici klasörü gösterir;
@@ -35,6 +37,9 @@ public partial class MainWindow : Window
 
     private static readonly string WiresharkPortableExe =
         Path.Combine(AppBase, "tools", "WiresharkPortable64", "WiresharkPortable64.exe");
+
+    private static readonly string IpScannerExe =
+        Path.Combine(AppBase, "tools", "Ip_Scanner", "advanced_ip_scanner_console.exe");
 
     // ─── Başlangıç ───────────────────────────────────────────────────
     public MainWindow()
@@ -610,7 +615,9 @@ public partial class MainWindow : Window
         _taramaCts?.Cancel();
         try { _tsharkProc?.Kill(entireProcessTree: true); } catch { }
         _tsharkProc = null;
-        MesajEkle("hata", "Yakalama kullanıcı tarafından durduruldu.");
+        try { _ipScannerProc?.Kill(entireProcessTree: true); } catch { }
+        _ipScannerProc = null;
+        MesajEkle("hata", "Tarama kullanıcı tarafından durduruldu.");
         TaramaDurumunuAyarla(false);
     }
 
@@ -740,9 +747,137 @@ public partial class MainWindow : Window
     }
 
     private void BtnCihazlar_Click(object sender, RoutedEventArgs e)
+        => _ = CihazlariListeleAsync();
+
+    // ─── Yerel ağ aralığını otomatik tespit et ────────────────────────
+    private static (string? LocalIp, string? Range) YerelAgAraliginiTespit()
     {
-        MesajEkle("sistem", "Cihaz listesi — yakında eklenecek.");
-        // TODO: ARP tarama implementasyonu
+        foreach (var iface in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (iface.OperationalStatus != OperationalStatus.Up) continue;
+            if (iface.NetworkInterfaceType is NetworkInterfaceType.Loopback
+                                           or NetworkInterfaceType.Tunnel) continue;
+
+            foreach (var uni in iface.GetIPProperties().UnicastAddresses)
+            {
+                if (uni.Address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) continue;
+                var ip    = uni.Address.ToString();
+                var parts = ip.Split('.');
+                if (parts.Length != 4 || parts[0] == "169") continue; // APIPA atla
+
+                var prefix = $"{parts[0]}.{parts[1]}.{parts[2]}";
+                return (ip, $"{prefix}.1-{prefix}.254");
+            }
+        }
+        return (null, null);
+    }
+
+    // ─── Advanced IP Scanner ile cihaz tarama ────────────────────────
+    private async Task CihazlariListeleAsync()
+    {
+        if (_taramaDevamEdiyor)
+        {
+            MesajEkle("hata", "Başka bir tarama devam ediyor. Önce durdurun.");
+            return;
+        }
+
+        if (!File.Exists(IpScannerExe))
+        {
+            MesajEkle("hata", $"Advanced IP Scanner bulunamadı:\n{IpScannerExe}");
+            return;
+        }
+
+        var (localIp, range) = YerelAgAraliginiTespit();
+        if (range == null)
+        {
+            MesajEkle("hata", "Yerel ağ aralığı tespit edilemedi. Ağ bağlantısı aktif mi?");
+            return;
+        }
+
+        MesajEkle("sistem", $"Yerel IP: {localIp}  →  Taranıyor: {range}");
+
+        var sonucKlasor = Path.Combine(AppBase, "captures");
+        Directory.CreateDirectory(sonucKlasor);
+        var sonucDosya = Path.Combine(sonucKlasor, $"cihazlar_{DateTime.Now:ddMMyyyy_HHmm}.csv");
+
+        TaramaDurumunuAyarla(true);
+        _taramaCts = new CancellationTokenSource();
+
+        int bulunan = 0;
+        try
+        {
+            var psi = new ProcessStartInfo(
+                IpScannerExe,
+                $"/r:{range} /f:\"{sonucDosya}\"")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError  = true,
+                UseShellExecute        = false,
+                CreateNoWindow         = true,
+                WorkingDirectory       = Path.GetDirectoryName(IpScannerExe)!,
+            };
+
+            _ipScannerProc = Process.Start(psi);
+            if (_ipScannerProc == null)
+            {
+                MesajEkle("hata", "Advanced IP Scanner başlatılamadı.");
+                TaramaDurumunuAyarla(false);
+                return;
+            }
+
+            // stdout'tan canlı cihaz satırlarını oku
+            var stdoutTask = Task.Run(async () =>
+            {
+                while (!_ipScannerProc.StandardOutput.EndOfStream)
+                {
+                    var satir = await _ipScannerProc.StandardOutput.ReadLineAsync();
+                    if (string.IsNullOrWhiteSpace(satir)) continue;
+                    Dispatcher.Invoke(() =>
+                    {
+                        bulunan++;
+                        MesajEkle("sonuc", satir);
+                        StatusText.Text = $"● Taranıyor... {bulunan} cihaz bulundu";
+                    });
+                }
+            });
+
+            try
+            {
+                await _ipScannerProc.WaitForExitAsync(_taramaCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                try { _ipScannerProc.Kill(entireProcessTree: true); } catch { }
+                MesajEkle("hata", "Cihaz taraması kullanıcı tarafından durduruldu.");
+                TaramaDurumunuAyarla(false);
+                return;
+            }
+
+            await stdoutTask;
+
+            // Stdout boşsa çıktı dosyasından oku
+            if (bulunan == 0 && File.Exists(sonucDosya))
+            {
+                var satirlar = await File.ReadAllLinesAsync(sonucDosya);
+                foreach (var s in satirlar.Where(l => !string.IsNullOrWhiteSpace(l)))
+                {
+                    MesajEkle("sonuc", s);
+                    bulunan++;
+                }
+            }
+
+            var dosyaInfo = File.Exists(sonucDosya) ? $"  →  {Path.GetFileName(sonucDosya)}" : "";
+            MesajEkle("sonuc", $"✔ Tarama tamamlandı — {bulunan} aktif cihaz bulundu.{dosyaInfo}");
+        }
+        catch (Exception ex)
+        {
+            MesajEkle("hata", $"Cihaz tarama hatası: {ex.Message}");
+        }
+        finally
+        {
+            _ipScannerProc = null;
+            TaramaDurumunuAyarla(false);
+        }
     }
 
     private void BtnTemizle_Click(object sender, RoutedEventArgs e)

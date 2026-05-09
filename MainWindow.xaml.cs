@@ -21,8 +21,11 @@ public partial class MainWindow : Window
     private Process? _tsharkProc;
 
     // ─── Sabit yollar (AppBase = exe'nin bulunduğu klasör) ───────────
+    // Single-file publish'te AppDomain.BaseDirectory geçici klasörü gösterir;
+    // ProcessPath her zaman gerçek exe konumunu verir.
     private static readonly string AppBase =
-        AppDomain.CurrentDomain.BaseDirectory;
+        Path.GetDirectoryName(Environment.ProcessPath)
+        ?? AppDomain.CurrentDomain.BaseDirectory;
 
     private static readonly string NpcapInstaller =
         Path.Combine(AppBase, "Req", "npcap-1.88.exe");

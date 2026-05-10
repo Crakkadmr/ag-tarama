@@ -2,7 +2,7 @@
 
 > Bu dosya yeni Claude Code session'larında dosyaları taramadan tüm projeyi anlayabilmek için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da güncellenmelidir.** (Bkz. CLAUDE.md)
-> Son güncelleme: 2026-05-10 (SNMP Sorgusu paneli — Lextm.SharpSnmpLib, MIB-II sysGroup)
+> Son güncelleme: 2026-05-10 (BtnTemizle Taramayı Başlat'tan itibaren devre dışı)
 
 ---
 
@@ -82,6 +82,7 @@ dotnet build -c Release        # Release build
 | Kaynak Anahtar | Tip | Kullanım |
 |---|---|---|
 | `ActionButton` | Button | Standart sağ panel butonu (mavi, 44px) |
+| `ActiveActionButton` | Button | Aktif panel butonu stili — yeşil çerçeve (#3FB950, 2px), yeşilimsi arka plan. `SetButonAktif` tarafından style switching ile atanır/kaldırılır. **`ActionButton`'dan SONRA tanımlanmalı** |
 | `PrimaryButton` | Button | Yeşil "Taramayı Başlat" (48px, BasedOn ActionButton) |
 | `DangerButton` | Button | Kırmızı "Taramayı Durdur" (BasedOn ActionButton) |
 | (default) | ScrollBar | 6px ince ScrollBar |
@@ -189,6 +190,8 @@ Elemanlar:
 | `_wolPanelAcik` | bool | Wake-on-LAN paneli durumu |
 | `_snmpPanelAcik` | bool | SNMP sorgusu paneli durumu |
 | `_snmpVersiyon` | string | Seçili SNMP versiyonu: `"v1"` veya `"v2c"` (varsayılan `"v2c"`) |
+| `_yanPanelTimer` | `DispatcherTimer?` | Tek aktif panel animasyon timer'ı — yeni animasyon başlamadan önce durdurulur (çift tık bug fix) |
+| `_aktifPanelBtn` | `Button?` | Şu an açık panelin sağ panel butonu — `Tag="active"` atanır, yeşil çerçeve için |
 | `_macRegex` | `Regex` | MAC adresi doğrulama regex'i |
 | `_otomatikGuncelleniyor` | bool | Otomatik nokta ekleme döngü koruması |
 | `_oncekiUzunluk` | `Dictionary<TextBox,int>` | Silme/ekleme tespiti için önceki uzunluk |
@@ -227,7 +230,7 @@ Elemanlar:
 ### 6.6 Yakalama Akışı
 
 - **`YakalamaBaslat()`** (314-419): Akış:
-  1. `BtnTaramaBaslat.IsEnabled = false`
+  1. `BtnTaramaBaslat.IsEnabled = false`, `BtnTemizle.IsEnabled = false` (ikisi birlikte, hemen)
   2. `TumArayuzlariGetirAsync()` → tüm arayüzler
   3. `ArayuzPaketSayisiAsync` paralel çağrı → aktif arayüzler
   4. `ArayuzSecimAsync` → kullanıcı seçimi
@@ -264,8 +267,11 @@ Elemanlar:
 
 ### 6.8 Ping İşlevi
 
-- **`BtnPing_Click`** (~737): Yan paneli toggle.
-- **`PingPanelAcAnimasyon` / `PingPanelKapatAnimasyon`** (~746-793): `DispatcherTimer` ile 12ms periyotlu, exponential easing (kalanın %28'i + min 2px) ile `PingCol.Width` animasyonu.
+- **`SetButonAktif(Button?)`**: Önceki butona `Style = ActionButton` geri yükler, yeni butona `Style = ActiveActionButton` atar. DataTrigger/Tag yaklaşımı değil — style switching kullanılır (güvenilir, IsMouseOver çakışması yok).
+- **`YanPanelAcAnimasyon()` / `YanPanelKapatAnimasyon(Action)`**: Birleşik animasyon yardımcıları. Her çağrıda önce `_yanPanelTimer?.Stop()` ile önceki timer durdurulur, yeni timer `_yanPanelTimer`'a atanır — çift tık race condition önlenir.
+- **`TumYanPanelleriKapat()`**: Tüm panel flag + Visibility'leri sıfırlar, `SetButonAktif(null)` çağırır, `PingCol.Width=0`.
+- **`BtnPing_Click`** (~850): Yan paneli toggle. Açarken `SetButonAktif(BtnPing)`, kapatırken `SetButonAktif(null)`.
+- **`PingPanelAcAnimasyon` / `PingPanelKapatAnimasyon`** (dead code, eski yöntemler): Artık çağrılmıyor; `YanPanelAcAnimasyon` / `YanPanelKapatAnimasyon` kullanılıyor.
 - **`GecerliIpv4Mu(string)` static** (~796): 4 nokta-ayrılmış 0-255 oktet kontrolü.
 - **`GecerliHostnameMu(string)` static** (~808): Regex `^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$`.
 - **`PingIpBox_TextChanged`**: Canlı doğrulama: `✓` (yeşil IPv4), `~` (sarı hostname), `✗` (kırmızı geçersiz). Geçerli girişte `PingBaslatBtn.IsEnabled=true`.
@@ -277,8 +283,8 @@ Elemanlar:
 
 ### 6.9 Diğer Buton Handler'ları
 
-- **`BtnPortTara_Click`**: `PortPanelAcAnimasyon` / `PortPanelKapatAnimasyon` toggle. Ping paneli açıksa önce kapatır.
-- **`PortPanelAcAnimasyon` / `PortPanelKapatAnimasyon`**: `PingCol` animasyonu (PingPanel ile paylaşımlı sütun). Açılırken `PortPanel.Visibility=Visible`, kapanırken `Collapsed`.
+- **`BtnPortTara_Click`**: `YanPanelAc` / `YanPanelKapatAnimasyon` toggle. `SetButonAktif(BtnPortTara/null)` çağırır.
+- **`PortPanelAcAnimasyon` / `PortPanelKapatAnimasyon`** (dead code, eski yöntemler): Artık çağrılmıyor.
 - **`PortIpBox_TextChanged`**: Canlı IPv4/hostname doğrulama. `AktarButonDurumu()` çağırır.
 - **`PortAralikBox_TextChanged`**: Placeholder yönetimi + `AktarButonDurumu()`.
 - **`AktarButonDurumu()`**: Geçerli IP ve port varsa `PortBaslatBtn.IsEnabled=true`.

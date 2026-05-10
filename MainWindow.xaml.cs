@@ -44,6 +44,10 @@ public partial class MainWindow : Window
     private bool _snmpPanelAcik  = false;
     private string _snmpVersiyon = "v2c";
 
+    // ─── Animasyon / aktif buton ─────────────────────────────────────
+    private System.Windows.Threading.DispatcherTimer? _yanPanelTimer;
+    private Button? _aktifPanelBtn;
+
     // ─── Otomatik nokta (IP giriş kutuları) ──────────────────────────
     private bool _otomatikGuncelleniyor = false;
     private readonly Dictionary<TextBox, int> _oncekiUzunluk = new();
@@ -378,6 +382,7 @@ public partial class MainWindow : Window
 
         // Butonu hemen devre dışı bırak (test süresi boyunca da)
         BtnTaramaBaslat.IsEnabled = false;
+        BtnTemizle.IsEnabled      = false;
 
         MesajEkle("sistem", "Ağ arayüzleri tespit ediliyor...");
         var tumArayuzlar = await TumArayuzlariGetirAsync();
@@ -386,6 +391,7 @@ public partial class MainWindow : Window
         {
             MesajEkle("hata", "Hiçbir ağ arayüzü bulunamadı. Npcap kurulu mu?");
             BtnTaramaBaslat.IsEnabled = true;
+            BtnTemizle.IsEnabled      = true;
             return;
         }
 
@@ -401,6 +407,7 @@ public partial class MainWindow : Window
         {
             MesajEkle("hata", "Hiçbir arayüzde trafik algılanamadı. Ağ bağlantısı aktif mi?");
             BtnTaramaBaslat.IsEnabled = true;
+            BtnTemizle.IsEnabled      = true;
             return;
         }
 
@@ -411,6 +418,7 @@ public partial class MainWindow : Window
         if (secilenNolar.Count == 0)
         {
             BtnTaramaBaslat.IsEnabled = true;
+            BtnTemizle.IsEnabled      = true;
             return;
         }
 
@@ -821,7 +829,17 @@ public partial class MainWindow : Window
         if (_dnsPanelAcik)   { _dnsPanelAcik   = false; DnsPanel.Visibility   = Visibility.Collapsed; }
         if (_wolPanelAcik)   { _wolPanelAcik   = false; WolPanel.Visibility   = Visibility.Collapsed; }
         if (_snmpPanelAcik)  { _snmpPanelAcik  = false; SnmpPanel.Visibility  = Visibility.Collapsed; }
+        SetButonAktif(null);
         PingCol.Width = new GridLength(0);
+    }
+
+    private void SetButonAktif(Button? btn)
+    {
+        if (_aktifPanelBtn != null)
+            _aktifPanelBtn.Style = (Style)FindResource("ActionButton");
+        _aktifPanelBtn = btn;
+        if (btn != null)
+            btn.Style = (Style)FindResource("ActiveActionButton");
     }
 
     private void YanPanelAc(ref bool flag, UIElement panel)
@@ -836,36 +854,41 @@ public partial class MainWindow : Window
 
     private void YanPanelAcAnimasyon()
     {
+        _yanPanelTimer?.Stop();
         var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(12) };
         timer.Tick += (s, _) =>
         {
             double mevcut = PingCol.Width.Value;
             double adim   = Math.Max((PingPanelGenisligi - mevcut) * 0.28, 2);
             double yeni   = mevcut + adim;
-            if (yeni >= PingPanelGenisligi - 1) { PingCol.Width = new GridLength(PingPanelGenisligi); ((System.Windows.Threading.DispatcherTimer)s!).Stop(); }
+            if (yeni >= PingPanelGenisligi - 1) { PingCol.Width = new GridLength(PingPanelGenisligi); _yanPanelTimer = null; ((System.Windows.Threading.DispatcherTimer)s!).Stop(); }
             else PingCol.Width = new GridLength(yeni);
         };
+        _yanPanelTimer = timer;
         timer.Start();
     }
 
     private void YanPanelKapatAnimasyon(Action onBitti)
     {
+        _yanPanelTimer?.Stop();
         var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(12) };
         timer.Tick += (s, _) =>
         {
             double mevcut = PingCol.Width.Value;
             double adim   = Math.Max(mevcut * 0.28, 2);
             double yeni   = mevcut - adim;
-            if (yeni <= 1) { PingCol.Width = new GridLength(0); ((System.Windows.Threading.DispatcherTimer)s!).Stop(); onBitti(); }
+            if (yeni <= 1) { PingCol.Width = new GridLength(0); _yanPanelTimer = null; ((System.Windows.Threading.DispatcherTimer)s!).Stop(); onBitti(); }
             else PingCol.Width = new GridLength(yeni);
         };
+        _yanPanelTimer = timer;
         timer.Start();
     }
 
     private void BtnPing_Click(object sender, RoutedEventArgs e)
     {
-        if (_pingPanelAcik) { YanPanelKapatAnimasyon(() => { }); _pingPanelAcik = false; return; }
+        if (_pingPanelAcik) { SetButonAktif(null); _pingPanelAcik = false; YanPanelKapatAnimasyon(() => { }); return; }
         YanPanelAc(ref _pingPanelAcik, PingPanel);
+        SetButonAktif(BtnPing);
         PingIpBox.Focus();
     }
 
@@ -1014,7 +1037,10 @@ public partial class MainWindow : Window
     }
 
     private void PingPanelKapat_Click(object sender, RoutedEventArgs e)
-        => PingPanelKapatAnimasyon();
+    {
+        _pingPanelAcik = false; _pingCts?.Cancel(); SetButonAktif(null);
+        YanPanelKapatAnimasyon(() => { });
+    }
 
     // ─── Ping işlemi ────────────────────────────────────────────────
     private void PingKutucugaYaz(string metin, string hex)
@@ -1107,36 +1133,41 @@ public partial class MainWindow : Window
 
     private void BtnPortTara_Click(object sender, RoutedEventArgs e)
     {
-        if (_portPanelAcik) { YanPanelKapatAnimasyon(() => { _portScanCts?.Cancel(); PortPanel.Visibility = Visibility.Collapsed; }); _portPanelAcik = false; return; }
+        if (_portPanelAcik) { SetButonAktif(null); _portPanelAcik = false; YanPanelKapatAnimasyon(() => { _portScanCts?.Cancel(); PortPanel.Visibility = Visibility.Collapsed; }); return; }
         YanPanelAc(ref _portPanelAcik, PortPanel);
+        SetButonAktif(BtnPortTara);
         PortIpBox.Focus();
     }
 
     private void BtnTrace_Click(object sender, RoutedEventArgs e)
     {
-        if (_tracePanelAcik) { YanPanelKapatAnimasyon(() => { _traceCts?.Cancel(); TracePanel.Visibility = Visibility.Collapsed; }); _tracePanelAcik = false; return; }
+        if (_tracePanelAcik) { SetButonAktif(null); _tracePanelAcik = false; YanPanelKapatAnimasyon(() => { _traceCts?.Cancel(); TracePanel.Visibility = Visibility.Collapsed; }); return; }
         YanPanelAc(ref _tracePanelAcik, TracePanel);
+        SetButonAktif(BtnTrace);
         TraceHedefBox.Focus();
     }
 
     private void BtnDns_Click(object sender, RoutedEventArgs e)
     {
-        if (_dnsPanelAcik) { YanPanelKapatAnimasyon(() => DnsPanel.Visibility = Visibility.Collapsed); _dnsPanelAcik = false; return; }
+        if (_dnsPanelAcik) { SetButonAktif(null); _dnsPanelAcik = false; YanPanelKapatAnimasyon(() => DnsPanel.Visibility = Visibility.Collapsed); return; }
         YanPanelAc(ref _dnsPanelAcik, DnsPanel);
+        SetButonAktif(BtnDns);
         DnsHedefBox.Focus();
     }
 
     private void BtnWol_Click(object sender, RoutedEventArgs e)
     {
-        if (_wolPanelAcik) { YanPanelKapatAnimasyon(() => WolPanel.Visibility = Visibility.Collapsed); _wolPanelAcik = false; return; }
+        if (_wolPanelAcik) { SetButonAktif(null); _wolPanelAcik = false; YanPanelKapatAnimasyon(() => WolPanel.Visibility = Visibility.Collapsed); return; }
         YanPanelAc(ref _wolPanelAcik, WolPanel);
+        SetButonAktif(BtnWol);
         WolMacBox.Focus();
     }
 
     private void BtnSnmp_Click(object sender, RoutedEventArgs e)
     {
-        if (_snmpPanelAcik) { YanPanelKapatAnimasyon(() => SnmpPanel.Visibility = Visibility.Collapsed); _snmpPanelAcik = false; return; }
+        if (_snmpPanelAcik) { SetButonAktif(null); _snmpPanelAcik = false; YanPanelKapatAnimasyon(() => SnmpPanel.Visibility = Visibility.Collapsed); return; }
         YanPanelAc(ref _snmpPanelAcik, SnmpPanel);
+        SetButonAktif(BtnSnmp);
         SnmpIpBox.Focus();
     }
 
@@ -1307,7 +1338,10 @@ public partial class MainWindow : Window
     }
 
     private void PortPanelKapat_Click(object sender, RoutedEventArgs e)
-        => PortPanelKapatAnimasyon();
+    {
+        _portPanelAcik = false; _portScanCts?.Cancel(); SetButonAktif(null);
+        YanPanelKapatAnimasyon(() => PortPanel.Visibility = Visibility.Collapsed);
+    }
 
     // ─── Port tarama işlevi ───────────────────────────────────────────
     private void PortKutucugaYaz(string metin, string hex)
@@ -1432,7 +1466,7 @@ public partial class MainWindow : Window
     }
     private void TracePanelKapat_Click(object sender, RoutedEventArgs e)
     {
-        _tracePanelAcik = false; _traceCts?.Cancel();
+        _tracePanelAcik = false; _traceCts?.Cancel(); SetButonAktif(null);
         YanPanelKapatAnimasyon(() => TracePanel.Visibility = Visibility.Collapsed);
     }
 
@@ -1507,7 +1541,7 @@ public partial class MainWindow : Window
     private void DnsBaslatBtn_Click(object sender, RoutedEventArgs e) => _ = DnsLookupBaslat(DnsHedefBox.Text.Trim());
     private void DnsPanelKapat_Click(object sender, RoutedEventArgs e)
     {
-        _dnsPanelAcik = false;
+        _dnsPanelAcik = false; SetButonAktif(null);
         YanPanelKapatAnimasyon(() => DnsPanel.Visibility = Visibility.Collapsed);
     }
 
@@ -1595,7 +1629,7 @@ public partial class MainWindow : Window
     private void WolGonderBtn_Click(object sender, RoutedEventArgs e) => WolGonder(WolMacBox.Text.Trim());
     private void WolPanelKapat_Click(object sender, RoutedEventArgs e)
     {
-        _wolPanelAcik = false;
+        _wolPanelAcik = false; SetButonAktif(null);
         YanPanelKapatAnimasyon(() => WolPanel.Visibility = Visibility.Collapsed);
     }
 
@@ -1687,7 +1721,7 @@ public partial class MainWindow : Window
 
     private void SnmpPanelKapat_Click(object sender, RoutedEventArgs e)
     {
-        _snmpPanelAcik = false;
+        _snmpPanelAcik = false; SetButonAktif(null);
         YanPanelKapatAnimasyon(() => SnmpPanel.Visibility = Visibility.Collapsed);
     }
 

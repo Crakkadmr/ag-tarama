@@ -258,6 +258,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
@@ -319,9 +320,24 @@
                                 </WrapPanel>
                             </StackPanel>
 
+                            <!-- Başlat -->
+                            <Button x:Name="PingBaslatBtn"
+                                    Grid.Row="3"
+                                    Style="{StaticResource PrimaryButton}"
+                                    IsEnabled="False"
+                                    Height="36"
+                                    HorizontalContentAlignment="Center"
+                                    Click="PingBaslatBtn_Click"
+                                    Margin="0,8,0,4">
+                                <TextBlock Text="◈  Ping Başlat"
+                                           FontFamily="Consolas"
+                                           FontSize="12"
+                                           FontWeight="Bold"/>
+                            </Button>
+
                             <!-- Ping sonuç kutusu -->
                             <Border x:Name="PingResultBorder"
-                                    Grid.Row="3"
+                                    Grid.Row="4"
                                     Background="#0D1117"
                                     BorderBrush="#21262D"
                                     BorderThickness="1"
@@ -338,7 +354,7 @@
                             </Border>
 
                             <!-- Kapat -->
-                            <Button Grid.Row="4"
+                            <Button Grid.Row="5"
                                     Content="✕  Kapat"
                                     Style="{StaticResource ActionButton}"
                                     Click="PingPanelKapat_Click"
@@ -348,6 +364,292 @@
                         </Grid>
                     </Border>
                 </Grid>
+
+                <!-- Port Tara paneli (animasyonla açılır) -->
+                <Grid Grid.Column="1" x:Name="PortPanel" ClipToBounds="True" Visibility="Collapsed">
+                    <Border Background="#0D1117"
+                            BorderBrush="#21262D"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Margin="8,0,0,0">
+                        <Grid Margin="14,14,14,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Başlık -->
+                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                                <TextBlock Text="⊞ PORT TARA"
+                                           Foreground="#58A6FF"
+                                           FontFamily="Consolas"
+                                           FontSize="12"
+                                           FontWeight="Bold"
+                                           Margin="0,0,0,6"/>
+                                <TextBlock Text="IP ve port aralığı girin:"
+                                           Foreground="#8B949E"
+                                           FontFamily="Consolas"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <!-- IP giriş -->
+                            <Grid Grid.Row="1" Margin="0,0,0,8">
+                                <TextBox x:Name="PortIpBox"
+                                         Style="{StaticResource PingInputBox}"
+                                         Padding="10,8,34,8"
+                                         TextChanged="PortIpBox_TextChanged"
+                                         KeyDown="PortIpBox_KeyDown"/>
+                                <TextBlock x:Name="PortIpPlaceholder"
+                                           Text="Hedef IP"
+                                           FontFamily="Consolas"
+                                           FontSize="13"
+                                           Foreground="#484F58"
+                                           VerticalAlignment="Center"
+                                           Margin="12,0,0,0"
+                                           IsHitTestVisible="False"/>
+                                <TextBlock x:Name="PortIpValidasyon"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0"
+                                           FontFamily="Consolas"
+                                           FontSize="15"
+                                           FontWeight="Bold"
+                                           IsHitTestVisible="False"/>
+                            </Grid>
+
+                            <!-- Port aralığı giriş -->
+                            <Grid Grid.Row="2" Margin="0,0,0,8">
+                                <TextBox x:Name="PortAralikBox"
+                                         Style="{StaticResource PingInputBox}"
+                                         Padding="10,8,10,8"
+                                         TextChanged="PortAralikBox_TextChanged"/>
+                                <TextBlock x:Name="PortAralikPlaceholder"
+                                           Text="Portlar: 1-1024, 80,443"
+                                           FontFamily="Consolas"
+                                           FontSize="11"
+                                           Foreground="#484F58"
+                                           VerticalAlignment="Center"
+                                           Margin="12,0,0,0"
+                                           IsHitTestVisible="False"/>
+                            </Grid>
+
+                            <!-- Hızlı seçim + Başlat -->
+                            <Grid Grid.Row="3" Margin="0,0,0,4">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="HIZLI SEÇİM"
+                                           Foreground="#484F58"
+                                           FontFamily="Consolas"
+                                           FontSize="10"
+                                           Margin="0,0,0,6"/>
+                                <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                                    <Button Style="{StaticResource ChipButton}"
+                                            Tag="21,22,23,25,53,80,110,135,139,143,443,445,587,993,995,1433,3306,3389,5900,8080"
+                                            Content="Yaygın 20" Click="PortHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}"
+                                            Tag="80,443,8080,8443"
+                                            Content="Web" Click="PortHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}"
+                                            Tag="22,3389"
+                                            Content="SSH+RDP" Click="PortHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}"
+                                            Tag="80,443,554,8000,8080,37777"
+                                            Content="Kamera" Click="PortHizliBtn_Click"/>
+                                </WrapPanel>
+                                <Button x:Name="PortBaslatBtn"
+                                        Grid.Row="2"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="False"
+                                        Height="36"
+                                        HorizontalContentAlignment="Center"
+                                        Click="PortBaslatBtn_Click">
+                                    <TextBlock Text="▶  Taramayı Başlat"
+                                               FontFamily="Consolas"
+                                               FontSize="12"
+                                               FontWeight="Bold"/>
+                                </Button>
+                            </Grid>
+
+                            <!-- Sonuç kutusu -->
+                            <Border x:Name="PortResultBorder"
+                                    Grid.Row="4"
+                                    Background="#0D1117"
+                                    BorderBrush="#21262D"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Margin="0,4,0,0"
+                                    Visibility="Collapsed">
+                                <ScrollViewer x:Name="PortResultScroll"
+                                              MaxHeight="160"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="PortResultPanel"
+                                                Margin="10,8,10,8"/>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- Kapat -->
+                            <Button Grid.Row="5"
+                                    Content="✕  Kapat"
+                                    Style="{StaticResource ActionButton}"
+                                    Click="PortPanelKapat_Click"
+                                    Margin="0,10,0,0"
+                                    HorizontalContentAlignment="Center"
+                                    Foreground="#8B949E"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Traceroute paneli -->
+                <Grid Grid.Column="1" x:Name="TracePanel" ClipToBounds="True" Visibility="Collapsed">
+                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="8" Margin="8,0,0,0">
+                        <Grid Margin="14,14,14,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                                <TextBlock Text="⇢ TRACEROUTE" Foreground="#58A6FF" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock Text="Hedefe giden ağ yolunu göster:" Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Grid Grid.Row="1" Margin="0,0,0,10">
+                                <TextBox x:Name="TraceHedefBox" Style="{StaticResource PingInputBox}" Padding="10,8,34,8"
+                                         TextChanged="TraceHedefBox_TextChanged" KeyDown="TraceHedefBox_KeyDown"/>
+                                <TextBlock x:Name="TraceHedefPlaceholder" Text="Hedef IP veya hostname"
+                                           FontFamily="Consolas" FontSize="12" Foreground="#484F58"
+                                           VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
+                                <TextBlock x:Name="TraceHedefValidasyon" HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" Margin="0,0,10,0"
+                                           FontFamily="Consolas" FontSize="15" FontWeight="Bold" IsHitTestVisible="False"/>
+                            </Grid>
+                            <!-- Hızlı seçim -->
+                            <StackPanel Grid.Row="2" Margin="0,0,0,8">
+                                <TextBlock Text="HIZLI SEÇİM" Foreground="#484F58" FontFamily="Consolas" FontSize="10" Margin="0,0,0,6"/>
+                                <WrapPanel>
+                                    <Button Style="{StaticResource ChipButton}" Tag="8.8.8.8"       Content="8.8.8.8"       Click="TraceHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}" Tag="1.1.1.1"       Content="1.1.1.1"       Click="TraceHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}" Tag="192.168.1.1"   Content="192.168.1.1"   Click="TraceHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}" Tag="google.com"    Content="google.com"    Click="TraceHizliBtn_Click"/>
+                                </WrapPanel>
+                            </StackPanel>
+                            <Button x:Name="TraceBaslatBtn" Grid.Row="3" Style="{StaticResource PrimaryButton}"
+                                    IsEnabled="False" Height="36" HorizontalContentAlignment="Center"
+                                    Click="TraceBaslatBtn_Click" Margin="0,0,0,6">
+                                <TextBlock Text="⇢  Rotayı Takip Et" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                            </Button>
+                            <Border x:Name="TraceResultBorder" Grid.Row="4" Background="#0D1117"
+                                    BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
+                                    Margin="0,4,0,0" Visibility="Collapsed">
+                                <ScrollViewer x:Name="TraceResultScroll" MaxHeight="200"
+                                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="TraceResultPanel" Margin="10,8,10,8"/>
+                                </ScrollViewer>
+                            </Border>
+                            <Button Grid.Row="5" Content="✕  Kapat" Style="{StaticResource ActionButton}"
+                                    Click="TracePanelKapat_Click" Margin="0,10,0,0"
+                                    HorizontalContentAlignment="Center" Foreground="#8B949E"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- DNS Lookup paneli -->
+                <Grid Grid.Column="1" x:Name="DnsPanel" ClipToBounds="True" Visibility="Collapsed">
+                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="8" Margin="8,0,0,0">
+                        <Grid Margin="14,14,14,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                                <TextBlock Text="⊕ DNS LOOKUP" Foreground="#58A6FF" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock Text="Hostname↔IP çözümle:" Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Grid Grid.Row="1" Margin="0,0,0,8">
+                                <TextBox x:Name="DnsHedefBox" Style="{StaticResource PingInputBox}" Padding="10,8,10,8"
+                                         TextChanged="DnsHedefBox_TextChanged" KeyDown="DnsHedefBox_KeyDown"/>
+                                <TextBlock x:Name="DnsHedefPlaceholder" Text="IP veya hostname"
+                                           FontFamily="Consolas" FontSize="12" Foreground="#484F58"
+                                           VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
+                            </Grid>
+                            <Button x:Name="DnsBaslatBtn" Grid.Row="2" Style="{StaticResource PrimaryButton}"
+                                    IsEnabled="False" Height="36" HorizontalContentAlignment="Center"
+                                    Click="DnsBaslatBtn_Click" Margin="0,0,0,6">
+                                <TextBlock Text="⊕  Çözümle" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                            </Button>
+                            <Border x:Name="DnsResultBorder" Grid.Row="3" Background="#0D1117"
+                                    BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
+                                    Margin="0,4,0,0" Visibility="Collapsed">
+                                <ScrollViewer x:Name="DnsResultScroll" MaxHeight="200"
+                                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="DnsResultPanel" Margin="10,8,10,8"/>
+                                </ScrollViewer>
+                            </Border>
+                            <Button Grid.Row="4" Content="✕  Kapat" Style="{StaticResource ActionButton}"
+                                    Click="DnsPanelKapat_Click" Margin="0,10,0,0"
+                                    HorizontalContentAlignment="Center" Foreground="#8B949E"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Wake-on-LAN paneli -->
+                <Grid Grid.Column="1" x:Name="WolPanel" ClipToBounds="True" Visibility="Collapsed">
+                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="8" Margin="8,0,0,0">
+                        <Grid Margin="14,14,14,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                                <TextBlock Text="⏻ WAKE-ON-LAN" Foreground="#58A6FF" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock Text="MAC adresine magic packet gönder:" Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Grid Grid.Row="1" Margin="0,0,0,8">
+                                <TextBox x:Name="WolMacBox" Style="{StaticResource PingInputBox}" Padding="10,8,34,8"
+                                         TextChanged="WolMacBox_TextChanged" KeyDown="WolMacBox_KeyDown"/>
+                                <TextBlock x:Name="WolMacPlaceholder" Text="MAC: AA:BB:CC:DD:EE:FF"
+                                           FontFamily="Consolas" FontSize="11" Foreground="#484F58"
+                                           VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
+                                <TextBlock x:Name="WolMacValidasyon" HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" Margin="0,0,10,0"
+                                           FontFamily="Consolas" FontSize="15" FontWeight="Bold" IsHitTestVisible="False"/>
+                            </Grid>
+                            <Button x:Name="WolGonderBtn" Grid.Row="2" Style="{StaticResource PrimaryButton}"
+                                    IsEnabled="False" Height="36" HorizontalContentAlignment="Center"
+                                    Click="WolGonderBtn_Click" Margin="0,0,0,6">
+                                <TextBlock Text="⏻  Magic Packet Gönder" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                            </Button>
+                            <Border x:Name="WolResultBorder" Grid.Row="3" Background="#0D1117"
+                                    BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
+                                    Margin="0,4,0,0" Visibility="Collapsed">
+                                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel x:Name="WolResultPanel" Margin="10,8,10,8"/>
+                                </ScrollViewer>
+                            </Border>
+                            <Button Grid.Row="4" Content="✕  Kapat" Style="{StaticResource ActionButton}"
+                                    Click="WolPanelKapat_Click" Margin="0,10,0,0"
+                                    HorizontalContentAlignment="Center" Foreground="#8B949E"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
             </Grid>
         </Grid>
 
@@ -376,7 +678,8 @@
                        Margin="0,0,0,12"/>
 
             <!-- Butonlar -->
-            <StackPanel Grid.Row="1">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
 
                 <!-- Taramayı Başlat -->
                 <Button x:Name="BtnTaramaBaslat"
@@ -422,6 +725,29 @@
                     </StackPanel>
                 </Button>
 
+                <!-- Traceroute -->
+                <Button x:Name="BtnTrace"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnTrace_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⇢  " FontSize="13"/>
+                        <TextBlock Text="Traceroute" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- DNS Lookup -->
+                <Button x:Name="BtnDns"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnDns_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⊕  " FontSize="13"/>
+                        <TextBlock Text="DNS Lookup" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Ayırıcı -->
+                <Rectangle Height="1" Fill="#21262D" Margin="0,8,0,8"/>
+
                 <!-- Cihazları Listele -->
                 <Button x:Name="BtnCihazlar"
                         Style="{StaticResource ActionButton}"
@@ -432,6 +758,29 @@
                     </StackPanel>
                 </Button>
 
+                <!-- ARP Tablosu -->
+                <Button x:Name="BtnArp"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnArp_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="◫  " FontSize="13"/>
+                        <TextBlock Text="ARP Tablosu" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Ağ Adaptörü -->
+                <Button x:Name="BtnAgBilgi"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnAgBilgi_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⊛  " FontSize="13"/>
+                        <TextBlock Text="Ağ Bilgisi" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Ayırıcı -->
+                <Rectangle Height="1" Fill="#21262D" Margin="0,8,0,8"/>
+
                 <!-- SADP -->
                 <Button x:Name="BtnSadp"
                         Style="{StaticResource ActionButton}"
@@ -439,6 +788,16 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="⬡  " FontSize="13"/>
                         <TextBlock Text="SADP" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Wake-on-LAN -->
+                <Button x:Name="BtnWol"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnWol_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⏻  " FontSize="13"/>
+                        <TextBlock Text="Wake-on-LAN" FontSize="13"/>
                     </StackPanel>
                 </Button>
 
@@ -456,6 +815,7 @@
                 </Button>
 
             </StackPanel>
+            </ScrollViewer>
 
             <!-- Alt: Versiyon bilgisi -->
             <TextBlock Grid.Row="2"

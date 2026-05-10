@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -17,6 +17,7 @@ using System.Windows.Media;
 using Lextm.SharpSnmpLib;
 using Lextm.SharpSnmpLib.Messaging;
 using Microsoft.Win32;
+using AgTarama.Services;
 
 namespace AgTarama;
 
@@ -25,7 +26,6 @@ public partial class MainWindow : Window
     // ─── Durum ───────────────────────────────────────────────────────
     private bool _taramaDevamEdiyor = false;
     private CancellationTokenSource? _taramaCts;
-    private Process? _tsharkProc;
 
     // ─── Ping paneli ─────────────────────────────────────────────────
     private bool _pingPanelAcik = false;
@@ -48,6 +48,9 @@ public partial class MainWindow : Window
     private System.Windows.Threading.DispatcherTimer? _yanPanelTimer;
     private Button? _aktifPanelBtn;
 
+    // ─── Servisler ───────────────────────────────────────────────────
+    private readonly CaptureService _captureService = new();
+
     // ─── Otomatik nokta (IP giriş kutuları) ──────────────────────────
     private bool _otomatikGuncelleniyor = false;
     private readonly Dictionary<TextBox, int> _oncekiUzunluk = new();
@@ -62,25 +65,6 @@ public partial class MainWindow : Window
         {8443,"HTTPS-Alt"},{37777,"Hikvision-SDK"},
     };
 
-    // ─── Sabit yollar (AppBase = exe'nin bulunduğu klasör) ───────────
-    // Single-file publish'te AppDomain.BaseDirectory geçici klasörü gösterir;
-    // ProcessPath her zaman gerçek exe konumunu verir.
-    private static readonly string AppBase =
-        Path.GetDirectoryName(Environment.ProcessPath)
-        ?? AppDomain.CurrentDomain.BaseDirectory;
-
-    private static readonly string NpcapInstaller =
-        Path.Combine(AppBase, "Req", "npcap-1.88.exe");
-
-    private static readonly string TsharkExe =
-        Path.Combine(AppBase, "tools", "WiresharkPortable64", "App", "Wireshark", "tshark.exe");
-
-    private static readonly string WiresharkPortableExe =
-        Path.Combine(AppBase, "tools", "WiresharkPortable64", "WiresharkPortable64.exe");
-
-    private static readonly string LogKlasor  = Path.Combine(AppBase, "logs");
-    private static readonly string LogDosyasi = Path.Combine(AppBase, "logs", "log.txt");
-
     // ─── Başlangıç ───────────────────────────────────────────────────
     public MainWindow()
     {
@@ -91,35 +75,16 @@ public partial class MainWindow : Window
 
     private async Task BaslangicAsync()
     {
-        LogOturumBaslat();
+        LogService.OturumBaslat();
         if (!await NpcapKontrolVeKur()) return;
         MesajEkle("sonuc", "✔ Sistem hazır — sağ panelden taramayı başlatın.");
     }
 
-    private void LogOturumBaslat()
+    // Tüm hata yolları buradan geçer: chat'e kırmızı mesaj + log dosyasına yazar.
+    private void HataBildir(string mesaj, Exception? ex = null)
     {
-        try
-        {
-            Directory.CreateDirectory(LogKlasor);
-            File.AppendAllText(LogDosyasi,
-                $"\n=== OTURUM: {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===\n",
-                Encoding.UTF8);
-        }
-        catch { }
-    }
-
-    private void LogKaydet(string kategori, string hedef, IEnumerable<string> satirlar)
-    {
-        try
-        {
-            Directory.CreateDirectory(LogKlasor);
-            var sb = new StringBuilder();
-            sb.AppendLine($"\n[{DateTime.Now:HH:mm:ss}] [{kategori}] {hedef}");
-            foreach (var s in satirlar)
-                sb.AppendLine($"  {s}");
-            File.AppendAllText(LogDosyasi, sb.ToString(), Encoding.UTF8);
-        }
-        catch { }
+        MesajEkle("hata", ex == null ? mesaj : $"{mesaj}: {ex.Message}");
+        LogService.Hata(mesaj, ex);
     }
 
     // ─── Npcap kontrol ve sessiz kurulum ─────────────────────────────
@@ -138,9 +103,9 @@ public partial class MainWindow : Window
             return true;
         }
 
-        if (!File.Exists(NpcapInstaller))
+        if (!File.Exists(Paths.NpcapInstaller))
         {
-            MesajEkle("hata", $"Npcap kurulu değil ve installer bulunamadı:\n{NpcapInstaller}");
+            HataBildir($"Npcap kurulu değil ve installer bulunamadı:\n{Paths.NpcapInstaller}");
             return false;
         }
 
@@ -149,7 +114,7 @@ public partial class MainWindow : Window
         try
         {
             // /S = NSIS silent flag; yönetici hakları için Verb = "runas"
-            var psi = new ProcessStartInfo(NpcapInstaller, "/S")
+            var psi = new ProcessStartInfo(Paths.NpcapInstaller, "/S")
             {
                 UseShellExecute = true,
                 Verb            = "runas",
@@ -170,51 +135,9 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MesajEkle("hata", $"Npcap kurulum hatası: {ex.Message}");
+            HataBildir("Npcap kurulum hatası", ex);
             return false;
         }
-    }
-
-    // ─── Tüm arayüzleri al (numara + kısa ad) ───────────────────────
-    private record ArayuzBilgi(string No, string Ad);
-
-    private async Task<List<ArayuzBilgi>> TumArayuzlariGetirAsync()
-    {
-        var liste = new List<ArayuzBilgi>();
-        try
-        {
-            var psi = new ProcessStartInfo(TsharkExe, "-D")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                UseShellExecute        = false,
-                CreateNoWindow         = true,
-            };
-            using var proc = Process.Start(psi)!;
-            var cikti = await proc.StandardOutput.ReadToEndAsync();
-            await proc.WaitForExitAsync();
-
-            // "1. \Device\NPF_{GUID} (Wi-Fi)" → No="1", Ad="Wi-Fi"
-            foreach (var satir in cikti.Split('\n'))
-            {
-                var t = satir.Trim();
-                if (string.IsNullOrEmpty(t)) continue;
-                var noktaIdx = t.IndexOf('.');
-                if (noktaIdx < 0) continue;
-                var no = t[..noktaIdx].Trim();
-                var parcaIdx = t.IndexOf('(');
-                var ad = parcaIdx >= 0
-                    ? t[(parcaIdx + 1)..].TrimEnd(')', ' ')
-                    : t[(noktaIdx + 2)..].Trim();
-                if (ad.Length > 32) ad = ad[..29] + "…";
-                liste.Add(new ArayuzBilgi(no, ad));
-            }
-        }
-        catch (Exception ex)
-        {
-            MesajEkle("hata", $"tshark -D başarısız: {ex.Message}");
-        }
-        return liste;
     }
 
     // Seçili arayüzleri toggle butonlarla göster; kullanıcı onaylayana kadar bekle
@@ -334,47 +257,12 @@ public partial class MainWindow : Window
         btn.Template = t;
     }
 
-    // 2 saniyelik test; tshark son satırda "N packets captured" yazar
-    private static async Task<int> ArayuzPaketSayisiAsync(string no)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo(
-                TsharkExe,
-                $"-i {no} -a duration:2 -q")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                UseShellExecute        = false,
-                CreateNoWindow         = true,
-            };
-            using var proc = Process.Start(psi)!;
-            // tshark özet istatistiği stderr'e yazar
-            var stderr = await proc.StandardError.ReadToEndAsync();
-            await proc.WaitForExitAsync();
-
-            // Örnek satır: "4 packets captured"
-            foreach (var satir in stderr.Split('\n'))
-            {
-                var s = satir.Trim();
-                if (s.EndsWith("packets captured", StringComparison.OrdinalIgnoreCase))
-                {
-                    var parca = s.Split(' ')[0];
-                    if (int.TryParse(parca, out int n)) return n;
-                }
-            }
-        }
-        catch { /* arayüz erişilemez */ }
-        return 0;
-    }
-
     // ─── Yakalama başlat / durdur ────────────────────────────────────
     private const int TestSuresiSn = 2;
     private const int HedefMB      = 16;
     private const int HedefKB      = HedefMB * 1024;
 
-    private int    _paketSayisi = 0;
-    private string _sonPcap     = string.Empty;
+    private string _sonPcap = string.Empty;
 
     private async Task YakalamaBaslat()
     {
@@ -385,18 +273,31 @@ public partial class MainWindow : Window
         BtnTemizle.IsEnabled      = false;
 
         MesajEkle("sistem", "Ağ arayüzleri tespit ediliyor...");
-        var tumArayuzlar = await TumArayuzlariGetirAsync();
+
+        List<ArayuzBilgi> tumArayuzlar;
+        try
+        {
+            tumArayuzlar = await InterfaceDiscoveryService.TumunuGetirAsync();
+        }
+        catch (Exception ex)
+        {
+            HataBildir("tshark -D başarısız", ex);
+            BtnTaramaBaslat.IsEnabled = true;
+            BtnTemizle.IsEnabled      = true;
+            return;
+        }
 
         if (tumArayuzlar.Count == 0)
         {
-            MesajEkle("hata", "Hiçbir ağ arayüzü bulunamadı. Npcap kurulu mu?");
+            HataBildir("Hiçbir ağ arayüzü bulunamadı. Npcap kurulu mu?");
             BtnTaramaBaslat.IsEnabled = true;
             BtnTemizle.IsEnabled      = true;
             return;
         }
 
         MesajEkle("sistem", $"{tumArayuzlar.Count} arayüz bulundu — {TestSuresiSn}s trafik testi yapılıyor...");
-        var sayilar  = await Task.WhenAll(tumArayuzlar.Select(a => ArayuzPaketSayisiAsync(a.No)));
+        var sayilar  = await Task.WhenAll(
+            tumArayuzlar.Select(a => InterfaceDiscoveryService.PaketSayisiAsync(a.No, TestSuresiSn)));
         var aktifler = tumArayuzlar
             .Zip(sayilar)
             .Where(x => x.Second > 0)
@@ -405,7 +306,7 @@ public partial class MainWindow : Window
 
         if (aktifler.Count == 0)
         {
-            MesajEkle("hata", "Hiçbir arayüzde trafik algılanamadı. Ağ bağlantısı aktif mi?");
+            HataBildir("Hiçbir arayüzde trafik algılanamadı. Ağ bağlantısı aktif mi?");
             BtnTaramaBaslat.IsEnabled = true;
             BtnTemizle.IsEnabled      = true;
             return;
@@ -422,57 +323,34 @@ public partial class MainWindow : Window
             return;
         }
 
-        var pcapKlasor = Path.Combine(AppBase, "captures");
-        Directory.CreateDirectory(pcapKlasor);
+        Directory.CreateDirectory(Paths.CapturesKlasor);
         var dosyaAdi  = $"analiz_{DateTime.Now:ddMMyyyy_HH_mm}.pcap";
-        var pcapDosya = Path.Combine(pcapKlasor, dosyaAdi);
+        var pcapDosya = Path.Combine(Paths.CapturesKlasor, dosyaAdi);
         _sonPcap      = pcapDosya;
-        var iArgs     = string.Join(" ", secilenNolar.Select(n => $"-i {n}"));
 
-        TaramaDurumunuAyarla(true);   // BtnTaramaBaslat.IsEnabled = false zaten buradan gelir
-        _taramaCts   = new CancellationTokenSource();
-        _paketSayisi = 0;
+        TaramaDurumunuAyarla(true);
+        _taramaCts = new CancellationTokenSource();
 
         var (kart, kartGuncelle, kartTamamla, kartDurdur) = YakalamaKartiOlustur(dosyaAdi);
         ChatPanel.Children.Add(kart);
         ChatScrollViewer.ScrollToEnd();
 
+        void Ilerleme(double mb, int paket, TimeSpan sure)
+        {
+            kartGuncelle(mb, paket, sure);
+            StatusText.Text = $"● Yakalanıyor... {mb:F2} / {HedefMB} MB";
+        }
+
         try
         {
-            var psi = new ProcessStartInfo(
-                TsharkExe,
-                $"{iArgs} -w \"{pcapDosya}\" -a filesize:{HedefKB} -P")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                UseShellExecute        = false,
-                CreateNoWindow         = true,
-            };
-
-            _tsharkProc = Process.Start(psi);
-            if (_tsharkProc == null)
-            {
-                MesajEkle("hata", "tshark başlatılamadı.");
-                TaramaDurumunuAyarla(false);
-                return;
-            }
-
-            _ = Task.Run(async () =>
-            {
-                while (!_tsharkProc.StandardOutput.EndOfStream)
-                {
-                    await _tsharkProc.StandardOutput.ReadLineAsync();
-                    Interlocked.Increment(ref _paketSayisi);
-                }
-            });
-
-            await DosyaIzleAsync(pcapDosya, kartGuncelle, _taramaCts.Token);
+            await _captureService.YakalaAsync(
+                secilenNolar, pcapDosya, HedefKB, Ilerleme, _taramaCts.Token);
 
             if (!_taramaCts.IsCancellationRequested)
             {
-                try { await _tsharkProc.WaitForExitAsync(); } catch { }
-                var boyutMB = File.Exists(pcapDosya) ? new FileInfo(pcapDosya).Length / (1024.0 * 1024.0) : 0;
-                kartTamamla(boyutMB, _paketSayisi);
+                var boyutMB = File.Exists(pcapDosya)
+                    ? new FileInfo(pcapDosya).Length / (1024.0 * 1024.0) : 0;
+                kartTamamla(boyutMB, _captureService.PaketSayisi);
                 TaramaDurumunuAyarla(false);
             }
             else
@@ -482,26 +360,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MesajEkle("hata", $"Yakalama hatası: {ex.Message}");
+            HataBildir("Yakalama hatası", ex);
             TaramaDurumunuAyarla(false);
-        }
-    }
-
-    // Her 500 ms dosya boyutunu ölçer, kartı günceller
-    private async Task DosyaIzleAsync(string pcap, Action<double, int, TimeSpan> guncelle, CancellationToken token)
-    {
-        var baslangic = DateTime.Now;
-        while (!token.IsCancellationRequested && (_tsharkProc?.HasExited == false))
-        {
-            try
-            {
-                double mb   = File.Exists(pcap) ? new FileInfo(pcap).Length / (1024.0 * 1024.0) : 0;
-                var    sure = DateTime.Now - baslangic;
-                guncelle(mb, _paketSayisi, sure);
-                StatusText.Text = $"● Yakalanıyor... {mb:F2} / {HedefMB} MB";
-            }
-            catch { }
-            try { await Task.Delay(500, token); } catch (TaskCanceledException) { break; }
         }
     }
 
@@ -701,8 +561,7 @@ public partial class MainWindow : Window
     private void YakalamaDurdur()
     {
         _taramaCts?.Cancel();
-        try { _tsharkProc?.Kill(entireProcessTree: true); } catch { }
-        _tsharkProc = null;
+        _captureService.Durdur();
         MesajEkle("hata", "Tarama kullanıcı tarafından durduruldu.");
         TaramaDurumunuAyarla(false);
     }
@@ -711,17 +570,17 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (!File.Exists(pcap)) { MesajEkle("hata", "Dosya henüz oluşmadı."); return; }
-            if (!File.Exists(WiresharkPortableExe))
-            { MesajEkle("hata", $"WiresharkPortable64.exe bulunamadı:\n{WiresharkPortableExe}"); return; }
+            if (!File.Exists(pcap)) { HataBildir("Dosya henüz oluşmadı."); return; }
+            if (!File.Exists(Paths.WiresharkPortableExe))
+            { HataBildir($"WiresharkPortable64.exe bulunamadı:\n{Paths.WiresharkPortableExe}"); return; }
 
             // WiresharkPortable64.exe pcap dosyasını argüman olarak alır
-            Process.Start(new ProcessStartInfo(WiresharkPortableExe, $"\"{pcap}\"")
+            Process.Start(new ProcessStartInfo(Paths.WiresharkPortableExe, $"\"{pcap}\"")
             { UseShellExecute = true });
         }
         catch (Exception ex)
         {
-            MesajEkle("hata", $"Wireshark Portable açılamadı: {ex.Message}");
+            HataBildir("Wireshark Portable açılamadı", ex);
         }
     }
 
@@ -1072,62 +931,29 @@ public partial class MainWindow : Window
         long toplamMs = 0;
         var logSatirlari = new List<string>();
 
-        using var ping = new Ping();
-        for (int i = 1; i <= 4 && !token.IsCancellationRequested; i++)
+        await foreach (var r in PingService.PingleAsync(hedef, sayi: 4, token: token))
         {
-            try
+            string s; string hex;
+            if (r.Hata != null)             { s = $"[{r.Sira}/{r.Toplam}] {r.Hata}";          hex = "#F85149"; }
+            else if (r.Durum == IPStatus.Success)
             {
-                var yanit = await ping.SendPingAsync(hedef, 2000);
-                if (yanit.Status == IPStatus.Success)
-                {
-                    basarili++;
-                    toplamMs += yanit.RoundtripTime;
-                    var s = $"[{i}/4] {yanit.RoundtripTime} ms  TTL={yanit.Options?.Ttl ?? 0}";
-                    PingKutucugaYaz(s, "#58A6FF");
-                    logSatirlari.Add(s);
-                }
-                else
-                {
-                    var s = $"[{i}/4] {yanit.Status}";
-                    PingKutucugaYaz(s, "#F85149");
-                    logSatirlari.Add(s);
-                }
+                basarili++; toplamMs += r.RtMs;
+                s = $"[{r.Sira}/{r.Toplam}] {r.RtMs} ms  TTL={r.Ttl}"; hex = "#58A6FF";
             }
-            catch (PingException px)
-            {
-                var s = $"[{i}/4] {px.InnerException?.Message ?? px.Message}";
-                PingKutucugaYaz(s, "#F85149");
-                logSatirlari.Add(s);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                var s = $"[{i}/4] Hata: {ex.Message}";
-                PingKutucugaYaz(s, "#F85149");
-                logSatirlari.Add(s);
-            }
-
-            if (i < 4 && !token.IsCancellationRequested)
-                try { await Task.Delay(700, token); } catch (OperationCanceledException) { }
+            else                            { s = $"[{r.Sira}/{r.Toplam}] {r.Durum}";         hex = "#F85149"; }
+            PingKutucugaYaz(s, hex);
+            logSatirlari.Add(s);
         }
 
         if (!token.IsCancellationRequested)
         {
-            var kayip = 4 - basarili;
-            string ozet;
-            if (basarili > 0)
-            {
-                PingKutucugaYaz("─────────────────────────", "#30363D");
-                ozet = $"✔ {basarili}/4 başarılı — ort. {toplamMs / basarili} ms, {kayip} kayıp";
-                PingKutucugaYaz(ozet, "#3FB950");
-            }
-            else
-            {
-                PingKutucugaYaz("─────────────────────────", "#30363D");
-                ozet = "✖ yanıt yok (4/4 kayıp)";
-                PingKutucugaYaz(ozet, "#F85149");
-            }
+            PingKutucugaYaz("─────────────────────────", "#30363D");
+            string ozet = basarili > 0
+                ? $"✔ {basarili}/4 başarılı — ort. {toplamMs / basarili} ms, {4 - basarili} kayıp"
+                : "✖ yanıt yok (4/4 kayıp)";
+            PingKutucugaYaz(ozet, basarili > 0 ? "#3FB950" : "#F85149");
             logSatirlari.Add(ozet);
-            LogKaydet("PING", hedef, logSatirlari);
+            LogService.Kaydet("PING", hedef, logSatirlari);
         }
     }
 
@@ -1175,34 +1001,16 @@ public partial class MainWindow : Window
     private void BtnAgBilgi_Click(object sender, RoutedEventArgs e) => AgAdaptorleriniGoster();
 
     private void BtnSadp_Click(object sender, RoutedEventArgs e)
-    {
-        var exe = Path.Combine(AppBase, "tools", "sadp", "sadptool.exe");
-        if (!File.Exists(exe))
-        {
-            MesajEkle("hata", $"SADP aracı bulunamadı:\n{exe}");
-            return;
-        }
-        try
-        {
-            Process.Start(new ProcessStartInfo(exe)
-            {
-                UseShellExecute  = true,
-                WorkingDirectory = Path.GetDirectoryName(exe)!,
-            });
-            MesajEkle("sistem", "SADP aracı başlatıldı.");
-        }
-        catch (Exception ex)
-        {
-            MesajEkle("hata", $"SADP açılamadı: {ex.Message}");
-        }
-    }
+        => HariciAracBaslat(Paths.SadpExe, "SADP aracı");
 
     private void BtnCihazlar_Click(object sender, RoutedEventArgs e)
+        => HariciAracBaslat(Paths.IpScannerExe, "Advanced IP Scanner");
+
+    private void HariciAracBaslat(string exe, string ad)
     {
-        var exe = Path.Combine(AppBase, "tools", "Ip_Scanner", "advanced_ip_scanner.exe");
         if (!File.Exists(exe))
         {
-            MesajEkle("hata", $"Advanced IP Scanner bulunamadı:\n{exe}");
+            HataBildir($"{ad} bulunamadı:\n{exe}");
             return;
         }
         try
@@ -1212,11 +1020,11 @@ public partial class MainWindow : Window
                 UseShellExecute  = true,
                 WorkingDirectory = Path.GetDirectoryName(exe)!,
             });
-            MesajEkle("sistem", "Advanced IP Scanner başlatıldı.");
+            MesajEkle("sistem", $"{ad} başlatıldı.");
         }
         catch (Exception ex)
         {
-            MesajEkle("hata", $"Advanced IP Scanner açılamadı: {ex.Message}");
+            HataBildir($"{ad} açılamadı", ex);
         }
     }
 
@@ -1305,7 +1113,7 @@ public partial class MainWindow : Window
     private void PortIpBox_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || !PortBaslatBtn.IsEnabled) return;
-        _ = PortTaraBaslat(PortIpBox.Text.Trim(), PortlariParse(PortAralikBox.Text));
+        _ = PortTaraBaslat(PortIpBox.Text.Trim(), PortScanService.Parse(PortAralikBox.Text));
     }
 
     private void PortAralikBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -1320,7 +1128,7 @@ public partial class MainWindow : Window
         var hedef = PortIpBox.Text.Trim();
         bool gecerliHedef = GecerliIpv4Mu(hedef) || GecerliHostnameMu(hedef);
         bool gecerliPort  = !string.IsNullOrWhiteSpace(PortAralikBox.Text)
-                            && PortlariParse(PortAralikBox.Text).Length > 0;
+                            && PortScanService.Parse(PortAralikBox.Text).Length > 0;
         PortBaslatBtn.IsEnabled = gecerliHedef && gecerliPort;
     }
 
@@ -1332,7 +1140,7 @@ public partial class MainWindow : Window
     private void PortBaslatBtn_Click(object sender, RoutedEventArgs e)
     {
         var hedef  = PortIpBox.Text.Trim();
-        var portlar = PortlariParse(PortAralikBox.Text);
+        var portlar = PortScanService.Parse(PortAralikBox.Text);
         if (portlar.Length == 0 || (!GecerliIpv4Mu(hedef) && !GecerliHostnameMu(hedef))) return;
         _ = PortTaraBaslat(hedef, portlar);
     }
@@ -1359,30 +1167,6 @@ public partial class MainWindow : Window
         PortResultScroll.ScrollToEnd();
     }
 
-    private static int[] PortlariParse(string giris)
-    {
-        var portlar = new HashSet<int>();
-        foreach (var parca in giris.Split(',', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var t = parca.Trim();
-            if (t.Contains('-'))
-            {
-                var b = t.Split('-');
-                if (b.Length == 2 &&
-                    int.TryParse(b[0], out int bas) &&
-                    int.TryParse(b[1], out int son))
-                {
-                    for (int p = Math.Clamp(bas, 1, 65535);
-                             p <= Math.Clamp(son, 1, 65535); p++)
-                        portlar.Add(p);
-                }
-            }
-            else if (int.TryParse(t, out int p) && p is >= 1 and <= 65535)
-                portlar.Add(p);
-        }
-        return portlar.OrderBy(x => x).ToArray();
-    }
-
     private async Task PortTaraBaslat(string hedef, int[] portlar)
     {
         _portScanCts?.Cancel();
@@ -1394,36 +1178,17 @@ public partial class MainWindow : Window
         PortBaslatBtn.IsEnabled = false;
         PortKutucugaYaz($"◆ {hedef} → {portlar.Length} port taranıyor...", "#8B949E");
 
-        int acik = 0;
-        var semaphore = new SemaphoreSlim(50);
         var acikPortlar = new System.Collections.Concurrent.ConcurrentBag<(int Port, string Satir)>();
 
-        var gorevler = portlar.Select(async port =>
+        Task PortAcikCallback(int port)
         {
-            if (token.IsCancellationRequested) return;
-            bool acquired = false;
-            try
-            {
-                await semaphore.WaitAsync(token).ConfigureAwait(false);
-                acquired = true;
-                using var client = new TcpClient();
-                var baglanti = client.ConnectAsync(hedef, port);
-                var bitti    = await Task.WhenAny(baglanti, Task.Delay(1000, token)).ConfigureAwait(false);
-                if (bitti == baglanti && baglanti.IsCompletedSuccessfully)
-                {
-                    Interlocked.Increment(ref acik);
-                    var servis = BilindikPortlar.TryGetValue(port, out var s) ? $"  ({s})" : "";
-                    var satir  = $"[AÇIK]  {port}{servis}";
-                    acikPortlar.Add((port, satir));
-                    await Dispatcher.InvokeAsync(() => PortKutucugaYaz(satir, "#3FB950"));
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch { }
-            finally { if (acquired) semaphore.Release(); }
-        });
+            var servis = BilindikPortlar.TryGetValue(port, out var s) ? $"  ({s})" : "";
+            var satir  = $"[AÇIK]  {port}{servis}";
+            acikPortlar.Add((port, satir));
+            return Dispatcher.InvokeAsync(() => PortKutucugaYaz(satir, "#3FB950")).Task;
+        }
 
-        await Task.WhenAll(gorevler);
+        int acik = await PortScanService.TaraAsync(hedef, portlar, PortAcikCallback, token);
 
         if (!token.IsCancellationRequested)
         {
@@ -1435,7 +1200,7 @@ public partial class MainWindow : Window
 
             var logSatirlari = acikPortlar.OrderBy(x => x.Port).Select(x => x.Satir).ToList();
             logSatirlari.Add(ozet);
-            LogKaydet("PORT TARA", hedef, logSatirlari);
+            LogService.Kaydet("PORT TARA", hedef, logSatirlari);
         }
 
         PortBaslatBtn.IsEnabled = true;
@@ -1520,7 +1285,7 @@ public partial class MainWindow : Window
         if (!token.IsCancellationRequested)
         {
             TraceBaslatBtn.IsEnabled = true;
-            LogKaydet("TRACEROUTE", hedef, logSatirlari);
+            LogService.Kaydet("TRACEROUTE", hedef, logSatirlari);
         }
     }
 
@@ -1604,7 +1369,7 @@ public partial class MainWindow : Window
         }
         DnsBaslatBtn.IsEnabled = true;
         DnsResultScroll.ScrollToEnd();
-        LogKaydet("DNS", hedef, logSatirlari);
+        LogService.Kaydet("DNS", hedef, logSatirlari);
     }
 
     // ─── Wake-on-LAN ──────────────────────────────────────────────────
@@ -1669,7 +1434,7 @@ public partial class MainWindow : Window
             WolKutucugaYaz(s, "#F85149");
             logSatirlari.Add(s);
         }
-        LogKaydet("WAKE-ON-LAN", mac, logSatirlari);
+        LogService.Kaydet("WAKE-ON-LAN", mac, logSatirlari);
     }
 
     // ─── SNMP Sorgusu ─────────────────────────────────────────────────
@@ -1827,7 +1592,7 @@ public partial class MainWindow : Window
             logSatirlari.Add($"✖ {ex.Message}");
         }
 
-        LogKaydet("SNMP", ip, logSatirlari);
+        LogService.Kaydet("SNMP", ip, logSatirlari);
         SnmpResultScroll.ScrollToEnd();
         SnmpBaslatBtn.IsEnabled = true;
     }
@@ -1881,7 +1646,7 @@ public partial class MainWindow : Window
             MesajEkle("sonuc", metin);
             logSatirlari.Add(metin);
         }
-        LogKaydet("AG BILGI", "yerel adaptörler", logSatirlari);
+        LogService.Kaydet("AG BILGI", "yerel adaptörler", logSatirlari);
     }
 
     // ─── ARP Tablosu ──────────────────────────────────────────────────
@@ -1910,7 +1675,7 @@ public partial class MainWindow : Window
                 sb.AppendLine($"  {m.Groups[1].Value,-18} {m.Groups[2].Value,-20} {m.Groups[3].Value}");
             var metin = sb.ToString().TrimEnd();
             MesajEkle("sonuc", metin);
-            LogKaydet("ARP", "arp -a", metin.Split('\n').Select(s => s.TrimEnd()));
+            LogService.Kaydet("ARP", "arp -a", metin.Split('\n').Select(s => s.TrimEnd()));
         }
         catch (Exception ex) { MesajEkle("hata", $"ARP tablosu okunamadı: {ex.Message}"); }
     }

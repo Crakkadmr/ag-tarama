@@ -2,7 +2,7 @@
 
 > Bu dosya yeni Claude Code session'larında dosyaları taramadan tüm projeyi anlayabilmek için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da güncellenmelidir.** (Bkz. CLAUDE.md)
-> Son güncelleme: 2026-05-10 (ping sonuç kutusu eklendi)
+> Son güncelleme: 2026-05-10 (SADP butonu eklendi)
 
 ---
 
@@ -107,6 +107,7 @@ Metin:         #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre
 | Ping Testi | `BtnPing` | ActionButton | `BtnPing_Click` | ✅ Aktif (yan panel açar) |
 | Port Tara | `BtnPortTara` | ActionButton | `BtnPortTara_Click` | ⏳ TODO |
 | Cihazları Listele | `BtnCihazlar` | ActionButton | `BtnCihazlar_Click` | ✅ Aktif (Advanced IP Scanner başlatır) |
+| SADP | `BtnSadp` | ActionButton | `BtnSadp_Click` | ✅ Aktif (`tools/sadp/sadptool.exe` başlatır) |
 | Ekranı Temizle | `BtnTemizle` | ActionButton | `BtnTemizle_Click` | ✅ Aktif |
 
 ### 5.5 Ping Paneli (yan panel, animasyonla açılır)
@@ -214,7 +215,7 @@ Elemanlar:
 | `"sonuc"` | #0D3B66 | #1F6FEB | #58A6FF | Stretch | (yok) |
 | `"hata"` | #3D1A1A | #8B1A1A | #F85149 | Stretch | `✖ ` |
 
-**`TaramaDurumunuAyarla(bool devamEdiyor)`** (719-728): Buton durumlarını + `StatusText` ("● Hazır" yeşil / "● Yakalanıyor..." sarı) senkronize eder.
+**`TaramaDurumunuAyarla(bool devamEdiyor)`** (719-729): Buton durumlarını + `StatusText` ("● Hazır" yeşil / "● Yakalanıyor..." sarı) senkronize eder. `BtnTemizle` de bu metottan yönetilir: tarama başlayınca devre dışı, tamamlanınca/durdurulunca aktif olur.
 
 ### 6.8 Ping İşlevi
 

@@ -432,6 +432,16 @@
                     </StackPanel>
                 </Button>
 
+                <!-- SADP -->
+                <Button x:Name="BtnSadp"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnSadp_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⬡  " FontSize="13"/>
+                        <TextBlock Text="SADP" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
                 <!-- Ayırıcı -->
                 <Rectangle Height="1" Fill="#21262D" Margin="0,8,0,8"/>
 

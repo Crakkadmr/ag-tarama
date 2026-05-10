@@ -721,6 +721,7 @@ public partial class MainWindow : Window
         _taramaDevamEdiyor = devamEdiyor;
         BtnTaramaBaslat.IsEnabled = !devamEdiyor;
         BtnTaramaDurdur.IsEnabled  = devamEdiyor;
+        BtnTemizle.IsEnabled       = !devamEdiyor;
         StatusText.Text     = devamEdiyor ? "● Yakalanıyor..." : "● Hazır";
         StatusText.Foreground = devamEdiyor
             ? new SolidColorBrush(Color.FromRgb(210, 153, 34))
@@ -935,6 +936,29 @@ public partial class MainWindow : Window
     {
         MesajEkle("sistem", "Port taraması — yakında eklenecek.");
         // TODO: Port tarama implementasyonu
+    }
+
+    private void BtnSadp_Click(object sender, RoutedEventArgs e)
+    {
+        var exe = Path.Combine(AppBase, "tools", "sadp", "sadptool.exe");
+        if (!File.Exists(exe))
+        {
+            MesajEkle("hata", $"SADP aracı bulunamadı:\n{exe}");
+            return;
+        }
+        try
+        {
+            Process.Start(new ProcessStartInfo(exe)
+            {
+                UseShellExecute  = true,
+                WorkingDirectory = Path.GetDirectoryName(exe)!,
+            });
+            MesajEkle("sistem", "SADP aracı başlatıldı.");
+        }
+        catch (Exception ex)
+        {
+            MesajEkle("hata", $"SADP açılamadı: {ex.Message}");
+        }
     }
 
     private void BtnCihazlar_Click(object sender, RoutedEventArgs e)

@@ -8,5 +8,18 @@
       "PowerShell(Get-ChildItem \"C:\\\\Projects\\\\AG TARAMA PROGRAMI\" -Recurse -Depth 3 | Where-Object { $_.Name -match \"npcap|WiresharkPortable|tshark\" } | Select-Object FullName)",
       "PowerShell(cmd /c \"dir \"\"C:\\\\Projects\\\\AG TARAMA PROGRAMI\"\" /s /b\" 2>&1)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Projects\\AG TARAMA PROGRAMI\\AgTarama\\.claude\\hooks\\detay-reminder.ps1\""
+          }
+        ]
+      }
+    ]
   }
 }

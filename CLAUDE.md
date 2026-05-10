@@ -2,6 +2,27 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ÖNCELİKLE DETAY.md'Yİ OKU
+
+Yeni bir session başladığında **önce `DETAY.md` dosyasını oku.** Bu dosya projenin tüm dosya yapısı, mimarisi, alanları, metodları, UI bileşenleri ve TODO listesini içerir — kaynak dosyaları tek tek taramaya gerek kalmaz.
+
+## DETAY.md OTOMATİK GÜNCELLEME (ZORUNLU)
+
+Aşağıdaki tetikleyicilerden **herhangi biri** olduğunda `DETAY.md` dosyasını **aynı turda** güncellemen gerekir (kullanıcı ayrıca istemese bile):
+
+- `MainWindow.xaml` veya `MainWindow.xaml.cs` üzerinde Edit/Write yapıldığında
+- Yeni `.cs` / `.xaml` dosyası eklendiğinde veya silindiğinde
+- `AgTarama.csproj` değiştirildiğinde (TargetFramework, paket vs.)
+- Yeni klasör/araç eklendiğinde (`tools/`, `Req/` altı dahil)
+- Yeni buton, stil veya UI bileşeni eklendiğinde
+- Yeni metot/alan/state değişkeni eklendiğinde
+- TODO maddesi tamamlandığında veya yeni TODO doğduğunda
+
+Güncelleme yaparken:
+- İlgili bölümü (Klasör Yapısı / Mimari / 6.x metot haritası / TODO / Git Durumu) bul ve **yerinde** düzenle.
+- Üstteki `Son güncelleme:` tarihini bugünün tarihine çevir.
+- Satır numaralarını mümkün olduğunca güncel tut (ana metotların yaklaşık satır aralığı).
+
 ## Proje Amacı
 
 WPF tabanlı bir ağ tarama (network scanner) uygulaması. Chatbot tarzı arayüz: sol taraf mesaj akışı, sağ taraf kontrol butonları. Hedef: ping sweep, port tarama, ARP ile cihaz tespiti.

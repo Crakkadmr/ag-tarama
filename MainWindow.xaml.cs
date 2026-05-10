@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.NetworkInformation;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -19,6 +21,11 @@ public partial class MainWindow : Window
     private bool _taramaDevamEdiyor = false;
     private CancellationTokenSource? _taramaCts;
     private Process? _tsharkProc;
+
+    // ─── Ping paneli ─────────────────────────────────────────────────
+    private bool _pingPanelAcik = false;
+    private CancellationTokenSource? _pingCts;
+    private const double PingPanelGenisligi = 340;
 
     // ─── Sabit yollar (AppBase = exe'nin bulunduğu klasör) ───────────
     // Single-file publish'te AppDomain.BaseDirectory geçici klasörü gösterir;
@@ -729,8 +736,199 @@ public partial class MainWindow : Window
 
     private void BtnPing_Click(object sender, RoutedEventArgs e)
     {
-        MesajEkle("sistem", "Ping testi — yakında eklenecek.");
-        // TODO: Ping implementasyonu
+        if (_pingPanelAcik)
+            PingPanelKapatAnimasyon();
+        else
+            PingPanelAcAnimasyon();
+    }
+
+    // ─── Ping paneli animasyonları ───────────────────────────────────
+    private void PingPanelAcAnimasyon()
+    {
+        _pingPanelAcik = true;
+        var timer = new System.Windows.Threading.DispatcherTimer
+            { Interval = TimeSpan.FromMilliseconds(12) };
+        timer.Tick += (s, _) =>
+        {
+            double mevcut = PingCol.Width.Value;
+            double kalan  = PingPanelGenisligi - mevcut;
+            double adim   = Math.Max(kalan * 0.28, 2);
+            double yeni   = mevcut + adim;
+            if (yeni >= PingPanelGenisligi - 1)
+            {
+                PingCol.Width = new GridLength(PingPanelGenisligi);
+                ((System.Windows.Threading.DispatcherTimer)s!).Stop();
+                PingIpBox.Focus();
+            }
+            else
+            {
+                PingCol.Width = new GridLength(yeni);
+            }
+        };
+        timer.Start();
+    }
+
+    private void PingPanelKapatAnimasyon()
+    {
+        _pingPanelAcik = false;
+        _pingCts?.Cancel();
+        var timer = new System.Windows.Threading.DispatcherTimer
+            { Interval = TimeSpan.FromMilliseconds(12) };
+        timer.Tick += (s, _) =>
+        {
+            double mevcut = PingCol.Width.Value;
+            double adim   = Math.Max(mevcut * 0.28, 2);
+            double yeni   = mevcut - adim;
+            if (yeni <= 1)
+            {
+                PingCol.Width = new GridLength(0);
+                ((System.Windows.Threading.DispatcherTimer)s!).Stop();
+            }
+            else
+            {
+                PingCol.Width = new GridLength(yeni);
+            }
+        };
+        timer.Start();
+    }
+
+    // ─── IP / hostname doğrulama ─────────────────────────────────────
+    private static bool GecerliIpv4Mu(string s)
+    {
+        var parcalar = s.Split('.');
+        if (parcalar.Length != 4) return false;
+        foreach (var p in parcalar)
+        {
+            if (p.Length == 0 || p.Length > 3) return false;
+            if (!int.TryParse(p, out int v) || v < 0 || v > 255) return false;
+        }
+        return true;
+    }
+
+    private static bool GecerliHostnameMu(string s)
+        => s.Length > 0 && Regex.IsMatch(s, @"^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$");
+
+    // ─── Ping paneli event'leri ──────────────────────────────────────
+    private void PingIpBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var metin = PingIpBox.Text.Trim();
+        PingPlaceholder.Visibility = string.IsNullOrEmpty(PingIpBox.Text)
+            ? Visibility.Visible : Visibility.Collapsed;
+
+        if (string.IsNullOrEmpty(metin))
+        {
+            PingValidasyonIkonu.Text       = "";
+        }
+        else if (GecerliIpv4Mu(metin))
+        {
+            PingValidasyonIkonu.Text       = "✓";
+            PingValidasyonIkonu.Foreground = new SolidColorBrush(Color.FromRgb(63, 185, 80));
+        }
+        else if (GecerliHostnameMu(metin))
+        {
+            PingValidasyonIkonu.Text       = "~";
+            PingValidasyonIkonu.Foreground = new SolidColorBrush(Color.FromRgb(210, 153, 34));
+        }
+        else
+        {
+            PingValidasyonIkonu.Text       = "✗";
+            PingValidasyonIkonu.Foreground = new SolidColorBrush(Color.FromRgb(248, 81, 73));
+        }
+    }
+
+    private void PingIpBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        var hedef = PingIpBox.Text.Trim();
+        if (GecerliIpv4Mu(hedef) || GecerliHostnameMu(hedef))
+            _ = PingBaslat(hedef);
+        else
+            MesajEkle("hata", $"Geçersiz adres: \"{hedef}\" — IPv4 (örn: 192.168.1.1) veya hostname girin.");
+    }
+
+    private void PingHizliBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var hedef = (string)((Button)sender).Tag;
+        PingIpBox.Text = hedef;
+        _ = PingBaslat(hedef);
+    }
+
+    private void PingPanelKapat_Click(object sender, RoutedEventArgs e)
+        => PingPanelKapatAnimasyon();
+
+    // ─── Ping işlemi ────────────────────────────────────────────────
+    private void PingKutucugaYaz(string metin, string hex)
+    {
+        var satir = new TextBlock
+        {
+            Text            = metin,
+            Foreground      = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
+            FontFamily      = new FontFamily("Consolas"),
+            FontSize        = 12,
+            TextWrapping    = TextWrapping.Wrap,
+            Margin          = new Thickness(0, 1, 0, 1),
+        };
+        PingResultPanel.Children.Add(satir);
+        PingResultScroll.ScrollToEnd();
+    }
+
+    private async Task PingBaslat(string hedef)
+    {
+        _pingCts?.Cancel();
+        _pingCts = new CancellationTokenSource();
+        var token = _pingCts.Token;
+
+        PingResultPanel.Children.Clear();
+        PingResultBorder.Visibility = Visibility.Visible;
+        PingKutucugaYaz($"◆ {hedef} → 4 paket gönderiliyor...", "#8B949E");
+
+        int basarili = 0;
+        long toplamMs = 0;
+
+        using var ping = new Ping();
+        for (int i = 1; i <= 4 && !token.IsCancellationRequested; i++)
+        {
+            try
+            {
+                var yanit = await ping.SendPingAsync(hedef, 2000);
+                if (yanit.Status == IPStatus.Success)
+                {
+                    basarili++;
+                    toplamMs += yanit.RoundtripTime;
+                    PingKutucugaYaz($"[{i}/4] {yanit.RoundtripTime} ms  TTL={yanit.Options?.Ttl ?? 0}", "#58A6FF");
+                }
+                else
+                {
+                    PingKutucugaYaz($"[{i}/4] {yanit.Status}", "#F85149");
+                }
+            }
+            catch (PingException px)
+            {
+                PingKutucugaYaz($"[{i}/4] {px.InnerException?.Message ?? px.Message}", "#F85149");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PingKutucugaYaz($"[{i}/4] Hata: {ex.Message}", "#F85149");
+            }
+
+            if (i < 4 && !token.IsCancellationRequested)
+                try { await Task.Delay(700, token); } catch (OperationCanceledException) { }
+        }
+
+        if (!token.IsCancellationRequested)
+        {
+            var kayip = 4 - basarili;
+            if (basarili > 0)
+            {
+                PingKutucugaYaz("─────────────────────────", "#30363D");
+                PingKutucugaYaz($"✔ {basarili}/4 başarılı — ort. {toplamMs / basarili} ms, {kayip} kayıp", "#3FB950");
+            }
+            else
+            {
+                PingKutucugaYaz("─────────────────────────", "#30363D");
+                PingKutucugaYaz($"✖ yanıt yok (4/4 kayıp)", "#F85149");
+            }
+        }
     }
 
     private void BtnPortTara_Click(object sender, RoutedEventArgs e)

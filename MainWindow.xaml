@@ -129,6 +129,72 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Width" Value="6"/>
         </Style>
+
+        <!-- Ping giriş kutusu -->
+        <Style x:Key="PingInputBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#161B22"/>
+            <Setter Property="Foreground" Value="#E6EDF3"/>
+            <Setter Property="BorderBrush" Value="#30363D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CaretBrush" Value="#58A6FF"/>
+            <Setter Property="SelectionBrush" Value="#1F6FEB"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#58A6FF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Hızlı seçim chip butonu -->
+        <Style x:Key="ChipButton" TargetType="Button">
+            <Setter Property="Background" Value="#161B22"/>
+            <Setter Property="Foreground" Value="#8B949E"/>
+            <Setter Property="BorderBrush" Value="#30363D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1F2937"/>
+                                <Setter Property="BorderBrush" Value="#58A6FF"/>
+                                <Setter Property="Foreground" Value="#58A6FF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#0D3B66"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -159,19 +225,130 @@
                            Margin="0,2,0,0"/>
             </StackPanel>
 
-            <!-- Mesaj alanı -->
-            <Border Grid.Row="1"
-                    Background="#0D1117"
-                    BorderBrush="#21262D"
-                    BorderThickness="1"
-                    CornerRadius="8">
-                <ScrollViewer x:Name="ChatScrollViewer"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Padding="4,4,8,4">
-                    <StackPanel x:Name="ChatPanel" Margin="8,8,4,8"/>
-                </ScrollViewer>
-            </Border>
+            <!-- Mesaj alanı + Ping paneli -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition x:Name="PingCol" Width="0"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Ana chat -->
+                <Border Grid.Column="0"
+                        Background="#0D1117"
+                        BorderBrush="#21262D"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <ScrollViewer x:Name="ChatScrollViewer"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="4,4,8,4">
+                        <StackPanel x:Name="ChatPanel" Margin="8,8,4,8"/>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- Ping paneli (animasyonla açılır) -->
+                <Grid Grid.Column="1" x:Name="PingPanel" ClipToBounds="True">
+                    <Border Background="#0D1117"
+                            BorderBrush="#21262D"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Margin="8,0,0,0">
+                        <Grid Margin="14,14,14,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Başlık -->
+                            <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                                <TextBlock Text="◈ PING TESTİ"
+                                           Foreground="#58A6FF"
+                                           FontFamily="Consolas"
+                                           FontSize="12"
+                                           FontWeight="Bold"
+                                           Margin="0,0,0,6"/>
+                                <TextBlock Text="Hangi IP'ye atmak istiyorsunuz?"
+                                           Foreground="#8B949E"
+                                           FontFamily="Consolas"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <!-- IP giriş alanı -->
+                            <Grid Grid.Row="1" Margin="0,0,0,16">
+                                <TextBox x:Name="PingIpBox"
+                                         Style="{StaticResource PingInputBox}"
+                                         Padding="10,8,34,8"
+                                         TextChanged="PingIpBox_TextChanged"
+                                         KeyDown="PingIpBox_KeyDown"/>
+                                <TextBlock x:Name="PingPlaceholder"
+                                           Text="Örn: 192.168.1.1"
+                                           FontFamily="Consolas"
+                                           FontSize="13"
+                                           Foreground="#484F58"
+                                           VerticalAlignment="Center"
+                                           Margin="12,0,0,0"
+                                           IsHitTestVisible="False"/>
+                                <TextBlock x:Name="PingValidasyonIkonu"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0"
+                                           FontFamily="Consolas"
+                                           FontSize="15"
+                                           FontWeight="Bold"
+                                           IsHitTestVisible="False"/>
+                            </Grid>
+
+                            <!-- Hızlı seçenekler -->
+                            <StackPanel Grid.Row="2">
+                                <TextBlock Text="HIZLI SEÇİM"
+                                           Foreground="#484F58"
+                                           FontFamily="Consolas"
+                                           FontSize="10"
+                                           Margin="0,0,0,8"/>
+                                <WrapPanel>
+                                    <Button Style="{StaticResource ChipButton}" Tag="192.168.1.1"   Content="192.168.1.1"   Click="PingHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}" Tag="192.168.1.254" Content="192.168.1.254" Click="PingHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}" Tag="8.8.8.8"       Content="8.8.8.8"       Click="PingHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}" Tag="1.1.1.1"       Content="1.1.1.1"       Click="PingHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}" Tag="8.8.4.4"       Content="8.8.4.4"       Click="PingHizliBtn_Click"/>
+                                    <Button Style="{StaticResource ChipButton}" Tag="google.com"    Content="google.com"    Click="PingHizliBtn_Click"/>
+                                </WrapPanel>
+                            </StackPanel>
+
+                            <!-- Ping sonuç kutusu -->
+                            <Border x:Name="PingResultBorder"
+                                    Grid.Row="3"
+                                    Background="#0D1117"
+                                    BorderBrush="#21262D"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Margin="0,8,0,0"
+                                    Visibility="Collapsed">
+                                <ScrollViewer x:Name="PingResultScroll"
+                                              MaxHeight="180"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="PingResultPanel"
+                                                Margin="10,8,10,8"/>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- Kapat -->
+                            <Button Grid.Row="4"
+                                    Content="✕  Kapat"
+                                    Style="{StaticResource ActionButton}"
+                                    Click="PingPanelKapat_Click"
+                                    Margin="0,10,0,0"
+                                    HorizontalContentAlignment="Center"
+                                    Foreground="#8B949E"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
         </Grid>
 
         <!-- Dikey ayırıcı -->

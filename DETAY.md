@@ -2,7 +2,7 @@
 
 > Bu dosya yeni Claude Code session'larında dosyaları taramadan tüm projeyi anlayabilmek için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da güncellenmelidir.** (Bkz. CLAUDE.md)
-> Son güncelleme: 2026-05-10 (SNMP Sorgusu paneli — Lextm.SharpSnmpLib, MIB-II sysGroup)
+> Son güncelleme: 2026-05-10 (Faz 7: Favoriler, Ayarlar, Subnet Hesap, HTML Rapor, Sürükle-Bırak pcap, Toast/Ses bildirimleri)
 
 ---
 
@@ -35,7 +35,14 @@ AG TARAMA PROGRAMI/
     ├── App.xaml / App.xaml.cs    ← Application giriş noktası (boş)
     ├── AssemblyInfo.cs           ← ThemeInfo
     ├── MainWindow.xaml           ← UI tasarımı + stiller (Window.Resources)
-    ├── MainWindow.xaml.cs        ← TÜM iş mantığı buradadır (~1100 satır)
+    ├── MainWindow.xaml.cs        ← UI wiring + event handler'lar (~1683 satır)
+    ├── Paths.cs                  ← Tüm exe-relative yol sabitleri (static)
+    ├── LogService.cs             ← %APPDATA%\AgTarama\logs\YYYYMMDD.log
+    ├── Services/
+    │   ├── InterfaceDiscoveryService.cs  ← tshark -D + paket sayısı testi
+    │   ├── CaptureService.cs             ← tshark yakalama + ilerleme callback
+    │   ├── PingService.cs                ← IAsyncEnumerable ping akışı
+    │   └── PortScanService.cs            ← Parse + async port tarama
     ├── CLAUDE.md                 ← Claude için proje rehberi
     ├── DETAY.md                  ← (bu dosya) tam referans
     ├── README.md                 ← Türkçe kullanıcı dokümantasyonu
@@ -49,10 +56,11 @@ AG TARAMA PROGRAMI/
     │   └── Ip_Scanner/
     │       └── advanced_ip_scanner.exe    ← Harici cihaz tarayıcı
     ├── captures/                 ← Otomatik oluşur, .pcap dosyaları
-    ├── logs/                     ← Otomatik oluşur, log.txt işlem günlüğü
     ├── bin/                      ← Build çıktısı (gitignore)
     └── obj/                      ← Build ara dosyaları (gitignore)
 ```
+
+**Log klasörü:** `%APPDATA%\AgTarama\logs\YYYYMMDD.log` (uygulama dışında, her oturum aynı gün dosyasına ekler)
 
 ---
 
@@ -69,7 +77,16 @@ dotnet build -c Release        # Release build
 
 ## 5. Mimari
 
-**Tek pencere — MVVM yok.** Tüm UI ve iş mantığı `MainWindow.xaml` (~458 satır) + `MainWindow.xaml.cs` (~965 satır) çiftinde. Servis katmanı, ViewModel veya DI container yok.
+**Tek pencere — MVVM yok.** UI wiring `MainWindow.xaml` (~458 satır) + `MainWindow.xaml.cs` (~1683 satır) çiftinde. Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI container yok.
+
+**Mimari katmanlar:**
+- `Paths.cs` — tüm exe-relative yol sabitleri tek yerde (`AppBase`, `TsharkExe`, `SadpExe` vb.)
+- `LogService.cs` — `%APPDATA%\AgTarama\logs\YYYYMMDD.log`'a yazar; `OturumBaslat`, `Kaydet`, `Hata` metotları
+- `Services/InterfaceDiscoveryService` — `tshark -D` parse + 2s paket sayısı testi
+- `Services/CaptureService` — tshark process yönetimi, progress callback (`Action<double, int, TimeSpan>`)
+- `Services/PingService` — `IAsyncEnumerable<PingSonuc>` akışı (4 ping, TTL, hata sarmalı)
+- `Services/PortScanService` — `Parse(string)` + `TaraAsync(...)` (SemaphoreSlim 50, 1000ms timeout)
+- `MainWindow` → `HataBildir(mesaj, ex?)` — chat kırmızı mesaj + `LogService.Hata` tek noktadan
 
 ### 5.1 UI Düzeni (MainWindow.xaml)
 
@@ -82,6 +99,7 @@ dotnet build -c Release        # Release build
 | Kaynak Anahtar | Tip | Kullanım |
 |---|---|---|
 | `ActionButton` | Button | Standart sağ panel butonu (mavi, 44px) |
+| `ActiveActionButton` | Button | Aktif panel butonu stili — yeşil çerçeve (#3FB950, 2px), yeşilimsi arka plan. `SetButonAktif` tarafından style switching ile atanır/kaldırılır. **`ActionButton`'dan SONRA tanımlanmalı** |
 | `PrimaryButton` | Button | Yeşil "Taramayı Başlat" (48px, BasedOn ActionButton) |
 | `DangerButton` | Button | Kırmızı "Taramayı Durdur" (BasedOn ActionButton) |
 | (default) | ScrollBar | 6px ince ScrollBar |
@@ -170,13 +188,13 @@ Elemanlar:
 
 `System`, `System.Collections.Generic`, `System.Diagnostics`, `System.IO`, `System.Linq`, `System.Net.NetworkInformation`, `System.Net.Sockets`, `System.Text`, `System.Text.RegularExpressions`, `System.Threading`, `System.Threading.Tasks`, `System.Windows`, `System.Windows.Controls`, `System.Windows.Input`, `System.Windows.Media`, `Lextm.SharpSnmpLib`, `Lextm.SharpSnmpLib.Messaging`, `Microsoft.Win32`.
 
-### 6.2 Alanlar (20-60)
+### 6.2 Alanlar (~20-60)
 
 | Alan | Tip | Amaç |
 |---|---|---|
 | `_taramaDevamEdiyor` | bool | Tarama durumu flag'i |
 | `_taramaCts` | `CancellationTokenSource?` | Tarama iptali |
-| `_tsharkProc` | `Process?` | Aktif tshark process |
+| `_captureService` | `CaptureService` | tshark yönetimi (servis katmanı) |
 | `_pingPanelAcik` | bool | Ping paneli durumu |
 | `_pingCts` | `CancellationTokenSource?` | Ping iptali |
 | `PingPanelGenisligi` | const double = 340 | Yan panel hedef genişliği |
@@ -189,15 +207,11 @@ Elemanlar:
 | `_wolPanelAcik` | bool | Wake-on-LAN paneli durumu |
 | `_snmpPanelAcik` | bool | SNMP sorgusu paneli durumu |
 | `_snmpVersiyon` | string | Seçili SNMP versiyonu: `"v1"` veya `"v2c"` (varsayılan `"v2c"`) |
+| `_yanPanelTimer` | `DispatcherTimer?` | Tek aktif panel animasyon timer'ı — yeni animasyon başlamadan önce durdurulur (çift tık bug fix) |
+| `_aktifPanelBtn` | `Button?` | Şu an açık panelin sağ panel butonu — `Tag="active"` atanır, yeşil çerçeve için |
 | `_macRegex` | `Regex` | MAC adresi doğrulama regex'i |
 | `_otomatikGuncelleniyor` | bool | Otomatik nokta ekleme döngü koruması |
 | `_oncekiUzunluk` | `Dictionary<TextBox,int>` | Silme/ekleme tespiti için önceki uzunluk |
-| `AppBase` | static readonly string | exe konumu (single-file için `Environment.ProcessPath`, fallback `BaseDirectory`) |
-| `NpcapInstaller` | static readonly string | `{AppBase}\Req\npcap-1.88.exe` |
-| `TsharkExe` | static readonly string | `{AppBase}\tools\WiresharkPortable64\App\Wireshark\tshark.exe` |
-| `WiresharkPortableExe` | static readonly string | `{AppBase}\tools\WiresharkPortable64\WiresharkPortable64.exe` |
-| `LogKlasor` | static readonly string | `{AppBase}\logs` |
-| `LogDosyasi` | static readonly string | `{AppBase}\logs\log.txt` |
 | `TestSuresiSn` | const int = 2 | Arayüz aktiflik testi süresi |
 | `HedefMB` | const int = 16 | Yakalama dosya boyutu sınırı |
 | `HedefKB` | const int = 16384 | tshark `-a filesize:` argümanı |
@@ -206,18 +220,17 @@ Elemanlar:
 
 ### 6.3 Yaşam Döngüsü ve Npcap
 
-- **`MainWindow()`** (47-52): InitializeComponent, ilk mesaj, `BaslangicAsync()` fire-and-forget.
-- **`BaslangicAsync()`** (54-58): `LogOturumBaslat()` + Npcap kontrol/kurulum + "Sistem hazır" mesajı.
-- **`LogOturumBaslat()`**: `logs/` klasörünü oluşturur, `log.txt`'e `=== OTURUM: {datetime} ===` satırı yazar.
-- **`LogKaydet(string kategori, string hedef, IEnumerable<string> satirlar)`**: Her işlem sonunda çağrılır. `[HH:mm:ss] [KATEGORİ] hedef` başlığı + satırları `log.txt`'e UTF-8 ekler. Kategoriler: `PING`, `PORT TARA`, `TRACEROUTE`, `DNS`, `ARP`, `AG BILGI`, `WAKE-ON-LAN`.
-- **`NpcapKurulumu()` static** (61-66): `HKLM\SOFTWARE\Npcap` ve `WOW6432Node\Npcap` registry kontrolü.
-- **`NpcapKontrolVeKur()`** (68-111): Npcap yüklü değilse `Req\npcap-1.88.exe /S` parametresiyle UAC ile sessiz kurulum (Verb="runas"). Hatalar `MesajEkle("hata", ...)` ile bildirilir.
+- **`MainWindow()`**: InitializeComponent, ilk mesaj, `BaslangicAsync()` fire-and-forget.
+- **`BaslangicAsync()`**: `LogService.OturumBaslat()` + Npcap kontrol/kurulum + "Sistem hazır" mesajı.
+- **`HataBildir(mesaj, ex?)`**: Tüm hata yollarının tek giriş noktası — `MesajEkle("hata",...)` + `LogService.Hata(...)`.
+- **`NpcapKurulumu()` static**: `HKLM\SOFTWARE\Npcap` ve `WOW6432Node\Npcap` registry kontrolü.
+- **`NpcapKontrolVeKur()`**: Npcap yüklü değilse `Paths.NpcapInstaller /S` ile UAC sessiz kurulum. Hatalar `HataBildir` ile bildirilir.
 
-### 6.4 Arayüz Tespiti
+### 6.4 Arayüz Tespiti → `Services/InterfaceDiscoveryService`
 
-- **`record ArayuzBilgi(string No, string Ad)`** (114).
-- **`TumArayuzlariGetirAsync()`** (116-153): `tshark -D` çıktısını parse eder. Format: `"1. \Device\NPF_{GUID} (Wi-Fi)"` → `No="1"`, `Ad="Wi-Fi"`. 32 karakterden uzun adlar `…` ile kısaltılır.
-- **`ArayuzPaketSayisiAsync(string no)` static** (273-304): `tshark -i {no} -a duration:2 -q` ile 2 sn paket dinler. tshark istatistiği **stderr**'e yazar; "N packets captured" satırından sayı alınır.
+- **`record ArayuzBilgi(string No, string Ad)`** — `AgTarama.Services` namespace'inde tanımlı.
+- **`TumunuGetirAsync()`**: `tshark -D` çıktısını parse eder. Format: `"1. \Device\NPF_{GUID} (Wi-Fi)"` → `No="1"`, `Ad="Wi-Fi"`. 32 karakterden uzun adlar `…` ile kısaltılır.
+- **`PaketSayisiAsync(string no, int sureSn=2)`**: `tshark -i {no} -a duration:2 -q` ile 2 sn paket dinler. tshark istatistiği **stderr**'e yazar; "N packets captured" satırından sayı alınır.
 
 ### 6.5 Arayüz Seçim UI
 
@@ -226,28 +239,28 @@ Elemanlar:
 
 ### 6.6 Yakalama Akışı
 
-- **`YakalamaBaslat()`** (314-419): Akış:
-  1. `BtnTaramaBaslat.IsEnabled = false`
-  2. `TumArayuzlariGetirAsync()` → tüm arayüzler
-  3. `ArayuzPaketSayisiAsync` paralel çağrı → aktif arayüzler
+- **`YakalamaBaslat()`**: Akış:
+  1. `BtnTaramaBaslat.IsEnabled = false`, `BtnTemizle.IsEnabled = false`
+  2. `InterfaceDiscoveryService.TumunuGetirAsync()` → tüm arayüzler
+  3. `InterfaceDiscoveryService.PaketSayisiAsync` paralel → aktif arayüzler
   4. `ArayuzSecimAsync` → kullanıcı seçimi
-  5. `captures\analiz_ddMMyyyy_HH_mm.pcap` oluştur
-  6. tshark başlat: `{iArgs} -w "{pcap}" -a filesize:{HedefKB} -P`
-  7. stdout okuyan task → `Interlocked.Increment(ref _paketSayisi)`
-  8. `DosyaIzleAsync` ile her 500ms kart güncelle
-  9. Tamamlanma veya iptal sonrası kart durumu ayarla.
+  5. `Paths.CapturesKlasor\analiz_ddMMyyyy_HH_mm.pcap` oluştur
+  6. `_captureService.YakalaAsync(nolar, pcap, hedefKB, onProgress, token)` — tshark yönetimi serviste
+  7. Tamamlanma/iptal sonrası kart durumu ayarla.
 
-- **`DosyaIzleAsync(...)`** (422-437): 500ms döngüde dosya boyutu okur, `Guncelle(mb, paket, sure)` çağırır, `StatusText`'i günceller.
+- **`Services/CaptureService.YakalaAsync(...)`**: tshark process başlatır, stdout'tan paket sayar (`Interlocked`), 500ms döngüde `onProgress(mb, paket, sure)` çağırır.
 
-- **`YakalamaKartiOlustur(...)`** (440-613): Programatik olarak Border/StackPanel/Grid yapısı kurar. Döndürdüğü tuple:
+- **`YakalamaKartiOlustur(...)`**: Programatik Border/StackPanel/Grid yapısı. Döndürdüğü tuple:
   - `Kart` (Border)
   - `Guncelle(double mb, int paket, TimeSpan sure)` — progress bar, yüzde, BOYUT/PAKET/SÜRE
   - `Tamamla(double mb, int paket)` — yeşil renge dönüş, "YAKALAMA TAMAMLANDI"
   - `Durdur()` — kırmızı renk, "YAKALAMA DURDURULDU"
 
-- **`YakalamaDurdur()`** (615-622): CTS cancel + `Process.Kill(entireProcessTree:true)`.
+- **`YakalamaDurdur()`**: `_taramaCts.Cancel()` + `_captureService.Durdur()`.
 
-- **`WiresharkIleAc(string pcap)`**: `WiresharkPortable64.exe "{pcap}"` ile başlatır. Yakalama tamamlandığında karta eklenen "⬡ Wireshark'ta Aç" butonundan çağrılır.
+- **`WiresharkIleAc(string pcap)`**: `Paths.WiresharkPortableExe "{pcap}"` ile başlatır.
+
+- **`HariciAracBaslat(exe, ad)`**: SADP ve IP Scanner için ortak başlatma mantığı — `HataBildir` ile hata yönetimi.
 
 ### 6.7 Mesaj Sistemi (Chatbot)
 
@@ -264,8 +277,11 @@ Elemanlar:
 
 ### 6.8 Ping İşlevi
 
-- **`BtnPing_Click`** (~737): Yan paneli toggle.
-- **`PingPanelAcAnimasyon` / `PingPanelKapatAnimasyon`** (~746-793): `DispatcherTimer` ile 12ms periyotlu, exponential easing (kalanın %28'i + min 2px) ile `PingCol.Width` animasyonu.
+- **`SetButonAktif(Button?)`**: Önceki butona `Style = ActionButton` geri yükler, yeni butona `Style = ActiveActionButton` atar. DataTrigger/Tag yaklaşımı değil — style switching kullanılır (güvenilir, IsMouseOver çakışması yok).
+- **`YanPanelAcAnimasyon()` / `YanPanelKapatAnimasyon(Action)`**: Birleşik animasyon yardımcıları. Her çağrıda önce `_yanPanelTimer?.Stop()` ile önceki timer durdurulur, yeni timer `_yanPanelTimer`'a atanır — çift tık race condition önlenir.
+- **`TumYanPanelleriKapat()`**: Tüm panel flag + Visibility'leri sıfırlar, `SetButonAktif(null)` çağırır, `PingCol.Width=0`.
+- **`BtnPing_Click`** (~850): Yan paneli toggle. Açarken `SetButonAktif(BtnPing)`, kapatırken `SetButonAktif(null)`.
+- **`PingPanelAcAnimasyon` / `PingPanelKapatAnimasyon`** (dead code, eski yöntemler): Artık çağrılmıyor; `YanPanelAcAnimasyon` / `YanPanelKapatAnimasyon` kullanılıyor.
 - **`GecerliIpv4Mu(string)` static** (~796): 4 nokta-ayrılmış 0-255 oktet kontrolü.
 - **`GecerliHostnameMu(string)` static** (~808): Regex `^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$`.
 - **`PingIpBox_TextChanged`**: Canlı doğrulama: `✓` (yeşil IPv4), `~` (sarı hostname), `✗` (kırmızı geçersiz). Geçerli girişte `PingBaslatBtn.IsEnabled=true`.
@@ -273,12 +289,12 @@ Elemanlar:
 - **`PingIpBox_KeyDown`**: Enter → `PingBaslat`.
 - **`PingHizliBtn_Click`**: Chip butonun `Tag`'inden IP alıp `PingBaslat`.
 - **`PingKutucugaYaz(string metin, string hex)`**: `PingResultPanel`'e stillenmiş `TextBlock` satırı ekler. Ping sonuçları ana chat'e **yazılmaz**.
-- **`PingBaslat(string hedef)`**: 4× ping, log satırlarını toplar, tamamlanınca `LogKaydet("PING", ...)` çağırır.
+- **`PingBaslat(string hedef)`**: `PingService.PingleAsync` `IAsyncEnumerable` akışını tüketir, sonucu panele yazar; tamamlanınca `LogService.Kaydet("PING", ...)` çağırır.
 
 ### 6.9 Diğer Buton Handler'ları
 
-- **`BtnPortTara_Click`**: `PortPanelAcAnimasyon` / `PortPanelKapatAnimasyon` toggle. Ping paneli açıksa önce kapatır.
-- **`PortPanelAcAnimasyon` / `PortPanelKapatAnimasyon`**: `PingCol` animasyonu (PingPanel ile paylaşımlı sütun). Açılırken `PortPanel.Visibility=Visible`, kapanırken `Collapsed`.
+- **`BtnPortTara_Click`**: `YanPanelAc` / `YanPanelKapatAnimasyon` toggle. `SetButonAktif(BtnPortTara/null)` çağırır.
+- **`PortPanelAcAnimasyon` / `PortPanelKapatAnimasyon`** (dead code, eski yöntemler): Artık çağrılmıyor.
 - **`PortIpBox_TextChanged`**: Canlı IPv4/hostname doğrulama. `AktarButonDurumu()` çağırır.
 - **`PortAralikBox_TextChanged`**: Placeholder yönetimi + `AktarButonDurumu()`.
 - **`AktarButonDurumu()`**: Geçerli IP ve port varsa `PortBaslatBtn.IsEnabled=true`.
@@ -290,12 +306,12 @@ Elemanlar:
 - **`BtnCihazlar_Click`**: `tools\Ip_Scanner\advanced_ip_scanner.exe` başlatır.
 - **`BtnSadp_Click`**: `tools\sadp\sadptool.exe` başlatır.
 - **`BtnTemizle_Click`**: `ChatPanel.Children.Clear()` + sistem mesajı. Tarama sırasında `IsEnabled=false`.
-- **`PortTaraBaslat`**: Sonunda `LogKaydet("PORT TARA", ...)` çağırır (`ConcurrentBag` ile açık portları toplar).
-- **`TracerouteBaslat`**: Her hop satırını `logSatirlari`'a ekler, tamamlanınca `LogKaydet("TRACEROUTE", ...)`.
-- **`DnsLookupBaslat`**: Sonuç satırlarını toplar, `LogKaydet("DNS", ...)`.
-- **`ArpTablosuGoster`**: Tablo metnini satırlara böler, `LogKaydet("ARP", ...)`.
-- **`AgAdaptorleriniGoster`**: Her adaptör bilgisini toplar, `LogKaydet("AG BILGI", ...)`.
-- **`WolGonder`**: Sonucu loglar, `LogKaydet("WAKE-ON-LAN", mac, ...)`.
+- **`PortTaraBaslat`**: `PortScanService.TaraAsync` kullanır; `ConcurrentBag` ile açık portları toplar, sonunda `LogService.Kaydet("PORT TARA", ...)`.
+- **`TracerouteBaslat`**: Her hop satırını toplar, tamamlanınca `LogService.Kaydet("TRACEROUTE", ...)`.
+- **`DnsLookupBaslat`**: Sonuç satırlarını toplar, `LogService.Kaydet("DNS", ...)`.
+- **`ArpTablosuGoster`**: Tablo metnini satırlara böler, `LogService.Kaydet("ARP", ...)`.
+- **`AgAdaptorleriniGoster`**: Her adaptör bilgisini toplar, `LogService.Kaydet("AG BILGI", ...)`.
+- **`WolGonder`**: Sonucu loglar, `LogService.Kaydet("WAKE-ON-LAN", mac, ...)`.
 - **`BtnSnmp_Click`**: SNMP panelini toggle eder.
 - **`SnmpIpBox_TextChanged`**: Sadece IPv4 geçerli; `✓/✗` + `SnmpBaslatBtn.IsEnabled`.
 - **`SnmpCommunityBox_TextChanged`**: Placeholder yönetimi.
@@ -362,12 +378,14 @@ CLAUDE.md'de listelenen ve kodda hâlâ açık olanlar:
 
 ## 11. Git Durumu (snapshot 2026-05-10)
 
-- **Branch:** `duzenleme`
+- **Branch:** `maintance`
 - **Main:** `main`
-- **Modifiye edilenler:** `MainWindow.xaml`, `MainWindow.xaml.cs`
 - **Son commitler:**
-  - `88c2598` Merge pull request #1 from Crakkadmr/cihazlari_listeleme_kismi
-  - `162bf75` refactor: remove integrated IP scanner background process logic and launch external executable instead
-  - `001ffcc` feat: implement local network device discovery using Advanced IP Scanner
-  - `5627c60` AppBase: ProcessPath kullan — single-file exe ile uyumlu
-  - `3ed07f8` İlk commit — Ağ Tarama Programı v0.1
+  - `ebcbae7` refactor: standardize side panel animations with shared timer and implement active button state styling
+  - `e09225a` feat: add SNMP query panel with device information retrieval capabilities
+  - `782dcc5` Merge pull request #2 from Crakkadmr/yeni_ozellikler
+- **Faz 6 mimari iyileştirmeleri (commit bekliyor):**
+  - `Paths.cs` — yol sabitleri merkezi
+  - `LogService.cs` — `%APPDATA%\AgTarama\logs\YYYYMMDD.log`
+  - `Services/InterfaceDiscoveryService.cs`, `CaptureService.cs`, `PingService.cs`, `PortScanService.cs`
+  - `MainWindow.xaml.cs` — `HataBildir`, servislere delege edildi

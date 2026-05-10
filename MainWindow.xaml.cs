@@ -23,6 +23,12 @@ namespace AgTarama;
 
 public partial class MainWindow : Window
 {
+    // ─── Ayarlar ─────────────────────────────────────────────────────
+    private AppSettings _ayarlar = SettingsService.Yukle();
+    private int HedefMB    => _ayarlar.HedefMB;
+    private int HedefKB    => _ayarlar.HedefMB * 1024;
+    private int TestSuresiSn => _ayarlar.TestSuresiSn;
+
     // ─── Durum ───────────────────────────────────────────────────────
     private bool _taramaDevamEdiyor = false;
     private CancellationTokenSource? _taramaCts;
@@ -36,17 +42,23 @@ public partial class MainWindow : Window
     private bool _portPanelAcik = false;
     private CancellationTokenSource? _portScanCts;
 
-    // ─── Traceroute / DNS / WoL / SNMP panelleri ─────────────────────
-    private bool _tracePanelAcik = false;
+    // ─── Traceroute / DNS / WoL / SNMP / Favoriler / Subnet panelleri
+    private bool _tracePanelAcik     = false;
     private CancellationTokenSource? _traceCts;
-    private bool _dnsPanelAcik   = false;
-    private bool _wolPanelAcik   = false;
-    private bool _snmpPanelAcik  = false;
-    private string _snmpVersiyon = "v2c";
+    private bool _dnsPanelAcik       = false;
+    private bool _wolPanelAcik       = false;
+    private bool _snmpPanelAcik      = false;
+    private string _snmpVersiyon     = "v2c";
+    private bool _favorilerPanelAcik = false;
+    private bool _subnetPanelAcik    = false;
 
-    // ─── Animasyon / aktif buton ─────────────────────────────────────
+    // ─── Animasyon / aktif buton / toast ─────────────────────────────
     private System.Windows.Threading.DispatcherTimer? _yanPanelTimer;
+    private System.Windows.Threading.DispatcherTimer? _toastTimer;
     private Button? _aktifPanelBtn;
+
+    // ─── Mesaj geçmişi (HTML rapor için) ─────────────────────────────
+    private readonly List<(string Tur, string Metin, string Zaman)> _mesajGecmisi = new();
 
     // ─── Servisler ───────────────────────────────────────────────────
     private readonly CaptureService _captureService = new();
@@ -76,6 +88,7 @@ public partial class MainWindow : Window
     private async Task BaslangicAsync()
     {
         LogService.OturumBaslat();
+        FavoriChipleriniYenile();
         if (!await NpcapKontrolVeKur()) return;
         MesajEkle("sonuc", "✔ Sistem hazır — sağ panelden taramayı başlatın.");
     }
@@ -258,10 +271,6 @@ public partial class MainWindow : Window
     }
 
     // ─── Yakalama başlat / durdur ────────────────────────────────────
-    private const int TestSuresiSn = 2;
-    private const int HedefMB      = 16;
-    private const int HedefKB      = HedefMB * 1024;
-
     private string _sonPcap = string.Empty;
 
     private async Task YakalamaBaslat()
@@ -645,6 +654,7 @@ public partial class MainWindow : Window
 
         satir.Child = txt;
         ChatPanel.Children.Add(satir);
+        _mesajGecmisi.Add((tur, metin, DateTime.Now.ToString("HH:mm:ss")));
 
         var zaman = new TextBlock
         {
@@ -682,12 +692,14 @@ public partial class MainWindow : Window
 
     private void TumYanPanelleriKapat()
     {
-        if (_pingPanelAcik)  { _pingPanelAcik  = false; _pingCts?.Cancel();  }
-        if (_portPanelAcik)  { _portPanelAcik  = false; _portScanCts?.Cancel(); PortPanel.Visibility  = Visibility.Collapsed; }
-        if (_tracePanelAcik) { _tracePanelAcik = false; _traceCts?.Cancel(); TracePanel.Visibility = Visibility.Collapsed; }
-        if (_dnsPanelAcik)   { _dnsPanelAcik   = false; DnsPanel.Visibility   = Visibility.Collapsed; }
-        if (_wolPanelAcik)   { _wolPanelAcik   = false; WolPanel.Visibility   = Visibility.Collapsed; }
-        if (_snmpPanelAcik)  { _snmpPanelAcik  = false; SnmpPanel.Visibility  = Visibility.Collapsed; }
+        if (_pingPanelAcik)      { _pingPanelAcik      = false; _pingCts?.Cancel();     }
+        if (_portPanelAcik)      { _portPanelAcik      = false; _portScanCts?.Cancel(); PortPanel.Visibility      = Visibility.Collapsed; }
+        if (_tracePanelAcik)     { _tracePanelAcik     = false; _traceCts?.Cancel();    TracePanel.Visibility     = Visibility.Collapsed; }
+        if (_dnsPanelAcik)       { _dnsPanelAcik       = false; DnsPanel.Visibility     = Visibility.Collapsed; }
+        if (_wolPanelAcik)       { _wolPanelAcik       = false; WolPanel.Visibility     = Visibility.Collapsed; }
+        if (_snmpPanelAcik)      { _snmpPanelAcik      = false; SnmpPanel.Visibility    = Visibility.Collapsed; }
+        if (_favorilerPanelAcik) { _favorilerPanelAcik = false; FavorilerPanel.Visibility = Visibility.Collapsed; }
+        if (_subnetPanelAcik)    { _subnetPanelAcik    = false; SubnetPanel.Visibility  = Visibility.Collapsed; }
         SetButonAktif(null);
         PingCol.Width = new GridLength(0);
     }
@@ -850,24 +862,28 @@ public partial class MainWindow : Window
         {
             PingValidasyonIkonu.Text       = "";
             PingBaslatBtn.IsEnabled        = false;
+            PingFavoriEkleBtn.IsEnabled    = false;
         }
         else if (GecerliIpv4Mu(metin))
         {
             PingValidasyonIkonu.Text       = "✓";
             PingValidasyonIkonu.Foreground = new SolidColorBrush(Color.FromRgb(63, 185, 80));
             PingBaslatBtn.IsEnabled        = true;
+            PingFavoriEkleBtn.IsEnabled    = true;
         }
         else if (GecerliHostnameMu(metin))
         {
             PingValidasyonIkonu.Text       = "~";
             PingValidasyonIkonu.Foreground = new SolidColorBrush(Color.FromRgb(210, 153, 34));
             PingBaslatBtn.IsEnabled        = true;
+            PingFavoriEkleBtn.IsEnabled    = true;
         }
         else
         {
             PingValidasyonIkonu.Text       = "✗";
             PingValidasyonIkonu.Foreground = new SolidColorBrush(Color.FromRgb(248, 81, 73));
             PingBaslatBtn.IsEnabled        = false;
+            PingFavoriEkleBtn.IsEnabled    = false;
         }
     }
 
@@ -931,7 +947,7 @@ public partial class MainWindow : Window
         long toplamMs = 0;
         var logSatirlari = new List<string>();
 
-        await foreach (var r in PingService.PingleAsync(hedef, sayi: 4, token: token))
+        await foreach (var r in PingService.PingleAsync(hedef, sayi: 4, timeoutMs: _ayarlar.PingTimeoutMs, token: token))
         {
             string s; string hex;
             if (r.Hata != null)             { s = $"[{r.Sira}/{r.Toplam}] {r.Hata}";          hex = "#F85149"; }
@@ -954,6 +970,8 @@ public partial class MainWindow : Window
             PingKutucugaYaz(ozet, basarili > 0 ? "#3FB950" : "#F85149");
             logSatirlari.Add(ozet);
             LogService.Kaydet("PING", hedef, logSatirlari);
+            BildirimCal(hata: basarili == 0);
+            ToastGoster(basarili > 0 ? $"Ping tamamlandı — {hedef}" : $"Ping başarısız — {hedef}", hata: basarili == 0);
         }
     }
 
@@ -1129,7 +1147,8 @@ public partial class MainWindow : Window
         bool gecerliHedef = GecerliIpv4Mu(hedef) || GecerliHostnameMu(hedef);
         bool gecerliPort  = !string.IsNullOrWhiteSpace(PortAralikBox.Text)
                             && PortScanService.Parse(PortAralikBox.Text).Length > 0;
-        PortBaslatBtn.IsEnabled = gecerliHedef && gecerliPort;
+        PortBaslatBtn.IsEnabled     = gecerliHedef && gecerliPort;
+        PortFavoriEkleBtn.IsEnabled = gecerliHedef;
     }
 
     private void PortHizliBtn_Click(object sender, RoutedEventArgs e)
@@ -1188,7 +1207,8 @@ public partial class MainWindow : Window
             return Dispatcher.InvokeAsync(() => PortKutucugaYaz(satir, "#3FB950")).Task;
         }
 
-        int acik = await PortScanService.TaraAsync(hedef, portlar, PortAcikCallback, token);
+        int acik = await PortScanService.TaraAsync(hedef, portlar, PortAcikCallback, token,
+            eszamanli: _ayarlar.PortTaramaConcurrency, timeoutMs: _ayarlar.PortTaramaTimeoutMs);
 
         if (!token.IsCancellationRequested)
         {
@@ -1201,6 +1221,8 @@ public partial class MainWindow : Window
             var logSatirlari = acikPortlar.OrderBy(x => x.Port).Select(x => x.Satir).ToList();
             logSatirlari.Add(ozet);
             LogService.Kaydet("PORT TARA", hedef, logSatirlari);
+            BildirimCal(hata: acik == 0);
+            ToastGoster(acik > 0 ? $"{acik} açık port bulundu — {hedef}" : $"Açık port yok — {hedef}", hata: acik == 0);
         }
 
         PortBaslatBtn.IsEnabled = true;
@@ -1678,6 +1700,356 @@ public partial class MainWindow : Window
             LogService.Kaydet("ARP", "arp -a", metin.Split('\n').Select(s => s.TrimEnd()));
         }
         catch (Exception ex) { MesajEkle("hata", $"ARP tablosu okunamadı: {ex.Message}"); }
+    }
+
+    // ─── 4.1 Favori IP Listesi ───────────────────────────────────────
+
+    private void BtnFavoriler_Click(object sender, RoutedEventArgs e)
+    {
+        if (_favorilerPanelAcik) { SetButonAktif(null); _favorilerPanelAcik = false; YanPanelKapatAnimasyon(() => FavorilerPanel.Visibility = Visibility.Collapsed); return; }
+        FavorilerPanelGuncelle();
+        YanPanelAc(ref _favorilerPanelAcik, FavorilerPanel);
+        SetButonAktif(BtnFavoriler);
+    }
+
+    private void FavorilerPanelKapat_Click(object sender, RoutedEventArgs e) => FavorilerPanelKapat();
+
+    private void FavorilerPanelKapat()
+    {
+        _favorilerPanelAcik = false; SetButonAktif(null);
+        YanPanelKapatAnimasyon(() => FavorilerPanel.Visibility = Visibility.Collapsed);
+    }
+
+    private void PingFavoriEkle_Click(object sender, RoutedEventArgs e)
+    {
+        var ip = PingIpBox.Text.Trim();
+        if (string.IsNullOrEmpty(ip)) return;
+        bool eklendi = FavoriService.Ekle(ip);
+        FavoriChipleriniYenile();
+        ToastGoster(eklendi ? $"★ Favoriye eklendi: {ip}" : $"Zaten favoride: {ip}", hata: !eklendi);
+    }
+
+    private void PortFavoriEkle_Click(object sender, RoutedEventArgs e)
+    {
+        var ip = PortIpBox.Text.Trim();
+        if (string.IsNullOrEmpty(ip)) return;
+        bool eklendi = FavoriService.Ekle(ip);
+        FavoriChipleriniYenile();
+        ToastGoster(eklendi ? $"★ Favoriye eklendi: {ip}" : $"Zaten favoride: {ip}", hata: !eklendi);
+    }
+
+    private void FavoriChipleriniYenile()
+    {
+        var favoriler = FavoriService.YukleHepsi();
+        PingFavorilerPanel.Children.Clear();
+        PortFavorilerPanel.Children.Clear();
+
+        foreach (var ip in favoriler)
+        {
+            var capturedIp = ip;
+            var pingChip = new Button { Content = $"★ {ip}", Style = (Style)FindResource("ChipButton"), Tag = ip };
+            pingChip.Click += (_, _) => { PingIpBox.Text = capturedIp; _ = PingBaslat(capturedIp); };
+            PingFavorilerPanel.Children.Add(pingChip);
+
+            var portChip = new Button { Content = $"★ {ip}", Style = (Style)FindResource("ChipButton"), Tag = ip };
+            portChip.Click += (_, _) => { PortIpBox.Text = capturedIp; };
+            PortFavorilerPanel.Children.Add(portChip);
+        }
+    }
+
+    private void FavorilerPanelGuncelle()
+    {
+        FavorilerListePanel.Children.Clear();
+        var favoriler = FavoriService.YukleHepsi();
+
+        if (favoriler.Count == 0)
+        {
+            FavorilerListePanel.Children.Add(new TextBlock
+            {
+                Text = "Henüz favori eklenmedi.\nPing veya Port Tara panelindeki ★ ile ekleyin.",
+                Foreground   = new SolidColorBrush(Color.FromRgb(72, 79, 88)),
+                FontFamily   = new FontFamily("Consolas"),
+                FontSize     = 11,
+                TextWrapping = TextWrapping.Wrap,
+                Margin       = new Thickness(0, 4, 0, 4),
+            });
+            return;
+        }
+
+        foreach (var ip in favoriler)
+        {
+            var capturedIp = ip;
+            var satir = new Grid { Margin = new Thickness(0, 3, 0, 3) };
+            satir.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            satir.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var ipBtn = new Button
+            {
+                Content             = ip,
+                FontFamily          = new FontFamily("Consolas"),
+                FontSize            = 12,
+                Foreground          = new SolidColorBrush(Color.FromRgb(88, 166, 255)),
+                Background          = Brushes.Transparent,
+                BorderThickness     = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Cursor              = Cursors.Hand,
+                Padding             = new Thickness(0),
+            };
+            ipBtn.Click += (_, _) =>
+            {
+                FavorilerPanelKapat();
+                if (!_pingPanelAcik) { YanPanelAc(ref _pingPanelAcik, PingPanel); SetButonAktif(BtnPing); }
+                PingIpBox.Text = capturedIp;
+                _ = PingBaslat(capturedIp);
+            };
+            Grid.SetColumn(ipBtn, 0);
+
+            var silBtn = new Button
+            {
+                Content         = "✕",
+                FontFamily      = new FontFamily("Consolas"),
+                FontSize        = 11,
+                Foreground      = new SolidColorBrush(Color.FromRgb(139, 148, 158)),
+                Background      = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Cursor          = Cursors.Hand,
+                Padding         = new Thickness(6, 0, 0, 0),
+                ToolTip         = "Favoriden kaldır",
+            };
+            silBtn.Click += (_, _) =>
+            {
+                FavoriService.Sil(capturedIp);
+                FavoriChipleriniYenile();
+                FavorilerPanelGuncelle();
+            };
+            Grid.SetColumn(silBtn, 1);
+
+            satir.Children.Add(ipBtn);
+            satir.Children.Add(silBtn);
+            FavorilerListePanel.Children.Add(satir);
+        }
+    }
+
+    // ─── 4.3 Ayarlar Paneli ──────────────────────────────────────────
+
+    private void BtnAyarlar_Click(object sender, RoutedEventArgs e)
+    {
+        var win = new SettingsWindow(_ayarlar) { Owner = this };
+        if (win.ShowDialog() == true)
+            _ayarlar = win.Ayarlar;
+    }
+
+    // ─── 4.4 Subnet/CIDR Hesaplayıcı ────────────────────────────────
+
+    private void BtnSubnet_Click(object sender, RoutedEventArgs e)
+    {
+        if (_subnetPanelAcik) { SetButonAktif(null); _subnetPanelAcik = false; YanPanelKapatAnimasyon(() => SubnetPanel.Visibility = Visibility.Collapsed); return; }
+        YanPanelAc(ref _subnetPanelAcik, SubnetPanel);
+        SetButonAktif(BtnSubnet);
+        SubnetCidrBox.Focus();
+    }
+
+    private void SubnetPanelKapat_Click(object sender, RoutedEventArgs e)
+    {
+        _subnetPanelAcik = false; SetButonAktif(null);
+        YanPanelKapatAnimasyon(() => SubnetPanel.Visibility = Visibility.Collapsed);
+    }
+
+    private void SubnetCidrBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        SubnetPlaceholder.Visibility = string.IsNullOrEmpty(SubnetCidrBox.Text) ? Visibility.Visible : Visibility.Collapsed;
+        var metin = SubnetCidrBox.Text.Trim();
+        if (string.IsNullOrEmpty(metin))
+        {
+            SubnetValidasyon.Text = "";
+            SubnetHesaplaBtn.IsEnabled = false;
+        }
+        else if (GecerliCidrMu(metin))
+        {
+            SubnetValidasyon.Text       = "✓";
+            SubnetValidasyon.Foreground = new SolidColorBrush(Color.FromRgb(63, 185, 80));
+            SubnetHesaplaBtn.IsEnabled  = true;
+        }
+        else
+        {
+            SubnetValidasyon.Text       = "✗";
+            SubnetValidasyon.Foreground = new SolidColorBrush(Color.FromRgb(248, 81, 73));
+            SubnetHesaplaBtn.IsEnabled  = false;
+        }
+    }
+
+    private void SubnetHesaplaBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var cidr = SubnetCidrBox.Text.Trim();
+        SubnetResultPanel.Children.Clear();
+        SubnetResultBorder.Visibility = Visibility.Visible;
+        try
+        {
+            var (ag, broadcast, maske, ilkHost, sonHost, hostSayisi) = SubnetHesapla(cidr);
+            SubnetKutucugaYaz("─────────────────────────", "#30363D");
+            SubnetKutucugaYaz($"  Ağ Adresi   :  {ag}",           "#58A6FF");
+            SubnetKutucugaYaz($"  Broadcast   :  {broadcast}",    "#58A6FF");
+            SubnetKutucugaYaz($"  Subnet Mask :  {maske}",        "#C9D1D9");
+            SubnetKutucugaYaz($"  İlk Host    :  {ilkHost}",      "#3FB950");
+            SubnetKutucugaYaz($"  Son Host    :  {sonHost}",      "#3FB950");
+            SubnetKutucugaYaz($"  Host Sayısı :  {hostSayisi:N0}", "#3FB950");
+            SubnetKutucugaYaz("─────────────────────────", "#30363D");
+        }
+        catch (Exception ex)
+        {
+            SubnetKutucugaYaz($"✖ {ex.Message}", "#F85149");
+        }
+    }
+
+    private void SubnetKutucugaYaz(string metin, string hex)
+        => SubnetResultPanel.Children.Add(new TextBlock
+        {
+            Text         = metin,
+            FontFamily   = new FontFamily("Consolas"),
+            FontSize     = 12,
+            Foreground   = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
+            TextWrapping = TextWrapping.Wrap,
+            Margin       = new Thickness(0, 1, 0, 1),
+        });
+
+    private static bool GecerliCidrMu(string s)
+    {
+        var p = s.Split('/');
+        if (p.Length != 2) return false;
+        if (!System.Net.IPAddress.TryParse(p[0].Trim(), out _)) return false;
+        return int.TryParse(p[1].Trim(), out int n) && n >= 0 && n <= 32;
+    }
+
+    private static (string Ag, string Broadcast, string Maske, string IlkHost, string SonHost, long HostSayisi)
+        SubnetHesapla(string cidr)
+    {
+        var p      = cidr.Split('/');
+        var bytes  = System.Net.IPAddress.Parse(p[0].Trim()).GetAddressBytes();
+        int prefix = int.Parse(p[1].Trim());
+        uint ipUint    = ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16) | ((uint)bytes[2] << 8) | bytes[3];
+        uint maske     = prefix == 0 ? 0u : ~0u << (32 - prefix);
+        uint ag        = ipUint & maske;
+        uint broadcast = ag | ~maske;
+        string ToIp(uint u) => $"{(u>>24)&0xFF}.{(u>>16)&0xFF}.{(u>>8)&0xFF}.{u&0xFF}";
+        if (prefix == 32) return (ToIp(ag), ToIp(ag),        ToIp(maske), ToIp(ag),     ToIp(ag),          1);
+        if (prefix == 31) return (ToIp(ag), ToIp(broadcast), ToIp(maske), ToIp(ag),     ToIp(broadcast),   2);
+        return              (ToIp(ag),      ToIp(broadcast), ToIp(maske), ToIp(ag + 1), ToIp(broadcast - 1), (long)(broadcast - ag - 1));
+    }
+
+    // ─── 4.5 HTML Rapor Çıktısı ──────────────────────────────────────
+
+    private void BtnRapor_Click(object sender, RoutedEventArgs e) => RaporKaydet();
+
+    private void RaporKaydet()
+    {
+        if (_mesajGecmisi.Count == 0) { MesajEkle("sistem", "Henüz kaydedilecek mesaj yok."); return; }
+
+        var dlg = new SaveFileDialog
+        {
+            Title    = "Raporu Kaydet",
+            Filter   = "HTML Rapor (*.html)|*.html|Metin Dosyası (*.txt)|*.txt",
+            FileName = $"AgTarama_Rapor_{DateTime.Now:yyyyMMdd_HHmm}",
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        if (dlg.FilterIndex == 2)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("AG TARAMA PROGRAMI — Rapor");
+            sb.AppendLine($"Oluşturulma: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            sb.AppendLine(new string('─', 60));
+            foreach (var (tur, metin, zaman) in _mesajGecmisi)
+                sb.AppendLine($"[{zaman}] [{tur.ToUpper(),-8}] {metin}");
+            File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
+        }
+        else
+        {
+            static string Enc(string s) => s.Replace("&","&amp;").Replace("<","&lt;").Replace(">","&gt;").Replace("\"","&quot;");
+            var sb = new StringBuilder();
+            sb.AppendLine("<!DOCTYPE html><html lang=\"tr\"><head><meta charset=\"utf-8\"><title>Ağ Tarama Raporu</title><style>");
+            sb.AppendLine("body{background:#0D1117;color:#E6EDF3;font-family:Consolas,monospace;padding:24px;margin:0}");
+            sb.AppendLine("h1{color:#58A6FF;margin-bottom:4px}.meta{color:#484F58;font-size:11px;margin-bottom:20px}");
+            sb.AppendLine(".msg{margin:3px 0;padding:8px 12px;border-radius:6px;border:1px solid;white-space:pre-wrap;word-break:break-all}");
+            sb.AppendLine(".sistem{background:#161B22;border-color:#21262D;color:#8B949E}");
+            sb.AppendLine(".sonuc{background:#0D3B66;border-color:#1F6FEB;color:#58A6FF}");
+            sb.AppendLine(".hata{background:#3D1A1A;border-color:#8B1A1A;color:#F85149}");
+            sb.AppendLine(".kullanici{background:#161B22;border-color:#30363D;color:#C9D1D9;text-align:right}");
+            sb.AppendLine(".zaman{font-size:10px;color:#484F58;margin:0 4px 6px}");
+            sb.AppendLine("</style></head><body>");
+            sb.AppendLine("<h1>AG TARAMA PROGRAMI</h1>");
+            sb.AppendLine($"<div class=\"meta\">Rapor tarihi: {DateTime.Now:yyyy-MM-dd HH:mm:ss} &nbsp;|&nbsp; {_mesajGecmisi.Count} mesaj</div>");
+            foreach (var (tur, metin, zaman) in _mesajGecmisi)
+            {
+                sb.AppendLine($"<div class=\"msg {tur}\">{Enc(metin)}</div>");
+                sb.AppendLine($"<div class=\"zaman\">{zaman}</div>");
+            }
+            sb.AppendLine("</body></html>");
+            File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
+        }
+
+        MesajEkle("sonuc", $"✔ Rapor kaydedildi: {Path.GetFileName(dlg.FileName)}");
+        ToastGoster($"Rapor kaydedildi: {Path.GetFileName(dlg.FileName)}");
+    }
+
+    // ─── 5.3 Sürükle-Bırak pcap Açma ────────────────────────────────
+
+    private void Window_DragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            var dosyalar = (string[])e.Data.GetData(DataFormats.FileDrop);
+            e.Effects = dosyalar.Any(f =>
+                f.EndsWith(".pcap",   StringComparison.OrdinalIgnoreCase) ||
+                f.EndsWith(".pcapng", StringComparison.OrdinalIgnoreCase))
+                ? DragDropEffects.Copy : DragDropEffects.None;
+        }
+        else e.Effects = DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void Window_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        var dosyalar = (string[])e.Data.GetData(DataFormats.FileDrop);
+        var pcap = dosyalar.FirstOrDefault(f =>
+            f.EndsWith(".pcap",   StringComparison.OrdinalIgnoreCase) ||
+            f.EndsWith(".pcapng", StringComparison.OrdinalIgnoreCase));
+        if (pcap == null) return;
+        MesajEkle("sistem", $"pcap sürüklendi → Wireshark'ta açılıyor: {Path.GetFileName(pcap)}");
+        WiresharkIleAc(pcap);
+    }
+
+    // ─── 5.4 Bildirim Sesleri / Toast ────────────────────────────────
+
+    private void ToastGoster(string mesaj, bool hata = false)
+    {
+        if (!_ayarlar.ToastAcik) return;
+        ToastMetin.Text       = mesaj;
+        ToastIkon.Text        = hata ? "✖" : "✔";
+        ToastIkon.Foreground  = hata
+            ? new SolidColorBrush(Color.FromRgb(248, 81, 73))
+            : new SolidColorBrush(Color.FromRgb(63, 185, 80));
+        ToastBildirim.BorderBrush = hata
+            ? new SolidColorBrush(Color.FromRgb(248, 81, 73))
+            : new SolidColorBrush(Color.FromRgb(63, 185, 80));
+        ToastBildirim.Visibility = Visibility.Visible;
+
+        _toastTimer?.Stop();
+        var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        t.Tick += (s, _) => { ToastBildirim.Visibility = Visibility.Collapsed; ((System.Windows.Threading.DispatcherTimer)s!).Stop(); _toastTimer = null; };
+        _toastTimer = t;
+        t.Start();
+    }
+
+    private void BildirimCal(bool hata = false)
+    {
+        if (!_ayarlar.SesAcik) return;
+        try
+        {
+            if (hata) System.Media.SystemSounds.Hand.Play();
+            else      System.Media.SystemSounds.Asterisk.Play();
+        }
+        catch { }
     }
 
 }

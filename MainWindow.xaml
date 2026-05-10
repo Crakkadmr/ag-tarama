@@ -7,7 +7,10 @@
         Title="Ağ Tarama Programı" Height="650" Width="1000"
         MinHeight="500" MinWidth="750"
         WindowStartupLocation="CenterScreen"
-        Background="#0D1117">
+        Background="#0D1117"
+        AllowDrop="True"
+        Drop="Window_Drop"
+        DragOver="Window_DragOver">
 
     <Window.Resources>
         <!-- Buton stili -->
@@ -363,22 +366,39 @@
                                     <Button Style="{StaticResource ChipButton}" Tag="8.8.4.4"       Content="8.8.4.4"       Click="PingHizliBtn_Click"/>
                                     <Button Style="{StaticResource ChipButton}" Tag="google.com"    Content="google.com"    Click="PingHizliBtn_Click"/>
                                 </WrapPanel>
+                                <!-- Dinamik favori chip'leri -->
+                                <WrapPanel x:Name="PingFavorilerPanel" Margin="0,2,0,0"/>
                             </StackPanel>
 
-                            <!-- Başlat -->
-                            <Button x:Name="PingBaslatBtn"
-                                    Grid.Row="3"
-                                    Style="{StaticResource PrimaryButton}"
-                                    IsEnabled="False"
-                                    Height="36"
-                                    HorizontalContentAlignment="Center"
-                                    Click="PingBaslatBtn_Click"
-                                    Margin="0,8,0,4">
-                                <TextBlock Text="◈  Ping Başlat"
-                                           FontFamily="Consolas"
-                                           FontSize="12"
-                                           FontWeight="Bold"/>
-                            </Button>
+                            <!-- Başlat + Favoriye Ekle -->
+                            <Grid Grid.Row="3" Margin="0,8,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="4"/>
+                                    <ColumnDefinition Width="36"/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="PingBaslatBtn"
+                                        Grid.Column="0"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="False"
+                                        Height="36"
+                                        HorizontalContentAlignment="Center"
+                                        Click="PingBaslatBtn_Click">
+                                    <TextBlock Text="◈  Ping Başlat"
+                                               FontFamily="Consolas"
+                                               FontSize="12"
+                                               FontWeight="Bold"/>
+                                </Button>
+                                <Button x:Name="PingFavoriEkleBtn"
+                                        Grid.Column="2"
+                                        Content="★"
+                                        Style="{StaticResource ActionButton}"
+                                        IsEnabled="False"
+                                        Height="36"
+                                        HorizontalContentAlignment="Center"
+                                        ToolTip="Favoriye Ekle"
+                                        Click="PingFavoriEkle_Click"/>
+                            </Grid>
 
                             <!-- Ping sonuç kutusu -->
                             <Border x:Name="PingResultBorder"
@@ -489,13 +509,14 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Text="HIZLI SEÇİM"
                                            Foreground="#484F58"
                                            FontFamily="Consolas"
                                            FontSize="10"
                                            Margin="0,0,0,6"/>
-                                <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                                <WrapPanel Grid.Row="1" Margin="0,0,0,4">
                                     <Button Style="{StaticResource ChipButton}"
                                             Tag="21,22,23,25,53,80,110,135,139,143,443,445,587,993,995,1433,3306,3389,5900,8080"
                                             Content="Yaygın 20" Click="PortHizliBtn_Click"/>
@@ -509,18 +530,37 @@
                                             Tag="80,443,554,8000,8080,37777"
                                             Content="Kamera" Click="PortHizliBtn_Click"/>
                                 </WrapPanel>
-                                <Button x:Name="PortBaslatBtn"
-                                        Grid.Row="2"
-                                        Style="{StaticResource PrimaryButton}"
-                                        IsEnabled="False"
-                                        Height="36"
-                                        HorizontalContentAlignment="Center"
-                                        Click="PortBaslatBtn_Click">
-                                    <TextBlock Text="▶  Taramayı Başlat"
-                                               FontFamily="Consolas"
-                                               FontSize="12"
-                                               FontWeight="Bold"/>
-                                </Button>
+                                <!-- Dinamik favori chip'leri -->
+                                <WrapPanel Grid.Row="2" x:Name="PortFavorilerPanel" Margin="0,0,0,4"/>
+                                <!-- Başlat + Favoriye Ekle -->
+                                <Grid Grid.Row="3" Margin="0,4,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="4"/>
+                                        <ColumnDefinition Width="36"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="PortBaslatBtn"
+                                            Grid.Column="0"
+                                            Style="{StaticResource PrimaryButton}"
+                                            IsEnabled="False"
+                                            Height="36"
+                                            HorizontalContentAlignment="Center"
+                                            Click="PortBaslatBtn_Click">
+                                        <TextBlock Text="▶  Taramayı Başlat"
+                                                   FontFamily="Consolas"
+                                                   FontSize="12"
+                                                   FontWeight="Bold"/>
+                                    </Button>
+                                    <Button x:Name="PortFavoriEkleBtn"
+                                            Grid.Column="2"
+                                            Content="★"
+                                            Style="{StaticResource ActionButton}"
+                                            IsEnabled="False"
+                                            Height="36"
+                                            HorizontalContentAlignment="Center"
+                                            ToolTip="Favoriye Ekle"
+                                            Click="PortFavoriEkle_Click"/>
+                                </Grid>
                             </Grid>
 
                             <!-- Sonuç kutusu -->
@@ -763,6 +803,81 @@
                     </Border>
                 </Grid>
 
+                <!-- Favoriler paneli -->
+                <Grid Grid.Column="1" x:Name="FavorilerPanel" ClipToBounds="True" Visibility="Collapsed">
+                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="8" Margin="8,0,0,0">
+                        <Grid Margin="14,14,14,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                                <TextBlock Text="★ FAVORİLER" Foreground="#58A6FF" FontFamily="Consolas"
+                                           FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock Text="Sık kullanılan IP adresleri:" Foreground="#8B949E"
+                                           FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Border Grid.Row="1" Background="#0D1117" BorderBrush="#21262D"
+                                    BorderThickness="1" CornerRadius="6">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="FavorilerListePanel" Margin="10,8,10,8"/>
+                                </ScrollViewer>
+                            </Border>
+                            <Button Grid.Row="2" Content="✕  Kapat" Style="{StaticResource ActionButton}"
+                                    Click="FavorilerPanelKapat_Click" Margin="0,10,0,0"
+                                    HorizontalContentAlignment="Center" Foreground="#8B949E"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Subnet Hesap paneli -->
+                <Grid Grid.Column="1" x:Name="SubnetPanel" ClipToBounds="True" Visibility="Collapsed">
+                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="8" Margin="8,0,0,0">
+                        <Grid Margin="14,14,14,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                                <TextBlock Text="⊟ SUBNET HESAP" Foreground="#58A6FF" FontFamily="Consolas"
+                                           FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock Text="CIDR notasyonuyla subnet bilgilerini hesapla:"
+                                           Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Grid Grid.Row="1" Margin="0,0,0,8">
+                                <TextBox x:Name="SubnetCidrBox" Style="{StaticResource PingInputBox}"
+                                         Padding="10,8,34,8"
+                                         TextChanged="SubnetCidrBox_TextChanged"/>
+                                <TextBlock x:Name="SubnetPlaceholder" Text="Örn: 192.168.1.0/24"
+                                           FontFamily="Consolas" FontSize="12" Foreground="#484F58"
+                                           VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
+                                <TextBlock x:Name="SubnetValidasyon" HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" Margin="0,0,10,0"
+                                           FontFamily="Consolas" FontSize="15" FontWeight="Bold" IsHitTestVisible="False"/>
+                            </Grid>
+                            <Button x:Name="SubnetHesaplaBtn" Grid.Row="2" Style="{StaticResource PrimaryButton}"
+                                    IsEnabled="False" Height="36" HorizontalContentAlignment="Center"
+                                    Click="SubnetHesaplaBtn_Click" Margin="0,0,0,6">
+                                <TextBlock Text="⊟  Hesapla" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                            </Button>
+                            <Border x:Name="SubnetResultBorder" Grid.Row="3" Background="#0D1117"
+                                    BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
+                                    Margin="0,4,0,0" Visibility="Collapsed">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="SubnetResultPanel" Margin="10,8,10,8"/>
+                                </ScrollViewer>
+                            </Border>
+                            <Button Grid.Row="4" Content="✕  Kapat" Style="{StaticResource ActionButton}"
+                                    Click="SubnetPanelKapat_Click" Margin="0,10,0,0"
+                                    HorizontalContentAlignment="Center" Foreground="#8B949E"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
             </Grid>
         </Grid>
 
@@ -927,6 +1042,52 @@
                 <!-- Ayırıcı -->
                 <Rectangle Height="1" Fill="#21262D" Margin="0,8,0,8"/>
 
+                <!-- Favoriler -->
+                <Button x:Name="BtnFavoriler"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnFavoriler_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="★  " FontSize="13"/>
+                        <TextBlock Text="Favoriler" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Subnet Hesap -->
+                <Button x:Name="BtnSubnet"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnSubnet_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⊟  " FontSize="13"/>
+                        <TextBlock Text="Subnet Hesap" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Ayırıcı -->
+                <Rectangle Height="1" Fill="#21262D" Margin="0,8,0,8"/>
+
+                <!-- Rapor Kaydet -->
+                <Button x:Name="BtnRapor"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnRapor_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="▤  " FontSize="13"/>
+                        <TextBlock Text="Rapor Kaydet" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Ayarlar -->
+                <Button x:Name="BtnAyarlar"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnAyarlar_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⚙  " FontSize="13"/>
+                        <TextBlock Text="Ayarlar" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Ayırıcı -->
+                <Rectangle Height="1" Fill="#21262D" Margin="0,8,0,8"/>
+
                 <!-- Temizle -->
                 <Button x:Name="BtnTemizle"
                         Style="{StaticResource ActionButton}"
@@ -948,5 +1109,37 @@
                        FontFamily="Consolas"
                        HorizontalAlignment="Center"/>
         </Grid>
+
+        <!-- Toast bildirimi overlay (tüm kolonları kaplar, sağ alt köşe) -->
+        <Border x:Name="ToastBildirim"
+                Grid.ColumnSpan="2"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,24,24"
+                Background="#1C2128"
+                BorderBrush="#3FB950"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="14,10"
+                Visibility="Collapsed"
+                Panel.ZIndex="200">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="ToastIkon"
+                           Text="✔"
+                           Foreground="#3FB950"
+                           FontFamily="Consolas"
+                           FontSize="13"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"/>
+                <TextBlock x:Name="ToastMetin"
+                           Foreground="#E6EDF3"
+                           FontFamily="Consolas"
+                           FontSize="12"
+                           MaxWidth="260"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

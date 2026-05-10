@@ -2,7 +2,7 @@
 
 > Bu dosya yeni Claude Code session'larında dosyaları taramadan tüm projeyi anlayabilmek için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da güncellenmelidir.** (Bkz. CLAUDE.md)
-> Son güncelleme: 2026-05-10 (Faz 6 mimari iyileştirmeler: Paths/LogService/Services katmanı + HataBildir)
+> Son güncelleme: 2026-05-10 (Faz 7: Favoriler, Ayarlar, Subnet Hesap, HTML Rapor, Sürükle-Bırak pcap, Toast/Ses bildirimleri)
 
 ---
 

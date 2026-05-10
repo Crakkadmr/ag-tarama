@@ -77,10 +77,11 @@ Bunlar zaten kodda `// TODO` ile işaretli, en hızlı kazanç burada.
 - **Yaklaşım:** `SslStream` + `RemoteCertificateValidationCallback`.
 - **UI:** Hostname girişi → kart şeklinde detay.
 
-### 3.3 SNMP Sorgusu (basit)
+### ✅ 3.3 SNMP Sorgusu (basit)
 - **Açıklama:** Cihaz adı, sistem süresi, vs. SNMP v1/v2c ile.
-- **Yaklaşım:** Hafif SNMP kütüphanesi (`Lextm.SharpSnmpLib` NuGet paketi).
+- **Yaklaşım:** `Lextm.SharpSnmpLib` NuGet (12.*) — `Messenger.Get`, MIB-II sysGroup OID'leri.
 - **Kullanım:** Yönetilebilir switch/router/yazıcı tespiti.
+- **Tamamlandı:** 2026-05-10
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Bu dosya yeni Claude Code session'larında dosyaları taramadan tüm projeyi anlayabilmek için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da güncellenmelidir.** (Bkz. CLAUDE.md)
-> Son güncelleme: 2026-05-10 (Ping başlat butonu, otomatik log sistemi, BtnKaydet kaldırıldı)
+> Son güncelleme: 2026-05-10 (SNMP Sorgusu paneli — Lextm.SharpSnmpLib, MIB-II sysGroup)
 
 ---
 
@@ -35,7 +35,7 @@ AG TARAMA PROGRAMI/
     ├── App.xaml / App.xaml.cs    ← Application giriş noktası (boş)
     ├── AssemblyInfo.cs           ← ThemeInfo
     ├── MainWindow.xaml           ← UI tasarımı + stiller (Window.Resources)
-    ├── MainWindow.xaml.cs        ← TÜM iş mantığı buradadır (~945 satır)
+    ├── MainWindow.xaml.cs        ← TÜM iş mantığı buradadır (~1100 satır)
     ├── CLAUDE.md                 ← Claude için proje rehberi
     ├── DETAY.md                  ← (bu dosya) tam referans
     ├── README.md                 ← Türkçe kullanıcı dokümantasyonu
@@ -87,6 +87,7 @@ dotnet build -c Release        # Release build
 | (default) | ScrollBar | 6px ince ScrollBar |
 | `PingInputBox` | TextBox | Ping IP giriş kutusu |
 | `ChipButton` | Button | Hızlı IP seçim chip'leri (yuvarlak, 12 corner) |
+| `SelectedChipButton` | Button | Seçili chip (BasedOn ChipButton, mavi arka plan) — SNMP versiyon toggle. **`ChipButton`'dan SONRA tanımlanmalı** (StaticResource forward-ref hatası) |
 
 ### 5.3 Renk Paleti (GitHub Dark teması)
 
@@ -114,6 +115,7 @@ Metin:         #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre
 | Ağ Bilgisi | `BtnAgBilgi` | ActionButton | `BtnAgBilgi_Click` | ✅ `NetworkInterface` → chat kartı |
 | SADP | `BtnSadp` | ActionButton | `BtnSadp_Click` | ✅ `tools/sadp/sadptool.exe` |
 | Wake-on-LAN | `BtnWol` | ActionButton | `BtnWol_Click` | ✅ Yan panel (UDP magic packet) |
+| SNMP Sorgusu | `BtnSnmp` | ActionButton | `BtnSnmp_Click` | ✅ Yan panel (SharpSnmpLib GET) |
 | Ekranı Temizle | `BtnTemizle` | ActionButton | `BtnTemizle_Click` | ✅ Tarama sırasında disabled |
 
 ### 5.5 Port Tara Paneli (yan panel, animasyonla açılır)
@@ -164,9 +166,9 @@ Elemanlar:
 
 ## 6. MainWindow.xaml.cs — Tam İçerik Haritası
 
-### 6.1 Using İfadeleri (1-16)
+### 6.1 Using İfadeleri
 
-`System`, `System.Collections.Generic`, `System.Diagnostics`, `System.IO`, `System.Linq`, `System.Net.NetworkInformation`, `System.Net.Sockets`, `System.Text`, `System.Text.RegularExpressions`, `System.Threading`, `System.Threading.Tasks`, `System.Windows`, `System.Windows.Controls`, `System.Windows.Input`, `System.Windows.Media`, `Microsoft.Win32`.
+`System`, `System.Collections.Generic`, `System.Diagnostics`, `System.IO`, `System.Linq`, `System.Net.NetworkInformation`, `System.Net.Sockets`, `System.Text`, `System.Text.RegularExpressions`, `System.Threading`, `System.Threading.Tasks`, `System.Windows`, `System.Windows.Controls`, `System.Windows.Input`, `System.Windows.Media`, `Lextm.SharpSnmpLib`, `Lextm.SharpSnmpLib.Messaging`, `Microsoft.Win32`.
 
 ### 6.2 Alanlar (20-60)
 
@@ -185,6 +187,8 @@ Elemanlar:
 | `_traceCts` | `CancellationTokenSource?` | Traceroute iptali |
 | `_dnsPanelAcik` | bool | DNS paneli durumu |
 | `_wolPanelAcik` | bool | Wake-on-LAN paneli durumu |
+| `_snmpPanelAcik` | bool | SNMP sorgusu paneli durumu |
+| `_snmpVersiyon` | string | Seçili SNMP versiyonu: `"v1"` veya `"v2c"` (varsayılan `"v2c"`) |
 | `_macRegex` | `Regex` | MAC adresi doğrulama regex'i |
 | `_otomatikGuncelleniyor` | bool | Otomatik nokta ekleme döngü koruması |
 | `_oncekiUzunluk` | `Dictionary<TextBox,int>` | Silme/ekleme tespiti için önceki uzunluk |
@@ -292,6 +296,15 @@ Elemanlar:
 - **`ArpTablosuGoster`**: Tablo metnini satırlara böler, `LogKaydet("ARP", ...)`.
 - **`AgAdaptorleriniGoster`**: Her adaptör bilgisini toplar, `LogKaydet("AG BILGI", ...)`.
 - **`WolGonder`**: Sonucu loglar, `LogKaydet("WAKE-ON-LAN", mac, ...)`.
+- **`BtnSnmp_Click`**: SNMP panelini toggle eder.
+- **`SnmpIpBox_TextChanged`**: Sadece IPv4 geçerli; `✓/✗` + `SnmpBaslatBtn.IsEnabled`.
+- **`SnmpCommunityBox_TextChanged`**: Placeholder yönetimi.
+- **`SnmpVersiyonBtn_Click`**: `_snmpVersiyon` günceller; `SnmpV2cBtn`/`SnmpV1Btn` stilini `SelectedChipButton` ↔ `ChipButton` olarak değiştirir.
+- **`SnmpBaslatBtn_Click`** / **`SnmpIpBox_KeyDown`**: `SnmpSorguBaslat(ip)` fire-and-forget.
+- **`SnmpPanelKapat_Click`**: Paneli kapatan animasyon + Collapsed.
+- **`SnmpSorguBaslat(string ip)`**: `Messenger.Get` (SharpSnmpLib) ile MIB-II sysGroup OID'lerini (sysDescr/sysUpTime/sysContact/sysName/sysLocation) sorgular. `Task.Run` ile thread-pool'da çalışır, 3000ms timeout. `Lextm.SharpSnmpLib.Messaging.TimeoutException` (fully-qualified, `System.TimeoutException` ile çakışma nedeniyle) yakalanır. Sonuçlar `SnmpResultPanel`'e, `LogKaydet("SNMP", ...)` ile `log.txt`'e yazılır.
+- **`SnmpDegerFormatla(ISnmpData, string oid)` static**: sysUpTime'ı `SnmpUptimeFormatla` ile biçimlendirir; diğer tipler için `.ToString()`.
+- **`SnmpUptimeFormatla(uint ticks)` static**: TimeTicks'i `Xg XXs XXd XXsn` formatına dönüştürür.
 
 ---
 
@@ -303,6 +316,7 @@ Elemanlar:
 | `WiresharkPortable64.exe` | `tools\WiresharkPortable64\` | pcap görüntüleme | Manuel |
 | `npcap-1.88.exe` | `Req\` | Sürücü installer | İlk açılışta otomatik UAC |
 | `advanced_ip_scanner.exe` | `tools\Ip_Scanner\` | Cihaz listesi | Manuel |
+| `Lextm.SharpSnmpLib` | NuGet (12.*) | SNMP v1/v2c GET sorgusu | `dotnet restore` otomatik |
 
 ---
 
@@ -332,6 +346,7 @@ CLAUDE.md'de listelenen ve kodda hâlâ açık olanlar:
 9. ✅ Ping Testi — `PingBaslat`
 10. ✅ Cihazları Listele — Advanced IP Scanner
 11. ✅ Taramayı Başlat / Durdur — tshark wrapper
+12. ✅ **SNMP Sorgusu** — `SnmpSorguBaslat` (Lextm.SharpSnmpLib, MIB-II sysGroup), `SnmpPanel` yan paneli
 
 ---
 

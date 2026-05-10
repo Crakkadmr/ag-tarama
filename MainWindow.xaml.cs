@@ -14,6 +14,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Lextm.SharpSnmpLib;
+using Lextm.SharpSnmpLib.Messaging;
 using Microsoft.Win32;
 
 namespace AgTarama;
@@ -34,11 +36,13 @@ public partial class MainWindow : Window
     private bool _portPanelAcik = false;
     private CancellationTokenSource? _portScanCts;
 
-    // ─── Traceroute / DNS / WoL panelleri ────────────────────────────
+    // ─── Traceroute / DNS / WoL / SNMP panelleri ─────────────────────
     private bool _tracePanelAcik = false;
     private CancellationTokenSource? _traceCts;
     private bool _dnsPanelAcik   = false;
     private bool _wolPanelAcik   = false;
+    private bool _snmpPanelAcik  = false;
+    private string _snmpVersiyon = "v2c";
 
     // ─── Otomatik nokta (IP giriş kutuları) ──────────────────────────
     private bool _otomatikGuncelleniyor = false;
@@ -816,6 +820,7 @@ public partial class MainWindow : Window
         if (_tracePanelAcik) { _tracePanelAcik = false; _traceCts?.Cancel(); TracePanel.Visibility = Visibility.Collapsed; }
         if (_dnsPanelAcik)   { _dnsPanelAcik   = false; DnsPanel.Visibility   = Visibility.Collapsed; }
         if (_wolPanelAcik)   { _wolPanelAcik   = false; WolPanel.Visibility   = Visibility.Collapsed; }
+        if (_snmpPanelAcik)  { _snmpPanelAcik  = false; SnmpPanel.Visibility  = Visibility.Collapsed; }
         PingCol.Width = new GridLength(0);
     }
 
@@ -1126,6 +1131,13 @@ public partial class MainWindow : Window
         if (_wolPanelAcik) { YanPanelKapatAnimasyon(() => WolPanel.Visibility = Visibility.Collapsed); _wolPanelAcik = false; return; }
         YanPanelAc(ref _wolPanelAcik, WolPanel);
         WolMacBox.Focus();
+    }
+
+    private void BtnSnmp_Click(object sender, RoutedEventArgs e)
+    {
+        if (_snmpPanelAcik) { YanPanelKapatAnimasyon(() => SnmpPanel.Visibility = Visibility.Collapsed); _snmpPanelAcik = false; return; }
+        YanPanelAc(ref _snmpPanelAcik, SnmpPanel);
+        SnmpIpBox.Focus();
     }
 
     private void BtnArp_Click(object sender, RoutedEventArgs e)   => _ = ArpTablosuGoster();
@@ -1624,6 +1636,186 @@ public partial class MainWindow : Window
             logSatirlari.Add(s);
         }
         LogKaydet("WAKE-ON-LAN", mac, logSatirlari);
+    }
+
+    // ─── SNMP Sorgusu ─────────────────────────────────────────────────
+    private void SnmpIpBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        OtomatikNoktaUygula(SnmpIpBox);
+        var metin = SnmpIpBox.Text.Trim();
+        SnmpIpPlaceholder.Visibility = string.IsNullOrEmpty(SnmpIpBox.Text) ? Visibility.Visible : Visibility.Collapsed;
+        if (string.IsNullOrEmpty(metin))
+        {
+            SnmpIpValidasyon.Text    = "";
+            SnmpBaslatBtn.IsEnabled  = false;
+        }
+        else if (GecerliIpv4Mu(metin))
+        {
+            SnmpIpValidasyon.Text       = "✓";
+            SnmpIpValidasyon.Foreground = new SolidColorBrush(Color.FromRgb(63, 185, 80));
+            SnmpBaslatBtn.IsEnabled     = true;
+        }
+        else
+        {
+            SnmpIpValidasyon.Text       = "✗";
+            SnmpIpValidasyon.Foreground = new SolidColorBrush(Color.FromRgb(248, 81, 73));
+            SnmpBaslatBtn.IsEnabled     = false;
+        }
+    }
+
+    private void SnmpIpBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && SnmpBaslatBtn.IsEnabled)
+            _ = SnmpSorguBaslat(SnmpIpBox.Text.Trim());
+    }
+
+    private void SnmpCommunityBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        SnmpCommunityPlaceholder.Visibility = string.IsNullOrEmpty(SnmpCommunityBox.Text)
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SnmpVersiyonBtn_Click(object sender, RoutedEventArgs e)
+    {
+        _snmpVersiyon = (string)((Button)sender).Tag;
+        SnmpV2cBtn.Style = (Style)FindResource(_snmpVersiyon == "v2c" ? "SelectedChipButton" : "ChipButton");
+        SnmpV1Btn.Style  = (Style)FindResource(_snmpVersiyon == "v1"  ? "SelectedChipButton" : "ChipButton");
+    }
+
+    private void SnmpBaslatBtn_Click(object sender, RoutedEventArgs e)
+        => _ = SnmpSorguBaslat(SnmpIpBox.Text.Trim());
+
+    private void SnmpPanelKapat_Click(object sender, RoutedEventArgs e)
+    {
+        _snmpPanelAcik = false;
+        YanPanelKapatAnimasyon(() => SnmpPanel.Visibility = Visibility.Collapsed);
+    }
+
+    private void SnmpKutucugaYaz(string metin, string hex) =>
+        SnmpResultPanel.Children.Add(new TextBlock
+        {
+            Text         = metin,
+            FontFamily   = new FontFamily("Consolas"),
+            FontSize     = 12,
+            Foreground   = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
+            TextWrapping = TextWrapping.Wrap,
+            Margin       = new Thickness(0, 1, 0, 1),
+        });
+
+    private async Task SnmpSorguBaslat(string ip)
+    {
+        SnmpResultPanel.Children.Clear();
+        SnmpResultBorder.Visibility = Visibility.Visible;
+        SnmpBaslatBtn.IsEnabled     = false;
+
+        var community = string.IsNullOrWhiteSpace(SnmpCommunityBox.Text)
+            ? "public" : SnmpCommunityBox.Text.Trim();
+        var version   = _snmpVersiyon == "v1" ? VersionCode.V1 : VersionCode.V2;
+
+        SnmpKutucugaYaz($"◆ {ip}  community={community}  {_snmpVersiyon}", "#8B949E");
+
+        // Sorgulanacak MIB-II sysGroup OID'leri
+        var oidler = new List<Variable>
+        {
+            new(new ObjectIdentifier("1.3.6.1.2.1.1.1.0")), // sysDescr
+            new(new ObjectIdentifier("1.3.6.1.2.1.1.3.0")), // sysUpTime
+            new(new ObjectIdentifier("1.3.6.1.2.1.1.4.0")), // sysContact
+            new(new ObjectIdentifier("1.3.6.1.2.1.1.5.0")), // sysName
+            new(new ObjectIdentifier("1.3.6.1.2.1.1.6.0")), // sysLocation
+        };
+
+        var logSatirlari = new List<string>
+            { $"IP={ip}  community={community}  versiyon={_snmpVersiyon}" };
+
+        try
+        {
+            var adres    = IPAddress.Parse(ip);
+            var endpoint = new IPEndPoint(adres, 161);
+
+            IList<Variable> sonuc = await Task.Run(() =>
+                Messenger.Get(version, endpoint, new OctetString(community), oidler, 3000));
+
+            var adlar = new Dictionary<string, string>
+            {
+                { "1.3.6.1.2.1.1.1.0", "Açıklama " },
+                { "1.3.6.1.2.1.1.3.0", "Uptime   " },
+                { "1.3.6.1.2.1.1.4.0", "İletişim " },
+                { "1.3.6.1.2.1.1.5.0", "Ad       " },
+                { "1.3.6.1.2.1.1.6.0", "Konum    " },
+            };
+
+            bool veriVar = false;
+            foreach (var v in sonuc)
+            {
+                var oidStr = v.Id.ToString();
+                string ad  = adlar.TryGetValue(oidStr, out var a) ? a : oidStr;
+                string deger;
+                string hex;
+
+                if (v.Data is NoSuchObject or NoSuchInstance)
+                {
+                    deger = "(mevcut değil)";
+                    hex   = "#484F58";
+                }
+                else
+                {
+                    deger    = SnmpDegerFormatla(v.Data, oidStr);
+                    hex      = "#C9D1D9";
+                    veriVar  = true;
+                }
+
+                SnmpKutucugaYaz($"  {ad}  →  {deger}", hex);
+                logSatirlari.Add($"  {ad} → {deger}");
+            }
+
+            SnmpKutucugaYaz("─────────────────────────", "#30363D");
+            if (veriVar)
+            {
+                SnmpKutucugaYaz($"✔ Sorgu tamamlandı — {_snmpVersiyon}", "#3FB950");
+                logSatirlari.Add($"✔ Başarılı");
+            }
+            else
+            {
+                SnmpKutucugaYaz("✖ OID yanıtı boş (community hatalı olabilir)", "#F85149");
+                logSatirlari.Add("✖ Boş yanıt");
+            }
+        }
+        catch (Lextm.SharpSnmpLib.Messaging.TimeoutException)
+        {
+            SnmpKutucugaYaz("─────────────────────────", "#30363D");
+            SnmpKutucugaYaz("✖ Yanıt yok — SNMP aktif değil veya community hatalı", "#F85149");
+            logSatirlari.Add("✖ Timeout");
+        }
+        catch (Exception ex)
+        {
+            SnmpKutucugaYaz("─────────────────────────", "#30363D");
+            SnmpKutucugaYaz($"✖ {ex.Message}", "#F85149");
+            logSatirlari.Add($"✖ {ex.Message}");
+        }
+
+        LogKaydet("SNMP", ip, logSatirlari);
+        SnmpResultScroll.ScrollToEnd();
+        SnmpBaslatBtn.IsEnabled = true;
+    }
+
+    private static string SnmpDegerFormatla(ISnmpData veri, string oid)
+    {
+        if (oid == "1.3.6.1.2.1.1.3.0" && veri is TimeTicks t)
+            return SnmpUptimeFormatla(t.ToUInt32());
+        return veri switch
+        {
+            OctetString s => s.ToString(),
+            Integer32   i => i.ToInt32().ToString(),
+            Counter32   c => c.ToUInt32().ToString(),
+            Gauge32     g => g.ToUInt32().ToString(),
+            _             => veri.ToString() ?? "-",
+        };
+    }
+
+    private static string SnmpUptimeFormatla(uint ticks)
+    {
+        var ts = TimeSpan.FromSeconds(ticks / 100.0);
+        return $"{(int)ts.TotalDays}g {ts.Hours:00}s {ts.Minutes:00}d {ts.Seconds:00}sn";
     }
 
     // ─── Ağ Adaptörü Bilgileri ────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 > Bu dosya yeni Claude Code session'larında dosyaları taramadan tüm projeyi anlayabilmek için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da güncellenmelidir.** (Bkz. CLAUDE.md)
-> Son güncelleme: 2026-05-10 (Faz 7: Favoriler, Ayarlar, Subnet Hesap, HTML Rapor, Sürükle-Bırak pcap, Toast/Ses bildirimleri)
+> Son güncelleme: 2026-05-11 (Faz 8: Kamera Tarayıcı — HTTP banner, marka/model tespiti, tıklanabilir linkler)
 
 ---
 
@@ -13,6 +13,7 @@
 | Ad | AG TARAMA PROGRAMI (AgTarama) |
 | Tip | WPF Desktop Uygulaması |
 | Hedef | .NET 10 (`net10.0-windows`), `UseWPF=true`, `Nullable=enable`, `ImplicitUsings=enable` |
+| csproj ek | `tools\**\*` ve `Req\**\*` → `CopyToOutputDirectory=PreserveNewest` (release dahil her build'de kopyalanır) |
 | Output | `WinExe` |
 | Namespace | `AgTarama` |
 | Sürüm | v0.1.0 |
@@ -134,6 +135,7 @@ Metin:         #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre
 | SADP | `BtnSadp` | ActionButton | `BtnSadp_Click` | ✅ `tools/sadp/sadptool.exe` |
 | Wake-on-LAN | `BtnWol` | ActionButton | `BtnWol_Click` | ✅ Yan panel (UDP magic packet) |
 | SNMP Sorgusu | `BtnSnmp` | ActionButton | `BtnSnmp_Click` | ✅ Yan panel (SharpSnmpLib GET) |
+| Kamera Tara | `BtnKamera` | ActionButton | `BtnKamera_Click` | ✅ Yan panel (port scan + ONVIF + SSDP) |
 | Ekranı Temizle | `BtnTemizle` | ActionButton | `BtnTemizle_Click` | ✅ Tarama sırasında disabled |
 
 ### 5.5 Port Tara Paneli (yan panel, animasyonla açılır)
@@ -207,6 +209,8 @@ Elemanlar:
 | `_wolPanelAcik` | bool | Wake-on-LAN paneli durumu |
 | `_snmpPanelAcik` | bool | SNMP sorgusu paneli durumu |
 | `_snmpVersiyon` | string | Seçili SNMP versiyonu: `"v1"` veya `"v2c"` (varsayılan `"v2c"`) |
+| `_kameraPanelAcik` | bool | Kamera Tarayıcı paneli durumu |
+| `_kameraCts` | `CancellationTokenSource?` | Kamera tarama iptali |
 | `_yanPanelTimer` | `DispatcherTimer?` | Tek aktif panel animasyon timer'ı — yeni animasyon başlamadan önce durdurulur (çift tık bug fix) |
 | `_aktifPanelBtn` | `Button?` | Şu an açık panelin sağ panel butonu — `Tag="active"` atanır, yeşil çerçeve için |
 | `_macRegex` | `Regex` | MAC adresi doğrulama regex'i |
@@ -224,7 +228,7 @@ Elemanlar:
 - **`BaslangicAsync()`**: `LogService.OturumBaslat()` + Npcap kontrol/kurulum + "Sistem hazır" mesajı.
 - **`HataBildir(mesaj, ex?)`**: Tüm hata yollarının tek giriş noktası — `MesajEkle("hata",...)` + `LogService.Hata(...)`.
 - **`NpcapKurulumu()` static**: `HKLM\SOFTWARE\Npcap` ve `WOW6432Node\Npcap` registry kontrolü.
-- **`NpcapKontrolVeKur()`**: Npcap yüklü değilse `Paths.NpcapInstaller /S` ile UAC sessiz kurulum. Hatalar `HataBildir` ile bildirilir.
+- **`NpcapKontrolVeKur()`**: Npcap yüklü değilse `Paths.NpcapInstaller`'ı `/S` flag'i **olmadan** (normal, görsel kurulum) `runas` ile başlatır. Kurulum sırasında chat'e `"Npcap kurulumunu tamamlayınız."` mesajı yazılır; kurulum bitince registry'den doğrulama yapılır.
 
 ### 6.4 Arayüz Tespiti → `Services/InterfaceDiscoveryService`
 
@@ -321,6 +325,25 @@ Elemanlar:
 - **`SnmpSorguBaslat(string ip)`**: `Messenger.Get` (SharpSnmpLib) ile MIB-II sysGroup OID'lerini (sysDescr/sysUpTime/sysContact/sysName/sysLocation) sorgular. `Task.Run` ile thread-pool'da çalışır, 3000ms timeout. `Lextm.SharpSnmpLib.Messaging.TimeoutException` (fully-qualified, `System.TimeoutException` ile çakışma nedeniyle) yakalanır. Sonuçlar `SnmpResultPanel`'e, `LogKaydet("SNMP", ...)` ile `log.txt`'e yazılır.
 - **`SnmpDegerFormatla(ISnmpData, string oid)` static**: sysUpTime'ı `SnmpUptimeFormatla` ile biçimlendirir; diğer tipler için `.ToString()`.
 - **`SnmpUptimeFormatla(uint ticks)` static**: TimeTicks'i `Xg XXs XXd XXsn` formatına dönüştürür.
+- **`BtnKamera_Click`**: `KameraPanel` toggle + `SetButonAktif`; açılırken subnet'i `YerelSubnetiBul()` ile doldurur.
+- **`KameraPanelKapat_Click`**: `_kameraCts.Cancel()` + animasyon ile kapatır.
+- **`KameraSubnetBox_TextChanged`**: Placeholder yönetimi.
+- **`KameraBaslatBtn_Click`** / **`KameraDurdurBtn_Click`**: `KameraTaramaBaslat()` fire-and-forget / iptal.
+- **`YerelSubnetiBul() static`**: `NetworkInterface` üzerinden RFC 1918 bloğundaki ilk aktif IP'nin `/24` prefix'ini döner.
+- **`KameraTaramaBaslat()`**: Üç görevi `Task.WhenAll` ile paralel çalıştırır:
+  1. **Port taraması** — 1–254 arası tüm IP'lere `SemaphoreSlim(80)` + 800 ms timeout ile `KameraPorts` (554, 8000, 8080, 37777, 80, 8443) bağlantısı dener; 554 açıksa `RtspHizliKontrol`, HTTP port açıksa `HttpBannerOku` çağırır.
+  2. **ONVIF WS-Discovery** — `239.255.255.250:3702`'ye Probe XML gönderir, 4 sn `ProbeMatch` dinler; `XAddrs`, scope `name` ve `hardware` bilgilerini okur (`OnvifHardware` alanına kaydeder).
+  3. **SSDP/UPnP** — `239.255.255.250:1900`'e M-SEARCH gönderir, 3 sn kamera anahtar kelimeleri içeren yanıtları filtreler.
+  Her bulgu `ConcurrentDictionary<string, KameraBilgi>` ile dedup edilir; `Dispatcher.InvokeAsync` ile `KameraKartEkleVeyaGuncelle` çağrılır.
+- **`HttpBannerOku(ip, port, token) static`**: TCP ile HTTP GET `/` isteği gönderir, `Server:` header'ı ve `<title>` etiketini parse eder (2.5 sn timeout). `(Sunucu, Baslik)` tuple döner.
+- **`RtspHizliKontrol(ip, port, token) static`**: Anonim RTSP DESCRIBE gönderir, ilk satırdaki durum kodunu döner (2 sn timeout).
+- **`KimlikBelirle(KameraBilgi) static`**: `MarkaTablosu` (32 marka kaydı) kullanarak Server header + title + ONVIF hardware üzerinden marka, model ve cihaz türü (`Kamera` / `Erişim Noktası` / `Switch` / `Router/AP`) tespit eder; port bazlı fallback uygular.
+- **`MarkaTablosu static`**: 35 girişli `(anahtar, marka, tur)` dizisi — Hikvision, Dahua, Axis, Reolink, Bosch, Hanwha, Vivotek, Pelco, FLIR, Uniview, GoAhead, MiniHTTPd, Ubiquiti, MikroTik, TP-Link, Cisco, D-Link, NETGEAR, ZyXEL, Tenda, Huawei, H3C, Ruijie, ASUS, Witek, TTEC, Stonet.
+- **`KameraKartEkleVeyaGuncelle(KameraBilgi)`**: `_kameraKartlar` dict'i kullanarak mevcut kart varsa içeriği yeniler, yoksa yeni `Border` kart oluşturup `KameraResultPanel`'e ekler.
+- **`KameraKartIcDoldur(Border, KameraBilgi) static`**: `KimlikBelirle` sonucuna göre türikon + IP + marka — model başlık; tür etiketi; portlar; Server header; RTSP durumu; ONVIF/UPnP badge; tıklanabilir `http/https/rtsp/onvif` linkleri (`KartLink`).
+- **`KartSatir(metin, hex) static`**: Kart içi düz metin satırı `TextBlock`.
+- **`KartLink(etiket, url) static`**: `Hyperlink` içeren `TextBlock` — tıklanınca `Process.Start(UseShellExecute)` ile tarayıcı/uygulama açar.
+- **`KameraKutucugaYaz(string, string)`**: `KameraResultPanel`'e log satırı ekler.
 
 ---
 
@@ -363,6 +386,7 @@ CLAUDE.md'de listelenen ve kodda hâlâ açık olanlar:
 10. ✅ Cihazları Listele — Advanced IP Scanner
 11. ✅ Taramayı Başlat / Durdur — tshark wrapper
 12. ✅ **SNMP Sorgusu** — `SnmpSorguBaslat` (Lextm.SharpSnmpLib, MIB-II sysGroup), `SnmpPanel` yan paneli
+13. ✅ **Kamera Tarayıcı** — `KameraTaramaBaslat` (subnet port scan + ONVIF WS-Discovery + SSDP/UPnP paralel), `KameraPanel` yan paneli
 
 ---
 

@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using Lextm.SharpSnmpLib;
@@ -51,6 +52,8 @@ public partial class MainWindow : Window
     private string _snmpVersiyon     = "v2c";
     private bool _favorilerPanelAcik = false;
     private bool _subnetPanelAcik    = false;
+    private bool _kameraPanelAcik    = false;
+    private CancellationTokenSource? _kameraCts;
 
     // ─── Animasyon / aktif buton / toast ─────────────────────────────
     private System.Windows.Threading.DispatcherTimer? _yanPanelTimer;
@@ -100,7 +103,7 @@ public partial class MainWindow : Window
         LogService.Hata(mesaj, ex);
     }
 
-    // ─── Npcap kontrol ve sessiz kurulum ─────────────────────────────
+    // ─── Npcap kontrol ve kurulum ─────────────────────────────────────
     private static bool NpcapKurulumu()
     {
         using var k32 = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Npcap");
@@ -122,12 +125,12 @@ public partial class MainWindow : Window
             return false;
         }
 
-        MesajEkle("sistem", "Npcap kurulu değil — sessiz kurulum başlatılıyor (yönetici izni istenebilir)...");
+        MesajEkle("sistem", "⚠ Npcap kurulu değil — kurulum penceresi açılıyor...");
+        MesajEkle("kullanici", "Npcap kurulumunu tamamlayınız.");
 
         try
         {
-            // /S = NSIS silent flag; yönetici hakları için Verb = "runas"
-            var psi = new ProcessStartInfo(Paths.NpcapInstaller, "/S")
+            var psi = new ProcessStartInfo(Paths.NpcapInstaller)
             {
                 UseShellExecute = true,
                 Verb            = "runas",
@@ -142,7 +145,7 @@ public partial class MainWindow : Window
             }
             else
             {
-                MesajEkle("hata", "Npcap kurulumu tamamlandı ama kayıt defterinde bulunamadı. Bilgisayarı yeniden başlatın.");
+                MesajEkle("hata", "Npcap kurulumu tamamlanamadı veya iptal edildi. Bilgisayarı yeniden başlatmanız gerekebilir.");
                 return false;
             }
         }
@@ -700,6 +703,7 @@ public partial class MainWindow : Window
         if (_snmpPanelAcik)      { _snmpPanelAcik      = false; SnmpPanel.Visibility    = Visibility.Collapsed; }
         if (_favorilerPanelAcik) { _favorilerPanelAcik = false; FavorilerPanel.Visibility = Visibility.Collapsed; }
         if (_subnetPanelAcik)    { _subnetPanelAcik    = false; SubnetPanel.Visibility  = Visibility.Collapsed; }
+        if (_kameraPanelAcik)    { _kameraPanelAcik    = false; _kameraCts?.Cancel(); KameraPanel.Visibility  = Visibility.Collapsed; }
         SetButonAktif(null);
         PingCol.Width = new GridLength(0);
     }
@@ -2051,5 +2055,535 @@ public partial class MainWindow : Window
         }
         catch { }
     }
+
+    // ─── 7. Kamera Tarayıcı ──────────────────────────────────────────
+
+    private sealed class KameraBilgi
+    {
+        public string    Ip             { get; init; } = "";
+        public List<int> AcikPortlar    { get; } = new();
+        public bool      OnvifBulundu   { get; set; }
+        public bool      SsdpBulundu    { get; set; }
+        public string?   OnvifServisUrl { get; set; }
+        public string?   OnvifHardware  { get; set; }
+        public string?   RtspDurum      { get; set; }
+        public string?   SunucuBasligi  { get; set; }
+        public string?   SayfaBasligi   { get; set; }
+    }
+
+    private sealed class CihazKimlik
+    {
+        public string  Marka   { get; set; } = "Bilinmiyor";
+        public string? Model   { get; set; }
+        public string  Tur     { get; set; } = "Cihaz";
+        public string  TurIkon { get; set; } = "◈";
+    }
+
+    private static readonly int[] KameraPorts = { 554, 8000, 8080, 37777, 80, 8443 };
+
+    private static readonly (string Anahtar, string Marka, string Tur)[] MarkaTablosu =
+    {
+        ("hikvision",        "Hikvision",    "Kamera"),
+        ("cross web server", "Dahua",        "Kamera"),
+        ("dahua",            "Dahua",        "Kamera"),
+        ("axis",             "Axis",         "Kamera"),
+        ("reolink",          "Reolink",      "Kamera"),
+        ("bosch",            "Bosch",        "Kamera"),
+        ("hanwha",           "Hanwha",       "Kamera"),
+        ("samsung techwin",  "Hanwha",       "Kamera"),
+        ("vivotek",          "Vivotek",      "Kamera"),
+        ("pelco",            "Pelco",        "Kamera"),
+        ("flir",             "FLIR",         "Kamera"),
+        ("uniview",          "Uniview",      "Kamera"),
+        ("goahead-webs",     "IP Kamera",    "Kamera"),
+        ("mini_httpd",       "IP Kamera",    "Kamera"),
+        ("ubiquiti",         "Ubiquiti",     "Erişim Noktası"),
+        ("unifi",            "Ubiquiti",     "Erişim Noktası"),
+        ("airos",            "Ubiquiti",     "Erişim Noktası"),
+        ("ubnt",             "Ubiquiti",     "Erişim Noktası"),
+        ("mikrotik",         "MikroTik",     "Router/AP"),
+        ("routeros",         "MikroTik",     "Router/AP"),
+        ("tp-link",          "TP-Link",      "Switch/AP"),
+        ("tplink",           "TP-Link",      "Switch/AP"),
+        ("cisco",            "Cisco",        "Switch"),
+        ("d-link",           "D-Link",       "Switch/AP"),
+        ("dlink",            "D-Link",       "Switch/AP"),
+        ("netgear",          "NETGEAR",      "Switch/AP"),
+        ("zyxel",            "ZyXEL",        "Switch/AP"),
+        ("tenda",            "Tenda",        "Switch/AP"),
+        ("huawei",           "Huawei",       "Switch/AP"),
+        ("h3c",              "H3C",          "Switch"),
+        ("ruijie",           "Ruijie",       "Switch"),
+        ("asus",             "ASUS",         "Router/AP"),
+        ("witek",            "Witek",        "Kamera"),
+        ("ttec",             "TTEC",         "Kamera"),
+        ("stonet",           "Stonet",       "Kamera"),
+    };
+
+    private static CihazKimlik KimlikBelirle(KameraBilgi b)
+    {
+        var k      = new CihazKimlik();
+        var birles = $"{b.SunucuBasligi} {b.SayfaBasligi} {b.OnvifHardware}".ToLowerInvariant();
+
+        foreach (var (anahtar, marka, tur) in MarkaTablosu)
+        {
+            if (!birles.Contains(anahtar)) continue;
+            k.Marka = marka; k.Tur = tur; break;
+        }
+
+        // Port bazlı fallback
+        if (k.Marka == "Bilinmiyor")
+        {
+            if (b.AcikPortlar.Contains(37777))                               { k.Marka = "Dahua";    k.Tur = "Kamera"; }
+            else if (b.AcikPortlar.Contains(8000) && b.AcikPortlar.Contains(554)) { k.Marka = "Hikvision"; k.Tur = "Kamera"; }
+            else if (b.AcikPortlar.Contains(554))                            {                        k.Tur = "Kamera"; }
+        }
+
+        k.TurIkon = k.Tur switch
+        {
+            "Kamera"           => "◎",
+            "Erişim Noktası"   => "⊛",
+            "Router/AP"        => "⊛",
+            "Switch/AP"        => "◫",
+            "Switch"           => "◫",
+            _                  => "◈",
+        };
+
+        // Model: ONVIF hardware > sayfa başlığı (kısa ise)
+        k.Model = b.OnvifHardware
+            ?? (b.SayfaBasligi is { Length: > 0 and < 60 } s ? s : null);
+
+        return k;
+    }
+
+    private static string? YerelSubnetiBul()
+    {
+        foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (ni.OperationalStatus != OperationalStatus.Up) continue;
+            if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+            foreach (var uni in ni.GetIPProperties().UnicastAddresses)
+            {
+                if (uni.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                var b = uni.Address.GetAddressBytes();
+                if (b[0] == 192 || b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31))
+                    return $"{b[0]}.{b[1]}.{b[2]}";
+            }
+        }
+        return null;
+    }
+
+    private readonly Dictionary<string, Border> _kameraKartlar = new();
+
+    private void BtnKamera_Click(object sender, RoutedEventArgs e)
+    {
+        if (_kameraPanelAcik) { _kameraCts?.Cancel(); SetButonAktif(null); _kameraPanelAcik = false; YanPanelKapatAnimasyon(() => KameraPanel.Visibility = Visibility.Collapsed); return; }
+        YanPanelAc(ref _kameraPanelAcik, KameraPanel);
+        SetButonAktif(BtnKamera);
+        if (string.IsNullOrEmpty(KameraSubnetBox.Text))
+            KameraSubnetBox.Text = YerelSubnetiBul() ?? "";
+    }
+
+    private void KameraPanelKapat_Click(object sender, RoutedEventArgs e)
+    {
+        _kameraCts?.Cancel();
+        _kameraPanelAcik = false; SetButonAktif(null);
+        YanPanelKapatAnimasyon(() => KameraPanel.Visibility = Visibility.Collapsed);
+    }
+
+    private void KameraSubnetBox_TextChanged(object sender, TextChangedEventArgs e)
+        => KameraSubnetPlaceholder.Visibility = string.IsNullOrEmpty(KameraSubnetBox.Text)
+            ? Visibility.Visible : Visibility.Collapsed;
+
+    private void KameraBaslatBtn_Click(object sender, RoutedEventArgs e) => _ = KameraTaramaBaslat();
+    private void KameraDurdurBtn_Click(object sender, RoutedEventArgs e) => _kameraCts?.Cancel();
+
+    private async Task KameraTaramaBaslat()
+    {
+        var subnet = KameraSubnetBox.Text.Trim();
+        if (string.IsNullOrEmpty(subnet))
+        {
+            subnet = YerelSubnetiBul() ?? "";
+            KameraSubnetBox.Text = subnet;
+        }
+
+        KameraResultPanel.Children.Clear();
+        _kameraKartlar.Clear();
+        KameraResultBorder.Visibility   = Visibility.Visible;
+        KameraIlerlemeText.Visibility   = Visibility.Visible;
+        KameraBaslatBtn.IsEnabled       = false;
+        KameraDurdurBtn.Visibility      = Visibility.Visible;
+        KameraIlerlemeText.Text         = "Başlatılıyor...";
+
+        if (string.IsNullOrEmpty(subnet))
+        {
+            KameraKutucugaYaz("✖ Subnet tespit edilemedi — manuel girin (örn: 192.168.1)", "#F85149");
+            KameraBaslatBtn.IsEnabled  = true;
+            KameraDurdurBtn.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _kameraCts?.Cancel();
+        _kameraCts = new CancellationTokenSource();
+        var token  = _kameraCts.Token;
+
+        var bulunanlar   = new System.Collections.Concurrent.ConcurrentDictionary<string, KameraBilgi>(StringComparer.Ordinal);
+        var logSatirlari = new System.Collections.Concurrent.ConcurrentBag<string>();
+        int taranan      = 0;
+
+        KameraKutucugaYaz($"Subnet  : {subnet}.1 – {subnet}.254", "#8B949E");
+        KameraKutucugaYaz($"Portlar : {string.Join(", ", KameraPorts)}", "#484F58");
+        KameraKutucugaYaz("─────────────────────────", "#30363D");
+
+        try
+        {
+            // ── Port taraması (paralel, tüm subnet) ──────────────────
+            var portTask = Task.Run(async () =>
+            {
+                var sem   = new SemaphoreSlim(80);
+                var tasks = Enumerable.Range(1, 254).Select(i =>
+                {
+                    var ip = $"{subnet}.{i}";
+                    return Task.Run(async () =>
+                    {
+                        await sem.WaitAsync(token);
+                        try
+                        {
+                            var acik = new List<int>();
+                            foreach (var port in KameraPorts)
+                            {
+                                if (token.IsCancellationRequested) break;
+                                try
+                                {
+                                    using var linked = CancellationTokenSource.CreateLinkedTokenSource(token);
+                                    linked.CancelAfter(800);
+                                    using var tcp = new TcpClient();
+                                    await tcp.ConnectAsync(ip, port, linked.Token);
+                                    acik.Add(port);
+                                }
+                                catch { }
+                            }
+
+                            if (acik.Count > 0)
+                            {
+                                var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
+                                lock (bilgi.AcikPortlar) bilgi.AcikPortlar.AddRange(acik.Except(bilgi.AcikPortlar));
+
+                                if (acik.Contains(554))
+                                    bilgi.RtspDurum = await RtspHizliKontrol(ip, 554, token);
+
+                                // HTTP banner — ilk açık HTTP portunu dene
+                                foreach (var hp in new[] { 80, 8080, 8443, 443 })
+                                {
+                                    if (!acik.Contains(hp)) continue;
+                                    var (sunucu, baslik) = await HttpBannerOku(ip, hp, token);
+                                    bilgi.SunucuBasligi = sunucu;
+                                    bilgi.SayfaBasligi  = baslik;
+                                    break;
+                                }
+
+                                logSatirlari.Add($"{ip}: port={string.Join(",", bilgi.AcikPortlar)} marka={KimlikBelirle(bilgi).Marka}");
+                                await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
+                            }
+                        }
+                        finally
+                        {
+                            sem.Release();
+                            int n = Interlocked.Increment(ref taranan);
+                            if (n % 32 == 0)
+                                await Dispatcher.InvokeAsync(() => KameraIlerlemeText.Text = $"Port tarama: {n}/254 kontrol edildi…");
+                        }
+                    }, token);
+                });
+                await Task.WhenAll(tasks);
+            }, token);
+
+            // ── ONVIF WS-Discovery (4 sn) ────────────────────────────
+            var onvifTask = Task.Run(async () =>
+            {
+                try
+                {
+                    string probe = $"<?xml version=\"1.0\" encoding=\"utf-8\"?><Envelope xmlns=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:tns=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\"><Header><wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</wsa:Action><wsa:MessageID>uuid:{Guid.NewGuid()}</wsa:MessageID><wsa:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</wsa:To></Header><Body><tns:Probe><tns:Types>dn:NetworkVideoTransmitter</tns:Types></tns:Probe></Body></Envelope>";
+                    var bytes = Encoding.UTF8.GetBytes(probe);
+                    using var udp = new UdpClient();
+                    udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    udp.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
+                    await udp.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Parse("239.255.255.250"), 3702));
+
+                    using var cts2 = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    cts2.CancelAfter(4000);
+                    while (!cts2.Token.IsCancellationRequested)
+                    {
+                        var res = await udp.ReceiveAsync(cts2.Token);
+                        var xml = Encoding.UTF8.GetString(res.Buffer);
+                        if (!xml.Contains("ProbeMatch")) continue;
+
+                        var ip     = res.RemoteEndPoint.Address.ToString();
+                        var xM     = Regex.Match(xml, @"<[^>]*XAddrs[^>]*>([^<]+)</[^>]*XAddrs>");
+                        var scopes = Regex.Matches(xml, @"onvif://www\.onvif\.org/(\w+)/([^<\s""]+)");
+                        var bilgi  = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
+                        bilgi.OnvifBulundu   = true;
+                        bilgi.OnvifServisUrl = xM.Success ? xM.Groups[1].Value.Trim().Split(' ')[0] : null;
+
+                        var scopeDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (Match m in scopes) scopeDict[m.Groups[1].Value] = Uri.UnescapeDataString(m.Groups[2].Value);
+                        if (scopeDict.TryGetValue("hardware", out var hw)) bilgi.OnvifHardware = hw;
+                        if (scopeDict.TryGetValue("name",     out var nm)) logSatirlari.Add($"{ip} ONVIF: {nm} {hw}");
+
+                        await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
+                    }
+                }
+                catch (OperationCanceledException) { }
+                catch { }
+            });
+
+            // ── SSDP / UPnP (3 sn) ──────────────────────────────────
+            var ssdpTask = Task.Run(async () =>
+            {
+                try
+                {
+                    var bytes = Encoding.ASCII.GetBytes("M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 2\r\nST: ssdp:all\r\n\r\n");
+                    using var udp = new UdpClient();
+                    udp.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
+                    await udp.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Parse("239.255.255.250"), 1900));
+
+                    using var cts3 = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    cts3.CancelAfter(3000);
+                    var kameraAnahtarlari = new[] { "camera", "ipcam", "nvr", "dvr", "dahua", "hikvision", "hanwha", "axis", "bosch" };
+                    while (!cts3.Token.IsCancellationRequested)
+                    {
+                        var res  = await udp.ReceiveAsync(cts3.Token);
+                        var resp = Encoding.UTF8.GetString(res.Buffer);
+                        if (!kameraAnahtarlari.Any(k => resp.Contains(k, StringComparison.OrdinalIgnoreCase))) continue;
+
+                        var ip    = res.RemoteEndPoint.Address.ToString();
+                        var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
+                        bilgi.SsdpBulundu = true;
+                        logSatirlari.Add($"{ip} UPnP/SSDP");
+                        await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
+                    }
+                }
+                catch (OperationCanceledException) { }
+                catch { }
+            });
+
+            await Task.WhenAll(portTask, onvifTask, ssdpTask);
+
+            var sonuc = token.IsCancellationRequested
+                ? $"■ Durduruldu — {bulunanlar.Count} cihaz bulundu"
+                : $"✔ Tamamlandı — {bulunanlar.Count} kamera/cihaz bulundu";
+            KameraKutucugaYaz("─────────────────────────", "#30363D");
+            KameraKutucugaYaz(sonuc, bulunanlar.Count > 0 ? "#3FB950" : "#D29922");
+            KameraIlerlemeText.Text = sonuc;
+            LogService.Kaydet("KAMERA TARA", $"{subnet}.0/24", logSatirlari.ToList());
+        }
+        catch (OperationCanceledException)
+        {
+            KameraIlerlemeText.Text = "Tarama durduruldu.";
+        }
+        catch (Exception ex)
+        {
+            KameraKutucugaYaz($"✖ {ex.Message}", "#F85149");
+        }
+        finally
+        {
+            KameraBaslatBtn.IsEnabled  = true;
+            KameraDurdurBtn.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private static async Task<(string? Sunucu, string? Baslik)> HttpBannerOku(string ip, int port, CancellationToken token)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cts.CancelAfter(2500);
+            using var tcp = new TcpClient();
+            await tcp.ConnectAsync(ip, port, cts.Token);
+            using var stream = tcp.GetStream();
+            stream.ReadTimeout = stream.WriteTimeout = 2500;
+            var req = Encoding.ASCII.GetBytes($"GET / HTTP/1.0\r\nHost: {ip}\r\nUser-Agent: AgTarama/1.0\r\nConnection: close\r\n\r\n");
+            await stream.WriteAsync(req, cts.Token);
+            var buf = new byte[4096];
+            int n   = await stream.ReadAsync(buf, cts.Token);
+            var resp = Encoding.UTF8.GetString(buf, 0, n);
+
+            string? sunucu = null, baslik = null;
+            foreach (var line in resp.Split('\n'))
+            {
+                var l = line.Trim();
+                if (l.StartsWith("Server:", StringComparison.OrdinalIgnoreCase))
+                    sunucu = l[7..].Trim();
+            }
+            var tm = Regex.Match(resp, @"<title[^>]*>([^<]{1,80})</title>", RegexOptions.IgnoreCase);
+            if (tm.Success) baslik = tm.Groups[1].Value.Trim();
+            return (sunucu, baslik);
+        }
+        catch { return (null, null); }
+    }
+
+    private static async Task<string?> RtspHizliKontrol(string ip, int port, CancellationToken token)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cts.CancelAfter(2000);
+            using var tcp = new TcpClient();
+            await tcp.ConnectAsync(ip, port, cts.Token);
+            using var stream = tcp.GetStream();
+            stream.ReadTimeout = stream.WriteTimeout = 2000;
+            var req = Encoding.ASCII.GetBytes($"DESCRIBE rtsp://{ip}:{port}/ RTSP/1.0\r\nCSeq: 1\r\nUser-Agent: AgTarama/1.0\r\n\r\n");
+            await stream.WriteAsync(req, cts.Token);
+            var buf = new byte[256];
+            int n   = await stream.ReadAsync(buf, cts.Token);
+            var first = Encoding.ASCII.GetString(buf, 0, n).Split('\n')[0].Trim();
+            return first.Length > 9 ? first[9..] : first;
+        }
+        catch { return null; }
+    }
+
+    private void KameraKartEkleVeyaGuncelle(KameraBilgi bilgi)
+    {
+        if (_kameraKartlar.TryGetValue(bilgi.Ip, out var kart))
+        {
+            KameraKartIcDoldur(kart, bilgi);
+            return;
+        }
+        var yeniKart = new Border
+        {
+            Background      = new SolidColorBrush(Color.FromRgb(22, 27, 34)),
+            BorderBrush     = new SolidColorBrush(Color.FromRgb(48, 54, 61)),
+            BorderThickness = new Thickness(1),
+            CornerRadius    = new CornerRadius(6),
+            Padding         = new Thickness(10, 8, 10, 8),
+            Margin          = new Thickness(0, 0, 0, 6),
+        };
+        _kameraKartlar[bilgi.Ip] = yeniKart;
+        KameraKartIcDoldur(yeniKart, bilgi);
+        KameraResultPanel.Children.Add(yeniKart);
+        KameraResultScroll.ScrollToEnd();
+    }
+
+    private static void KameraKartIcDoldur(Border kart, KameraBilgi bilgi)
+    {
+        var sp  = new StackPanel();
+        var kim = KimlikBelirle(bilgi);
+
+        // ── Başlık satırı ────────────────────────────────────────────
+        var baslikSb = new StringBuilder();
+        baslikSb.Append($"{kim.TurIkon}  {bilgi.Ip}");
+        if (kim.Marka != "Bilinmiyor") baslikSb.Append($"   {kim.Marka}");
+        if (kim.Model != null)         baslikSb.Append($" — {kim.Model}");
+        sp.Children.Add(new TextBlock
+        {
+            Text        = baslikSb.ToString(),
+            FontFamily  = new FontFamily("Consolas"),
+            FontSize    = 13,
+            FontWeight  = FontWeights.Bold,
+            Foreground  = new SolidColorBrush(Color.FromRgb(88, 166, 255)),
+            Margin      = new Thickness(0, 0, 0, 4),
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        // Tür etiketi
+        sp.Children.Add(KartSatir($"   Tür    : {kim.Tur}", "#8B949E"));
+
+        // Açık portlar
+        if (bilgi.AcikPortlar.Count > 0)
+            sp.Children.Add(KartSatir($"   Port   : {string.Join(", ", bilgi.AcikPortlar.Order())}", "#C9D1D9"));
+
+        // HTTP Server header
+        if (bilgi.SunucuBasligi != null)
+            sp.Children.Add(KartSatir($"   Sunucu : {bilgi.SunucuBasligi}", "#484F58"));
+
+        // RTSP durumu
+        if (bilgi.RtspDurum != null)
+        {
+            bool ok = bilgi.RtspDurum.StartsWith("200") || bilgi.RtspDurum.StartsWith("401");
+            sp.Children.Add(KartSatir($"   RTSP   : {bilgi.RtspDurum}", ok ? "#3FB950" : "#8B949E"));
+        }
+
+        // ONVIF
+        if (bilgi.OnvifBulundu)
+            sp.Children.Add(KartSatir("   ONVIF  : ✔", "#3FB950"));
+
+        // UPnP
+        if (bilgi.SsdpBulundu)
+            sp.Children.Add(KartSatir("   UPnP   : ✔", "#3FB950"));
+
+        // ── Tıklanabilir linkler ─────────────────────────────────────
+        var linkSp = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
+        bool linkVar = false;
+
+        foreach (var (port, scheme, etiket) in new (int, string, string)[]
+        {
+            (80,   "http",  "http"),
+            (8080, "http",  "http:8080"),
+            (8443, "https", "https:8443"),
+            (443,  "https", "https"),
+        })
+        {
+            if (!bilgi.AcikPortlar.Contains(port)) continue;
+            var url = port is 80 or 443 ? $"{scheme}://{bilgi.Ip}/" : $"{scheme}://{bilgi.Ip}:{port}/";
+            linkSp.Children.Add(KartLink($"   🌐  [{etiket}]  ", url));
+            linkVar = true;
+        }
+
+        if (bilgi.AcikPortlar.Contains(554))
+        {
+            var url = $"rtsp://{bilgi.Ip}:554/";
+            linkSp.Children.Add(KartLink("   🎥  [rtsp]  ", url));
+            linkVar = true;
+        }
+
+        if (bilgi.OnvifBulundu && bilgi.OnvifServisUrl != null)
+        {
+            linkSp.Children.Add(KartLink("   ⬡  [onvif]  ", bilgi.OnvifServisUrl));
+            linkVar = true;
+        }
+
+        if (linkVar) sp.Children.Add(linkSp);
+
+        kart.Child = sp;
+    }
+
+    private static TextBlock KartSatir(string metin, string hex) => new()
+    {
+        Text        = metin,
+        FontFamily  = new FontFamily("Consolas"),
+        FontSize    = 11,
+        Foreground  = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
+        TextWrapping = TextWrapping.Wrap,
+    };
+
+    private static UIElement KartLink(string etiket, string url)
+    {
+        var tb   = new TextBlock { FontFamily = new FontFamily("Consolas"), FontSize = 11, Margin = new Thickness(0, 1, 0, 1) };
+        var link = new Hyperlink(new Run(url))
+        {
+            NavigateUri     = new Uri(url),
+            Foreground      = new SolidColorBrush(Color.FromRgb(88, 166, 255)),
+            TextDecorations = null,
+        };
+        link.RequestNavigate += (_, e) =>
+        {
+            Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+            e.Handled = true;
+        };
+        tb.Inlines.Add(new Run(etiket) { Foreground = new SolidColorBrush(Color.FromRgb(139, 148, 158)) });
+        tb.Inlines.Add(link);
+        return tb;
+    }
+
+    private void KameraKutucugaYaz(string metin, string hex)
+        => KameraResultPanel.Children.Add(new TextBlock
+        {
+            Text         = metin,
+            FontFamily   = new FontFamily("Consolas"),
+            FontSize     = 12,
+            Foreground   = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
+            TextWrapping = TextWrapping.Wrap,
+            Margin       = new Thickness(0, 1, 0, 1),
+        });
 
 }

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Projects\\AG TARAMA PROGRAMI\\AgTarama\\.claude\\hooks\\detay-reminder.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -878,6 +878,69 @@
                     </Border>
                 </Grid>
 
+                <!-- Kamera Tarayıcı paneli -->
+                <Grid Grid.Column="1" x:Name="KameraPanel" ClipToBounds="True" Visibility="Collapsed">
+                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="8" Margin="8,0,0,0">
+                        <Grid Margin="14,14,14,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <!-- Başlık -->
+                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                                <TextBlock Text="◎ KAMERA TARAYICI" Foreground="#58A6FF" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock Text="Ağdaki tüm kameraları bul:" Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text="Port tarama + ONVIF + SSDP/UPnP" Foreground="#484F58" FontFamily="Consolas" FontSize="10" Margin="0,3,0,0"/>
+                            </StackPanel>
+                            <!-- Subnet giriş -->
+                            <Grid Grid.Row="1" Margin="0,0,0,8">
+                                <TextBox x:Name="KameraSubnetBox" Style="{StaticResource PingInputBox}"
+                                         Padding="10,8,10,8" TextChanged="KameraSubnetBox_TextChanged"/>
+                                <TextBlock x:Name="KameraSubnetPlaceholder" Text="Subnet: 192.168.1"
+                                           FontFamily="Consolas" FontSize="12" Foreground="#484F58"
+                                           VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
+                            </Grid>
+                            <!-- Başlat / Durdur -->
+                            <Grid Grid.Row="2" Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="4"/>
+                                    <ColumnDefinition Width="40"/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="KameraBaslatBtn" Grid.Column="0" Style="{StaticResource PrimaryButton}"
+                                        Height="36" HorizontalContentAlignment="Center" Click="KameraBaslatBtn_Click">
+                                    <TextBlock Text="◎  Tara" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                                </Button>
+                                <Button x:Name="KameraDurdurBtn" Grid.Column="2" Content="■"
+                                        Style="{StaticResource DangerButton}"
+                                        Height="36" HorizontalContentAlignment="Center"
+                                        Visibility="Collapsed" Click="KameraDurdurBtn_Click"/>
+                            </Grid>
+                            <!-- İlerleme -->
+                            <TextBlock x:Name="KameraIlerlemeText" Grid.Row="3"
+                                       Foreground="#484F58" FontFamily="Consolas" FontSize="10"
+                                       Margin="0,0,0,4" Visibility="Collapsed" TextWrapping="Wrap"/>
+                            <!-- Sonuç -->
+                            <Border x:Name="KameraResultBorder" Grid.Row="4" Background="#0D1117"
+                                    BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
+                                    Margin="0,2,0,0" Visibility="Collapsed">
+                                <ScrollViewer x:Name="KameraResultScroll"
+                                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="KameraResultPanel" Margin="8,6,8,6"/>
+                                </ScrollViewer>
+                            </Border>
+                            <!-- Kapat -->
+                            <Button Grid.Row="5" Content="✕  Kapat" Style="{StaticResource ActionButton}"
+                                    Click="KameraPanelKapat_Click" Margin="0,10,0,0"
+                                    HorizontalContentAlignment="Center" Foreground="#8B949E"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
             </Grid>
         </Grid>
 
@@ -1036,6 +1099,16 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="⊙  " FontSize="13"/>
                         <TextBlock Text="SNMP Sorgusu" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Kamera Tarayıcı -->
+                <Button x:Name="BtnKamera"
+                        Style="{StaticResource ActionButton}"
+                        Click="BtnKamera_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="◎  " FontSize="13"/>
+                        <TextBlock Text="Kamera Tara" FontSize="13"/>
                     </StackPanel>
                 </Button>
 

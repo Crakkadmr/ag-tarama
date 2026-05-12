@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-12 (Cihaz Tara'ya NetBIOS/Windows cihaz adı çözümleme eklendi)
+> Son güncelleme: 2026-05-12 (Windows cihaz adları için UDP 137 NetBIOS sweep eklendi)
 
 ---
 
@@ -51,7 +51,7 @@ sonuçları **Wireshark Portable** ile analiz etmeye hazırlar.
 
 Ek özellikler: ping testi, port tarama, traceroute, DNS lookup, ARP tablosu (OUI üretici gösterimi),
 ağ adaptörü bilgisi, bant genişliği monitörü, Wake-on-LAN, Cihaz Tara (port scan + ONVIF + SSDP + Ping
-Sweep + NetBIOS cihaz adı), favori IP listesi, Advanced IP Scanner entegrasyonu, SADP entegrasyonu.
+Sweep + DNS/ping-a/NetBIOS cihaz adı + UPnP/ONVIF ad-model + ARP/MAC/OUI + servis banner + Advanced IP Scanner console zenginleştirme), favori IP listesi, Advanced IP Scanner entegrasyonu, SADP entegrasyonu.
 
 ---
 
@@ -83,7 +83,8 @@ AG TARAMA PROGRAMI/
     │   ├── CaptureService.cs             ← tshark yakalama + ilerleme callback
     │   ├── PingService.cs                ← IAsyncEnumerable ping akışı
     │   ├── PortScanService.cs            ← Parse + async port tarama
-    │   ├── NetbiosService.cs             ← nbtstat -A ile cihaz adı/workgroup parse
+    │   ├── NetbiosService.cs             ← DNS + ping -a + nbtstat -A ile cihaz adı/workgroup parse
+    │   ├── AdvancedIpScannerService.cs   ← advanced_ip_scanner_console.exe çıktısı parse/zenginleştirme
     │   ├── AppSettings.cs                ← Ayar modeli (HedefMB, TestSuresiSn vb.)
     │   ├── SettingsService.cs            ← JSON serileştirme (%APPDATA%)
     │   └── FavoriService.cs              ← Favori IP CRUD (%APPDATA%)
@@ -120,13 +121,14 @@ AG TARAMA PROGRAMI/
 Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI container yok.
 
 **Mimari katmanlar:**
-- `Paths.cs` — tüm exe-relative yol sabitleri tek yerde (`AppBase`, `TsharkExe`, `SadpExe` vb.)
+- `Paths.cs` — tüm exe-relative yol sabitleri tek yerde (`AppBase`, `TsharkExe`, `SadpExe`, `IpScannerConsoleExe`, `IpScannerMacDb` vb.)
 - `LogService.cs` — `%APPDATA%\AgTarama\logs\YYYYMMDD.log`'a yazar; `OturumBaslat`, `Kaydet`, `Hata` metotları
 - `Services/InterfaceDiscoveryService` — `tshark -D` parse + 2s paket sayısı testi
 - `Services/CaptureService` — tshark process yönetimi, progress callback (`Action<double, int, TimeSpan>`)
 - `Services/PingService` — `IAsyncEnumerable<PingSonuc>` akışı (4 ping, TTL, hata sarmalı)
 - `Services/PortScanService` — `Parse(string)` + `TaraAsync(...)` (SemaphoreSlim 50, 1000ms timeout)
-- `Services/NetbiosService` — `nbtstat -A <ip>` çalıştırır, NetBIOS cihaz adı + grup/workgroup parse eder
+- `Services/NetbiosService` — UDP 137 NetBIOS Node Status, reverse DNS, `ping -a` ve `nbtstat -A <ip>` ile Windows cihaz adı + grup/workgroup parse eder
+- `Services/AdvancedIpScannerService` — `tools\Ip_Scanner\advanced_ip_scanner_console.exe` ile subnet tarar, IP/ad/MAC/üretici/servis çıktısını parse eder
 - `Services/SettingsService` — `Yukle()` / `Kaydet(AppSettings)` JSON serileştirme
 - `Services/FavoriService` — `Ekle`, `Sil`, `YukleHepsi` CRUD
 - `MainWindow` → `HataBildir(mesaj, ex?)` — chat kırmızı mesaj + `LogService.Hata` tek noktadan
@@ -182,7 +184,7 @@ Metin:       #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre d
 | Ağ Bilgisi | `BtnAgBilgi` | `BtnAgBilgi_Click` | `NetworkInterface` → chat kartı |
 | SADP | `BtnSadp` | `BtnSadp_Click` | `tools/sadp/sadptool.exe` |
 | Wake-on-LAN | `BtnWol` | `BtnWol_Click` | Yan panel (UDP magic packet) |
-| Cihaz Tara | `BtnKamera` | `BtnKamera_Click` | Yan panel (port+ONVIF+SSDP+Ping Sweep+NetBIOS) |
+| Cihaz Tara | `BtnKamera` | `BtnKamera_Click` | Yan panel (Advanced IP Scanner tarzı detaylı envanter) |
 | ─ ayırıcı ─ | | | |
 | Favoriler | `BtnFavoriler` | `BtnFavoriler_Click` | Yan panel |
 | Bant Genişliği | `BtnBant` | `BtnBant_Click` | Yan panel (canlı ↓↑ hız) |
@@ -376,8 +378,10 @@ using AgTarama.Services;
 **`KameraBilgi` sealed class:**
 ```
 Ip, AcikPortlar, OnvifBulundu, SsdpBulundu, OnvifServisUrl,
-OnvifHardware, RtspDurum, SunucuBasligi, SayfaBasligi,
-NetbiosCihazAdi, NetbiosGrupAdi,
+OnvifAdi, OnvifHardware, OnvifKonum, RtspDurum, SunucuBasligi, SayfaBasligi,
+NetbiosCihazAdi, NetbiosGrupAdi, DnsAdi, PingAdi,
+SsdpLocation, SsdpSunucu, SsdpFriendlyName, SsdpManufacturer, SsdpModelName, SsdpModelNumber,
+MacAdresi, Uretici, AdvancedScannerAdi, AdvancedScannerServisler, ServisDetaylari,
 PingYanit (bool), PingMs (int)
 ```
 
@@ -399,14 +403,17 @@ PingYanit (bool), PingMs (int)
 **`KameraTaramaBaslat()`** — 4 görev `Task.WhenAll` ile paralel:
 
 1. **Port taraması** — 1–254 tüm IP'lere `SemaphoreSlim(80)` + 800ms timeout. `KameraPorts` bağlantısı → 554 açıksa `RtspHizliKontrol` → HTTP port açıksa `HttpBannerOku`.
-2. **ONVIF WS-Discovery** — `239.255.255.250:3702` Probe XML → 4sn `ProbeMatch` dinle. `XAddrs`, scope `hardware`/`name` okunur.
-3. **SSDP/UPnP** — `239.255.255.250:1900` M-SEARCH → 3sn. Subnet filtresi (`ip.StartsWith(subnet+".")`) uygulanır.
+2. **ONVIF WS-Discovery** — `239.255.255.250:3702` Probe XML → 4sn `ProbeMatch` dinle. `XAddrs`, scope `name`/`hardware`/`location` okunur.
+3. **SSDP/UPnP** — `239.255.255.250:1900` M-SEARCH → 3sn. Subnet filtresi (`ip.StartsWith(subnet+".")`) uygulanır. `LOCATION` varsa cihaz açıklama XML'i okunur; `friendlyName`, `manufacturer`, `modelName`, `modelNumber` karta işlenir.
 4. **Ping Sweep** — 1–254 tüm IP'lere `SemaphoreSlim(64)` + `Ping.SendPingAsync` 1000ms. Yanıt verirse `bilgi.PingYanit=true`, `bilgi.PingMs=roundtrip`. Port açık olmadan ICMP'ye yanıt veren cihazlar da bulunur.
-5. **NetBIOS cihaz adı** — ping yanıtı veren veya 139/445/3389 portlarından biri açık görünen IP'lerde `NetbiosService.SorgulaAsync` çağrılır. Aynı IP için tek deneme yapılır, `SemaphoreSlim(16)` ile süreç sayısı sınırlanır. Kartta `Ad` ve `Grup` satırları gösterilir.
+5. **Katmanlı cihaz adı** — ping yanıtı veren veya 139/445/3389 portlarından biri açık görünen IP'lerde `NetbiosService.SorgulaAsync` çağrılır. Servis sırayla UDP 137 NetBIOS Node Status, reverse DNS, `ping -a` ve `nbtstat -A` kaynaklarını paralel dener. Aynı IP için tek deneme yapılır, `SemaphoreSlim(16)` ile süreç sayısı sınırlanır. Kartta `Ad`, `Marka`, `Model`, `Grup`, `Konum` satırları gösterilir.
+5b. **NetBIOS sweep** — tüm subnet'e hafif UDP 137 Node Status sorgusu yapılır (`NetbiosSweepAsync`, `SemaphoreSlim(64)`). Ping kapalı ama NetBIOS açık Windows cihazları da adlarıyla karta düşebilir.
+6. **Advanced IP Scanner console zenginleştirme** — `AdvancedIpScannerService.TaraAsync` arka planda `advanced_ip_scanner_console.exe /r:<subnet>.1-<subnet>.254 /f:<temp> /v2` çalıştırır. Timeout dolarsa sessizce atlanır; sonuç gelirse IP/ad/MAC/üretici/servis bilgisi mevcut kartlara işlenir.
+7. **ARP/MAC/OUI zenginleştirme** — tarama sonunda `arp -a` parse edilir. IP → MAC eşleşmesi kartlara eklenir. Üretici için önce `OuiAra`, sonra `tools\Ip_Scanner\mac_interval_tree.txt` prefix veritabanı kullanılır.
 
 Her bulgu `ConcurrentDictionary<string, KameraBilgi>` ile dedup edilir → `Dispatcher.InvokeAsync` → `KameraKartEkleVeyaGuncelle`.
 
-**`KimlikBelirle(KameraBilgi) static`**: `MarkaTablosu` → Server header + page title + ONVIF hardware → marka/tür. Port bazlı fallback: 34567/9000+554 → NVR/DVR, 445/3389 → Bilgisayar, NetBIOS adı → Bilgisayar, 23 → Router/Switch.
+**`KimlikBelirle(KameraBilgi) static`**: `MarkaTablosu` → Server header + page title + ONVIF name/hardware + SSDP friendlyName/manufacturer/model/server → marka/tür. Port bazlı fallback: 34567/9000+554 → NVR/DVR, 445/3389 → Bilgisayar, NetBIOS/DNS/ping adı → Bilgisayar, 23 → Router/Switch.
 
 **`KameraKartIcDoldur`** gösterir: TürIkon+IP+Marka — Model başlık, Tür, **Ping (ms)**, Portlar, Sunucu, RTSP durumu, ONVIF/UPnP badge, linkler (`http/https/rtsp/ssh/onvif`).
 > **rdp:// linki yoktur** — 3389 portu taranır ama kart üzerinde link gösterilmez.
@@ -415,7 +422,27 @@ Her bulgu `ConcurrentDictionary<string, KameraBilgi>` ile dedup edilir → `Disp
 
 **`RtspHizliKontrol(ip, port, token) static`**: Anonim RTSP DESCRIBE → ilk satır durum kodu (2sn timeout).
 
-**`NetbiosBilgileriniGuncelleAsync(ip, bilgi, denenenler, logSatirlari, netbiosSem, token)`**: Aynı IP için tek NetBIOS sorgusu yapar, cihaz adı/workgroup bilgisini `KameraBilgi`'ye işler ve kartı yeniler.
+**`CihazAdiSec(KameraBilgi) static`**: NetBIOS → kısa DNS → kısa `ping -a` → ONVIF name → SSDP friendlyName önceliğiyle kartta gösterilecek en iyi adı seçer.
+
+**`IlkDolu(...)`, `KisaHostAdi(...)`, `AnlamliSayfaBasligi(...)`, `TemizKimlikMetni(...)`**: Kimlik/metin normalizasyonu ve gürültülü başlıkları eleme yardımcıları.
+
+**`NetbiosBilgileriniGuncelleAsync(ip, bilgi, denenenler, logSatirlari, netbiosSem, token)`**: Aynı IP için tek katmanlı ad sorgusu yapar, NetBIOS/DNS/ping-a adlarını `KameraBilgi`'ye işler ve kartı yeniler.
+
+**`NetbiosSweepAsync(subnet, bulunanlar, logSatirlari, token)`**: Tüm subnet'e UDP 137 Node Status sorgusu yapar; yanıt veren Windows cihazlarının ad/workgroup bilgisini karta ekler.
+
+**`HttpBasliklariniParse(resp) static`**: SSDP/HTTP cevap başlıklarını dictionary olarak parse eder.
+
+**`SsdpDetayOku(location, token) static`**: UPnP `LOCATION` XML'inden `friendlyName`, `manufacturer`, `modelName`, `modelNumber` okur.
+
+**`XmlEtiketiOku(xml, etiket) static`**: Basit XML etiket değerlerini güvenli şekilde parse eder.
+
+**`AdvancedScannerKayitlariniIsleAsync(subnet, bulunanlar, logSatirlari, token)`**: AIS console sonucunu mevcut `KameraBilgi` kartlarıyla birleştirir.
+
+**`ArpBilgileriniTopluGuncelleAsync(...)`** / **`ArpTablosuOkuAsync(token)`**: Windows ARP tablosundan MAC adreslerini alır ve kartları yeniler.
+
+**`UreticiAra(mac)`, `IpScannerMacDbYukle()`, `MacFormatla(mac)`**: MAC üretici çözümleme ve format yardımcıları.
+
+**`ServisDetaylariniGuncelleAsync(...)`, `PortBannerOku(...)`, `BannerTemizle(...)`**: Açık portlar için servis adı ve mümkünse kısa banner üretir.
 
 **`KartSatir(metin, hex) static`**: Kart içi düz metin `TextBlock`.
 
@@ -431,6 +458,8 @@ Her bulgu `ConcurrentDictionary<string, KameraBilgi>` ile dedup edilir → `Disp
 | `WiresharkPortable64.exe` | `tools\WiresharkPortable64\` | pcap görüntüleme | Manuel |
 | `npcap-1.88.exe` | `Req\` | Sürücü installer | İlk açılışta otomatik UAC |
 | `advanced_ip_scanner.exe` | `tools\Ip_Scanner\` | Cihaz listesi | Manuel |
+| `advanced_ip_scanner_console.exe` | `tools\Ip_Scanner\` | Cihaz Tara zenginleştirme (opsiyonel console veri kaynağı) | Cihaz Tara içinde otomatik, timeout'lu |
+| `mac_interval_tree.txt` | `tools\Ip_Scanner\` | MAC prefix → üretici veritabanı | Cihaz Tara içinde otomatik |
 | `sadptool.exe` | `tools\sadp\` | Hikvision SADP | Manuel |
 
 > **NuGet paketi yok.** `Lextm.SharpSnmpLib` kaldırıldı (SNMP özelliği silindi).
@@ -473,10 +502,12 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 | ✅ | Ağ Adaptörü Bilgisi | `AgAdaptorleriniGoster` → chat kart |
 | ✅ | Wake-on-LAN | `WolGonder` + `WolPanel` |
 | ✅ | Advanced IP Scanner | `HariciAracBaslat` |
+| ✅ | Advanced IP Scanner console zenginleştirme | `AdvancedIpScannerService` + `AdvancedScannerKayitlariniIsleAsync` |
 | ✅ | SADP | `HariciAracBaslat` |
 | ✅ | Cihaz Tara (Kamera+Router+PC+NVR…) | `KameraTaramaBaslat` + `KameraPanel` |
 | ✅ | Ping Sweep (Cihaz Tara içinde) | 4. paralel görev, `PingYanit/PingMs` |
-| ✅ | NetBIOS / Windows Cihaz Adı (Cihaz Tara içinde) | `NetbiosService` + `NetbiosBilgileriniGuncelleAsync` |
+| ✅ | Katmanlı cihaz adı/model çözümleme (Cihaz Tara içinde) | `NetbiosService` + ONVIF/SSDP ad-model parse |
+| ✅ | ARP/MAC/OUI + servis banner detayları (Cihaz Tara içinde) | `ArpBilgileriniTopluGuncelleAsync` + `ServisDetaylariniGuncelleAsync` |
 | ✅ | ONVIF WS-Discovery | Cihaz Tara 2. görev |
 | ✅ | SSDP/UPnP keşif | Cihaz Tara 3. görev |
 | ✅ | MAC OUI üretici sorgusu | `OuiTablosu` + `OuiAra` |

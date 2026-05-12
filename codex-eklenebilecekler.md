@@ -35,19 +35,27 @@ Gosterilecek bilgiler:
 
 ---
 
-### 1.2 NetBIOS / Windows Cihaz Adi Bulma - Tamamlandi
+### 1.2 Katmanli Cihaz Adi / Model Bulma - Tamamlandi
 
 **Oncelik:** Yuksek  
 **Zorluk:** Kolay-Orta  
 **Uygulanan yerler:** `MainWindow.xaml.cs`, `Services/NetbiosService.cs`
 
-Windows cihazlar icin `nbtstat -A <ip>` ciktisi parse edilerek cihaz adi ve workgroup/domain bilgisi bulunur.
+Windows cihazlar icin UDP 137 NetBIOS Node Status, reverse DNS, `ping -a` ve `nbtstat -A <ip>` birlikte denenir. Kamera/router/NAS gibi cihazlarda ONVIF scope ve SSDP/UPnP cihaz aciklama XML'i de ad/model bulmaya katilir.
+Advanced IP Scanner console, ARP/MAC/OUI ve servis banner bilgileri de Cihaz Tara kartlarini zenginlestirmek icin kullanilir.
 
 Uygulanan kullanim yerleri:
 
 - Cihaz Tara kartlarina "Cihaz Adi" satiri
 - Cihaz Tara kartlarina "Grup" satiri
+- Cihaz Tara kartlarina "Marka", "Model", "Konum" satirlari
 - Ping yaniti veren veya 139/445/3389 portu acik gorunen IP'lerde otomatik sorgu
+- Tum subnet icin UDP 137 NetBIOS sweep; ping kapali Windows cihazlari da adla yakalanabilir
+- ONVIF `name/hardware/location` okuma
+- SSDP `friendlyName/manufacturer/modelName/modelNumber` okuma
+- Advanced IP Scanner console sonucu ile IP/ad/MAC/servis zenginlestirme
+- ARP tablosundan MAC, `mac_interval_tree.txt` ile uretici bulma
+- Acik portlar icin servis adi ve kisa banner gosterimi
 
 **Not:** Favorilerde IP yanina isim gosterimi henuz eklenmedi; ayri bir UX isi olarak kalabilir.
 

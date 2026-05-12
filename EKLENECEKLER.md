@@ -101,9 +101,12 @@
 ## 4. Ağ Protokolü Genişletmeleri
 
 ### 4.1 NetBIOS / SMB Cihaz Adı Çözümleme — TAMAMLANDI
-- `Services/NetbiosService.cs` ile `nbtstat -A <ip>` çıktısı parse ediliyor
+- `Services/NetbiosService.cs` ile UDP 137 NetBIOS Node Status, reverse DNS, `ping -a` ve `nbtstat -A <ip>` kaynakları birlikte deneniyor
 - Cihaz Tara içinde ping yanıtı veren veya 139/445/3389 portu açık görünen IP'lerde çalışıyor
+- Ek olarak tüm subnet'e UDP 137 NetBIOS sweep yapılıyor; ping kapalı Windows cihazlarında da ad yakalanabiliyor
 - Bilgisayar adı ve çalışma grubu bilgisi Cihaz Tara kartına `Ad` / `Grup` satırı olarak ekleniyor
+- ONVIF `name/hardware/location` ve SSDP `friendlyName/manufacturer/modelName/modelNumber` bilgileri de karttaki ad/marka/model seçimine katılıyor
+- Advanced IP Scanner console çıktısı, ARP tablosu, MAC üretici veritabanı ve servis banner bilgileri de Cihaz Tara kartlarına ekleniyor
 - **Not:** Favorilerde IP yanına isim gösterimi ayrı UX işi olarak hâlâ eklenebilir
 
 ### 4.2 mDNS / Bonjour Keşif

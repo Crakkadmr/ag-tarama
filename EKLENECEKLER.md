@@ -100,10 +100,11 @@
 
 ## 4. Ağ Protokolü Genişletmeleri
 
-### 4.1 NetBIOS / SMB Cihaz Adı Çözümleme
-- Port 137/139 (NetBIOS) veya 445 (SMB) açık cihazlarda `nbtstat -A <ip>` çalıştır
-- Bilgisayar adı ve çalışma grubu bilgisini Cihaz Tara kartına ekle
-- **Neden:** Ağdaki Windows bilgisayarların adlarını görmek için en pratik yol
+### 4.1 NetBIOS / SMB Cihaz Adı Çözümleme — TAMAMLANDI
+- `Services/NetbiosService.cs` ile `nbtstat -A <ip>` çıktısı parse ediliyor
+- Cihaz Tara içinde ping yanıtı veren veya 139/445/3389 portu açık görünen IP'lerde çalışıyor
+- Bilgisayar adı ve çalışma grubu bilgisi Cihaz Tara kartına `Ad` / `Grup` satırı olarak ekleniyor
+- **Not:** Favorilerde IP yanına isim gösterimi ayrı UX işi olarak hâlâ eklenebilir
 
 ### 4.2 mDNS / Bonjour Keşif
 - `224.0.0.251:5353`'e mDNS sorgusu gönder
@@ -193,7 +194,6 @@
 | 🔴 Çok Yüksek | Bant Genişliği Monitörü | Orta |
 | 🟡 Yüksek | HTTP Header Checker | Kolay |
 | 🟡 Yüksek | mDNS Keşif | Orta |
-| 🟡 Yüksek | NetBIOS Cihaz Adı | Kolay |
 | 🟡 Yüksek | Sonuç JSON/CSV Export | Kolay |
 | 🟢 Orta | RTSP Önizleme | Zor (ffmpeg dep.) |
 | 🟢 Orta | Port Sürüm Tespiti | Orta |

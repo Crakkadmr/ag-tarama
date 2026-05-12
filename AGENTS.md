@@ -2,8 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-12 (Faz 12: Bant Genişliği paneli, OUI üretici sorgulama, Ping Sweep,
-> rdp:// linkleri kaldırıldı, koyu ToolTip stili, WindowState=Maximized, SNMP+Subnet kaldırıldı)
+> Son güncelleme: 2026-05-12 (Cihaz Tara'ya NetBIOS/Windows cihaz adı çözümleme eklendi)
 
 ---
 
@@ -52,7 +51,7 @@ sonuçları **Wireshark Portable** ile analiz etmeye hazırlar.
 
 Ek özellikler: ping testi, port tarama, traceroute, DNS lookup, ARP tablosu (OUI üretici gösterimi),
 ağ adaptörü bilgisi, bant genişliği monitörü, Wake-on-LAN, Cihaz Tara (port scan + ONVIF + SSDP + Ping
-Sweep), favori IP listesi, Advanced IP Scanner entegrasyonu, SADP entegrasyonu.
+Sweep + NetBIOS cihaz adı), favori IP listesi, Advanced IP Scanner entegrasyonu, SADP entegrasyonu.
 
 ---
 
@@ -84,6 +83,7 @@ AG TARAMA PROGRAMI/
     │   ├── CaptureService.cs             ← tshark yakalama + ilerleme callback
     │   ├── PingService.cs                ← IAsyncEnumerable ping akışı
     │   ├── PortScanService.cs            ← Parse + async port tarama
+    │   ├── NetbiosService.cs             ← nbtstat -A ile cihaz adı/workgroup parse
     │   ├── AppSettings.cs                ← Ayar modeli (HedefMB, TestSuresiSn vb.)
     │   ├── SettingsService.cs            ← JSON serileştirme (%APPDATA%)
     │   └── FavoriService.cs              ← Favori IP CRUD (%APPDATA%)
@@ -91,6 +91,7 @@ AG TARAMA PROGRAMI/
     ├── AGENTS.md                     ← (bu dosya) tam referans + geliştirici rehberi
     ├── AGENT.md                      ← Claude Code için referans (Claude'a özgü kurallar içerir)
     ├── EKLENECEKLER.md               ← Geliştirme yol haritası (25+ özellik)
+    ├── codex-eklenebilecekler.md     ← Codex güncel özellik adayları ve önerilen uygulama sırası
     ├── README.md                     ← Türkçe kullanıcı dokümantasyonu
     ├── Req/
     │   └── npcap-1.88.exe            ← Npcap installer
@@ -125,6 +126,7 @@ Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI contain
 - `Services/CaptureService` — tshark process yönetimi, progress callback (`Action<double, int, TimeSpan>`)
 - `Services/PingService` — `IAsyncEnumerable<PingSonuc>` akışı (4 ping, TTL, hata sarmalı)
 - `Services/PortScanService` — `Parse(string)` + `TaraAsync(...)` (SemaphoreSlim 50, 1000ms timeout)
+- `Services/NetbiosService` — `nbtstat -A <ip>` çalıştırır, NetBIOS cihaz adı + grup/workgroup parse eder
 - `Services/SettingsService` — `Yukle()` / `Kaydet(AppSettings)` JSON serileştirme
 - `Services/FavoriService` — `Ekle`, `Sil`, `YukleHepsi` CRUD
 - `MainWindow` → `HataBildir(mesaj, ex?)` — chat kırmızı mesaj + `LogService.Hata` tek noktadan
@@ -180,7 +182,7 @@ Metin:       #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre d
 | Ağ Bilgisi | `BtnAgBilgi` | `BtnAgBilgi_Click` | `NetworkInterface` → chat kartı |
 | SADP | `BtnSadp` | `BtnSadp_Click` | `tools/sadp/sadptool.exe` |
 | Wake-on-LAN | `BtnWol` | `BtnWol_Click` | Yan panel (UDP magic packet) |
-| Cihaz Tara | `BtnKamera` | `BtnKamera_Click` | Yan panel (port+ONVIF+SSDP+Ping Sweep) |
+| Cihaz Tara | `BtnKamera` | `BtnKamera_Click` | Yan panel (port+ONVIF+SSDP+Ping Sweep+NetBIOS) |
 | ─ ayırıcı ─ | | | |
 | Favoriler | `BtnFavoriler` | `BtnFavoriler_Click` | Yan panel |
 | Bant Genişliği | `BtnBant` | `BtnBant_Click` | Yan panel (canlı ↓↑ hız) |
@@ -275,7 +277,7 @@ using AgTarama.Services;
 
 **`MarkaTablosu`** (40+ giriş): `(anahtar, marka, tur)` dizisi — HTTP banner/title anahtar kelimesi → marka + cihaz türü. Kapsanan: tüm IP kamera markaları, Ubiquiti, MikroTik, TP-Link, Cisco, D-Link, NETGEAR, ZyXEL, ASUS, Huawei, H3C, Ruijie, Tenda, Synology, QNAP, WD, Asustor, Windows/IIS, OpenWrt, DD-WRT, pfSense, Fortinet, SonicWall, Aruba, Juniper, HP ProCurve.
 
-**`KameraPorts`** (13 port): `{ 554, 8000, 8080, 37777, 80, 8443, 22, 23, 443, 445, 3389, 9000, 34567 }`
+**`KameraPorts`** (14 port): `{ 554, 8000, 8080, 37777, 80, 8443, 22, 23, 139, 443, 445, 3389, 9000, 34567 }`
 
 ### 6.4 Yardımcı Metotlar
 
@@ -375,6 +377,7 @@ using AgTarama.Services;
 ```
 Ip, AcikPortlar, OnvifBulundu, SsdpBulundu, OnvifServisUrl,
 OnvifHardware, RtspDurum, SunucuBasligi, SayfaBasligi,
+NetbiosCihazAdi, NetbiosGrupAdi,
 PingYanit (bool), PingMs (int)
 ```
 
@@ -399,10 +402,11 @@ PingYanit (bool), PingMs (int)
 2. **ONVIF WS-Discovery** — `239.255.255.250:3702` Probe XML → 4sn `ProbeMatch` dinle. `XAddrs`, scope `hardware`/`name` okunur.
 3. **SSDP/UPnP** — `239.255.255.250:1900` M-SEARCH → 3sn. Subnet filtresi (`ip.StartsWith(subnet+".")`) uygulanır.
 4. **Ping Sweep** — 1–254 tüm IP'lere `SemaphoreSlim(64)` + `Ping.SendPingAsync` 1000ms. Yanıt verirse `bilgi.PingYanit=true`, `bilgi.PingMs=roundtrip`. Port açık olmadan ICMP'ye yanıt veren cihazlar da bulunur.
+5. **NetBIOS cihaz adı** — ping yanıtı veren veya 139/445/3389 portlarından biri açık görünen IP'lerde `NetbiosService.SorgulaAsync` çağrılır. Aynı IP için tek deneme yapılır, `SemaphoreSlim(16)` ile süreç sayısı sınırlanır. Kartta `Ad` ve `Grup` satırları gösterilir.
 
 Her bulgu `ConcurrentDictionary<string, KameraBilgi>` ile dedup edilir → `Dispatcher.InvokeAsync` → `KameraKartEkleVeyaGuncelle`.
 
-**`KimlikBelirle(KameraBilgi) static`**: `MarkaTablosu` → Server header + page title + ONVIF hardware → marka/tür. Port bazlı fallback: 34567/9000+554 → NVR/DVR, 445/3389 → Bilgisayar, 23 → Router/Switch.
+**`KimlikBelirle(KameraBilgi) static`**: `MarkaTablosu` → Server header + page title + ONVIF hardware → marka/tür. Port bazlı fallback: 34567/9000+554 → NVR/DVR, 445/3389 → Bilgisayar, NetBIOS adı → Bilgisayar, 23 → Router/Switch.
 
 **`KameraKartIcDoldur`** gösterir: TürIkon+IP+Marka — Model başlık, Tür, **Ping (ms)**, Portlar, Sunucu, RTSP durumu, ONVIF/UPnP badge, linkler (`http/https/rtsp/ssh/onvif`).
 > **rdp:// linki yoktur** — 3389 portu taranır ama kart üzerinde link gösterilmez.
@@ -410,6 +414,8 @@ Her bulgu `ConcurrentDictionary<string, KameraBilgi>` ile dedup edilir → `Disp
 **`HttpBannerOku(ip, port, token) static`**: TCP HTTP GET `/` → `Server:` header + `<title>` (2.5sn timeout). `(Sunucu, Baslik)` tuple döner.
 
 **`RtspHizliKontrol(ip, port, token) static`**: Anonim RTSP DESCRIBE → ilk satır durum kodu (2sn timeout).
+
+**`NetbiosBilgileriniGuncelleAsync(ip, bilgi, denenenler, logSatirlari, netbiosSem, token)`**: Aynı IP için tek NetBIOS sorgusu yapar, cihaz adı/workgroup bilgisini `KameraBilgi`'ye işler ve kartı yeniler.
 
 **`KartSatir(metin, hex) static`**: Kart içi düz metin `TextBlock`.
 
@@ -470,6 +476,7 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 | ✅ | SADP | `HariciAracBaslat` |
 | ✅ | Cihaz Tara (Kamera+Router+PC+NVR…) | `KameraTaramaBaslat` + `KameraPanel` |
 | ✅ | Ping Sweep (Cihaz Tara içinde) | 4. paralel görev, `PingYanit/PingMs` |
+| ✅ | NetBIOS / Windows Cihaz Adı (Cihaz Tara içinde) | `NetbiosService` + `NetbiosBilgileriniGuncelleAsync` |
 | ✅ | ONVIF WS-Discovery | Cihaz Tara 2. görev |
 | ✅ | SSDP/UPnP keşif | Cihaz Tara 3. görev |
 | ✅ | MAC OUI üretici sorgusu | `OuiTablosu` + `OuiAra` |
@@ -485,21 +492,25 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 
 ---
 
-## 11. Açık TODO / Sonraki Adaylar (EKLENECEKLER.md'den)
+## 11. Açık TODO / Sonraki Adaylar (EKLENECEKLER.md + codex-eklenebilecekler.md)
 
 | Öncelik | Özellik | Zorluk |
 |---|---|---|
 | 🔴 | HTTP Header Checker | Kolay |
+| 🔴 | Cihaz Tara kartlarına MAC + OUI ekleme | Kolay-Orta |
 | 🟡 | mDNS Keşif | Orta |
-| 🟡 | NetBIOS Cihaz Adı | Kolay |
 | 🟡 | Sonuç JSON/CSV Export | Kolay |
+| 🟡 | Port Banner / Servis Sürüm Tespiti | Orta |
+| 🟡 | `MainWindow.xaml.cs` partial dosyalara bölme | Orta |
+| 🟡 | HTTPS Sertifika Denetleyicisi | Orta |
 | 🟢 | RTSP Önizleme (ffmpeg) | Zor |
-| 🟢 | Port Sürüm/Banner Tespiti | Orta |
 | 🟢 | ARP Spoof Tespiti | Orta |
+| 🟢 | Rogue DHCP Sunucu Tespiti | Orta-Zor |
 | 🟢 | WiFi Ağ Tarayıcı | Kolay |
 | 🔵 | CVE Kontrolü | Zor |
 | 🔵 | SSH Komutu Çalıştırıcı | Zor |
 | 🔵 | Geçmiş / Son Taramalar | Orta |
+| 🔵 | Cihaz Tara servis katmanına alma | Orta-Zor |
 | 🔵 | Çoklu Sekme / Çalışma Alanı | Zor |
 
 ---

@@ -1966,6 +1966,8 @@ public partial class MainWindow : Window
         public string?   RtspDurum      { get; set; }
         public string?   SunucuBasligi  { get; set; }
         public string?   SayfaBasligi   { get; set; }
+        public string?   NetbiosCihazAdi { get; set; }
+        public string?   NetbiosGrupAdi  { get; set; }
         public bool      PingYanit      { get; set; }
         public int       PingMs         { get; set; }
     }
@@ -1978,7 +1980,7 @@ public partial class MainWindow : Window
         public string  TurIkon { get; set; } = "◈";
     }
 
-    private static readonly int[] KameraPorts = { 554, 8000, 8080, 37777, 80, 8443, 22, 23, 443, 445, 3389, 9000, 34567 };
+    private static readonly int[] KameraPorts = { 554, 8000, 8080, 37777, 80, 8443, 22, 23, 139, 443, 445, 3389, 9000, 34567 };
 
     private static readonly (string Anahtar, string Marka, string Tur)[] MarkaTablosu =
     {
@@ -2062,6 +2064,7 @@ public partial class MainWindow : Window
             else if (b.AcikPortlar.Contains(8000) && b.AcikPortlar.Contains(554))    { k.Marka = "Hikvision"; k.Tur = "Kamera"; }
             else if (b.AcikPortlar.Contains(554))                                     {                         k.Tur = "Kamera"; }
             else if (b.AcikPortlar.Contains(445) || b.AcikPortlar.Contains(3389))    {                         k.Tur = "Bilgisayar"; }
+            else if (!string.IsNullOrWhiteSpace(b.NetbiosCihazAdi))                  { k.Marka = "NetBIOS";   k.Tur = "Bilgisayar"; }
             else if (b.AcikPortlar.Contains(23))                                      {                         k.Tur = "Router/Switch"; }
         }
 
@@ -2130,6 +2133,35 @@ public partial class MainWindow : Window
     private void KameraBaslatBtn_Click(object sender, RoutedEventArgs e) => _ = KameraTaramaBaslat();
     private void KameraDurdurBtn_Click(object sender, RoutedEventArgs e) => _kameraCts?.Cancel();
 
+    private async Task NetbiosBilgileriniGuncelleAsync(
+        string ip,
+        KameraBilgi bilgi,
+        System.Collections.Concurrent.ConcurrentDictionary<string, byte> denenenler,
+        System.Collections.Concurrent.ConcurrentBag<string> logSatirlari,
+        SemaphoreSlim netbiosSem,
+        CancellationToken token)
+    {
+        if (!denenenler.TryAdd(ip, 0)) return;
+
+        await netbiosSem.WaitAsync(token);
+        try
+        {
+            var netbios = await NetbiosService.SorgulaAsync(ip, token);
+            if (netbios is null) return;
+
+            bilgi.NetbiosCihazAdi = netbios.CihazAdi;
+            bilgi.NetbiosGrupAdi  = netbios.GrupAdi;
+
+            var ozet = string.Join(" / ", new[] { netbios.CihazAdi, netbios.GrupAdi }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            logSatirlari.Add($"{ip} NetBIOS: {ozet}");
+            await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
+        }
+        finally
+        {
+            netbiosSem.Release();
+        }
+    }
+
     private async Task KameraTaramaBaslat()
     {
         var subnet = KameraSubnetBox.Text.Trim();
@@ -2159,9 +2191,11 @@ public partial class MainWindow : Window
         _kameraCts = new CancellationTokenSource();
         var token  = _kameraCts.Token;
 
-        var bulunanlar   = new System.Collections.Concurrent.ConcurrentDictionary<string, KameraBilgi>(StringComparer.Ordinal);
-        var logSatirlari = new System.Collections.Concurrent.ConcurrentBag<string>();
-        int taranan      = 0;
+        var bulunanlar        = new System.Collections.Concurrent.ConcurrentDictionary<string, KameraBilgi>(StringComparer.Ordinal);
+        var netbiosDenenenler = new System.Collections.Concurrent.ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+        var logSatirlari      = new System.Collections.Concurrent.ConcurrentBag<string>();
+        using var netbiosSem  = new SemaphoreSlim(16);
+        int taranan           = 0;
 
         KameraKutucugaYaz($"Subnet  : {subnet}.1 – {subnet}.254", "#8B949E");
         KameraKutucugaYaz($"Portlar : {string.Join(", ", KameraPorts)}", "#484F58");
@@ -2213,6 +2247,9 @@ public partial class MainWindow : Window
                                     bilgi.SayfaBasligi  = baslik;
                                     break;
                                 }
+
+                                if (acik.Any(p => p is 139 or 445 or 3389))
+                                    await NetbiosBilgileriniGuncelleAsync(ip, bilgi, netbiosDenenenler, logSatirlari, netbiosSem, token);
 
                                 logSatirlari.Add($"{ip}: port={string.Join(",", bilgi.AcikPortlar)} marka={KimlikBelirle(bilgi).Marka}");
                                 await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
@@ -2316,6 +2353,7 @@ public partial class MainWindow : Window
                                 var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
                                 bilgi.PingYanit = true;
                                 bilgi.PingMs    = (int)reply.RoundtripTime;
+                                await NetbiosBilgileriniGuncelleAsync(ip, bilgi, netbiosDenenenler, logSatirlari, netbiosSem, token);
                                 await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
                             }
                         }
@@ -2446,6 +2484,13 @@ public partial class MainWindow : Window
 
         // Tür etiketi
         sp.Children.Add(KartSatir($"   Tür    : {kim.Tur}", "#8B949E"));
+
+        // NetBIOS cihaz adı
+        if (!string.IsNullOrWhiteSpace(bilgi.NetbiosCihazAdi))
+            sp.Children.Add(KartSatir($"   Ad     : {bilgi.NetbiosCihazAdi}", "#C9D1D9"));
+
+        if (!string.IsNullOrWhiteSpace(bilgi.NetbiosGrupAdi))
+            sp.Children.Add(KartSatir($"   Grup   : {bilgi.NetbiosGrupAdi}", "#8B949E"));
 
         // Ping
         if (bilgi.PingYanit)

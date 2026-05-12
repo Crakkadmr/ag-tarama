@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Configs>
+<ServerAddressEn>
+<Value>http://hikdownload.hik-connect.com</Value>
+</ServerAddressEn>
+<ServerAddressZh>
+<Value>http://hikdownload.ys7.com</Value>
+</ServerAddressZh>
+<IsFirstLoading>
+<Value>0</Value>
+</IsFirstLoading>
+<Prompt>
+<Value>0</Value>
+</Prompt>
+</Configs>

@@ -14,6 +14,8 @@ internal static class Paths
     public static readonly string WiresharkPortableExe = Path.Combine(AppBase, "tools", "WiresharkPortable64", "WiresharkPortable64.exe");
     public static readonly string SadpExe              = Path.Combine(AppBase, "tools", "sadp", "sadptool.exe");
     public static readonly string IpScannerExe         = Path.Combine(AppBase, "tools", "Ip_Scanner", "advanced_ip_scanner.exe");
+    public static readonly string IpScannerConsoleExe  = Path.Combine(AppBase, "tools", "Ip_Scanner", "advanced_ip_scanner_console.exe");
+    public static readonly string IpScannerMacDb       = Path.Combine(AppBase, "tools", "Ip_Scanner", "mac_interval_tree.txt");
     public static readonly string CapturesKlasor       = Path.Combine(AppBase, "captures");
 
     public static readonly string LogKlasor =

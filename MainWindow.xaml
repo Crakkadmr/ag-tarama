@@ -6,6 +6,7 @@
         mc:Ignorable="d"
         Title="Ağ Tarama Programı" Height="650" Width="1000"
         MinHeight="500" MinWidth="750"
+        WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
         Background="#0D1117"
         AllowDrop="True"
@@ -237,11 +238,34 @@
             </Setter>
         </Style>
 
-        <!-- Seçili chip butonu (SNMP versiyon toggle — ChipButton'dan SONRA tanımlanmalı) -->
-        <Style x:Key="SelectedChipButton" TargetType="Button" BasedOn="{StaticResource ChipButton}">
-            <Setter Property="Background"  Value="#0D3B66"/>
-            <Setter Property="Foreground"  Value="#58A6FF"/>
-            <Setter Property="BorderBrush" Value="#1F6FEB"/>
+        <!-- Uygulama içi koyu ToolTip stili -->
+        <Style TargetType="ToolTip">
+            <Setter Property="Background"       Value="#1C2128"/>
+            <Setter Property="Foreground"       Value="#C9D1D9"/>
+            <Setter Property="BorderBrush"      Value="#3D444D"/>
+            <Setter Property="BorderThickness"  Value="1"/>
+            <Setter Property="Padding"          Value="10,7"/>
+            <Setter Property="FontFamily"       Value="Consolas"/>
+            <Setter Property="FontSize"         Value="11"/>
+            <Setter Property="HasDropShadow"    Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}"
+                                MaxWidth="280">
+                            <TextBlock Text="{TemplateBinding Content}"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       FontFamily="{TemplateBinding FontFamily}"
+                                       FontSize="{TemplateBinding FontSize}"
+                                       TextWrapping="Wrap"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
@@ -691,74 +715,6 @@
                     </Border>
                 </Grid>
 
-                <!-- SNMP Sorgusu paneli -->
-                <Grid Grid.Column="1" x:Name="SnmpPanel" ClipToBounds="True" Visibility="Collapsed">
-                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="8" Margin="8,0,0,0">
-                        <Grid Margin="14,14,14,14">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <!-- Başlık -->
-                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                                <TextBlock Text="⊙ SNMP SORGUSU" Foreground="#58A6FF" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
-                                <TextBlock Text="Cihaz sistem bilgilerini sorgula (v1/v2c):" Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
-                            </StackPanel>
-                            <!-- IP giriş -->
-                            <Grid Grid.Row="1" Margin="0,0,0,8">
-                                <TextBox x:Name="SnmpIpBox" Style="{StaticResource PingInputBox}" Padding="10,8,34,8"
-                                         TextChanged="SnmpIpBox_TextChanged" KeyDown="SnmpIpBox_KeyDown"/>
-                                <TextBlock x:Name="SnmpIpPlaceholder" Text="Hedef IP"
-                                           FontFamily="Consolas" FontSize="13" Foreground="#484F58"
-                                           VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
-                                <TextBlock x:Name="SnmpIpValidasyon" HorizontalAlignment="Right"
-                                           VerticalAlignment="Center" Margin="0,0,10,0"
-                                           FontFamily="Consolas" FontSize="15" FontWeight="Bold" IsHitTestVisible="False"/>
-                            </Grid>
-                            <!-- Community string -->
-                            <Grid Grid.Row="2" Margin="0,0,0,8">
-                                <TextBox x:Name="SnmpCommunityBox" Style="{StaticResource PingInputBox}" Padding="10,8,10,8"
-                                         TextChanged="SnmpCommunityBox_TextChanged"/>
-                                <TextBlock x:Name="SnmpCommunityPlaceholder" Text="Community: public"
-                                           FontFamily="Consolas" FontSize="11" Foreground="#484F58"
-                                           VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
-                            </Grid>
-                            <!-- Versiyon seçimi -->
-                            <StackPanel Grid.Row="3" Margin="0,0,0,8">
-                                <TextBlock Text="SNMP VERSİYONU" Foreground="#484F58" FontFamily="Consolas" FontSize="10" Margin="0,0,0,6"/>
-                                <WrapPanel>
-                                    <Button x:Name="SnmpV2cBtn" Style="{StaticResource SelectedChipButton}" Tag="v2c" Content="v2c" Click="SnmpVersiyonBtn_Click"/>
-                                    <Button x:Name="SnmpV1Btn"  Style="{StaticResource ChipButton}"         Tag="v1"  Content="v1"  Click="SnmpVersiyonBtn_Click"/>
-                                </WrapPanel>
-                            </StackPanel>
-                            <!-- Başlat -->
-                            <Button x:Name="SnmpBaslatBtn" Grid.Row="4" Style="{StaticResource PrimaryButton}"
-                                    IsEnabled="False" Height="36" HorizontalContentAlignment="Center"
-                                    Click="SnmpBaslatBtn_Click" Margin="0,0,0,6">
-                                <TextBlock Text="⊙  Sorgula" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
-                            </Button>
-                            <!-- Sonuç -->
-                            <Border x:Name="SnmpResultBorder" Grid.Row="5" Background="#0D1117"
-                                    BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
-                                    Margin="0,4,0,0" Visibility="Collapsed">
-                                <ScrollViewer x:Name="SnmpResultScroll" MaxHeight="200"
-                                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <StackPanel x:Name="SnmpResultPanel" Margin="10,8,10,8"/>
-                                </ScrollViewer>
-                            </Border>
-                            <!-- Kapat -->
-                            <Button Grid.Row="6" Content="✕  Kapat" Style="{StaticResource ActionButton}"
-                                    Click="SnmpPanelKapat_Click" Margin="0,10,0,0"
-                                    HorizontalContentAlignment="Center" Foreground="#8B949E"/>
-                        </Grid>
-                    </Border>
-                </Grid>
-
                 <!-- Wake-on-LAN paneli -->
                 <Grid Grid.Column="1" x:Name="WolPanel" ClipToBounds="True" Visibility="Collapsed">
                     <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="8" Margin="8,0,0,0">
@@ -831,48 +787,91 @@
                     </Border>
                 </Grid>
 
-                <!-- Subnet Hesap paneli -->
-                <Grid Grid.Column="1" x:Name="SubnetPanel" ClipToBounds="True" Visibility="Collapsed">
+                <!-- Bant Genişliği paneli -->
+                <Grid Grid.Column="1" x:Name="BantPanel" ClipToBounds="True" Visibility="Collapsed">
+                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="8" Margin="8,0,0,0">
+                        <Grid Margin="14,14,14,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                                <TextBlock Text="▶ BANT GENİŞLİĞİ" Foreground="#58A6FF" FontFamily="Consolas"
+                                           FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock x:Name="BantDurumText" Text="Ağ adaptörleri izleniyor..."
+                                           Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Border Grid.Row="1" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="BantAdaptorPanel" Margin="8,6,8,6"/>
+                                </ScrollViewer>
+                            </Border>
+                            <Button Grid.Row="2" Content="✕  Kapat" Style="{StaticResource ActionButton}"
+                                    Click="BantPanelKapat_Click" Margin="0,10,0,0"
+                                    HorizontalContentAlignment="Center" Foreground="#8B949E"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Cihaz Tarayıcı paneli -->
+                <Grid Grid.Column="1" x:Name="KameraPanel" ClipToBounds="True" Visibility="Collapsed">
                     <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="8" Margin="8,0,0,0">
                         <Grid Margin="14,14,14,14">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
+                            <!-- Başlık -->
                             <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                                <TextBlock Text="⊟ SUBNET HESAP" Foreground="#58A6FF" FontFamily="Consolas"
-                                           FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
-                                <TextBlock Text="CIDR notasyonuyla subnet bilgilerini hesapla:"
-                                           Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text="◎ CİHAZ TARAYICI" Foreground="#58A6FF" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock Text="Ağdaki tüm cihazları bul:" Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text="Kamera · NVR/DVR · Router · Switch · PC · NAS" Foreground="#484F58" FontFamily="Consolas" FontSize="10" Margin="0,3,0,0"/>
                             </StackPanel>
+                            <!-- Subnet giriş -->
                             <Grid Grid.Row="1" Margin="0,0,0,8">
-                                <TextBox x:Name="SubnetCidrBox" Style="{StaticResource PingInputBox}"
-                                         Padding="10,8,34,8"
-                                         TextChanged="SubnetCidrBox_TextChanged"/>
-                                <TextBlock x:Name="SubnetPlaceholder" Text="Örn: 192.168.1.0/24"
+                                <TextBox x:Name="KameraSubnetBox" Style="{StaticResource PingInputBox}"
+                                         Padding="10,8,10,8" TextChanged="KameraSubnetBox_TextChanged"/>
+                                <TextBlock x:Name="KameraSubnetPlaceholder" Text="Subnet: 192.168.1"
                                            FontFamily="Consolas" FontSize="12" Foreground="#484F58"
                                            VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
-                                <TextBlock x:Name="SubnetValidasyon" HorizontalAlignment="Right"
-                                           VerticalAlignment="Center" Margin="0,0,10,0"
-                                           FontFamily="Consolas" FontSize="15" FontWeight="Bold" IsHitTestVisible="False"/>
                             </Grid>
-                            <Button x:Name="SubnetHesaplaBtn" Grid.Row="2" Style="{StaticResource PrimaryButton}"
-                                    IsEnabled="False" Height="36" HorizontalContentAlignment="Center"
-                                    Click="SubnetHesaplaBtn_Click" Margin="0,0,0,6">
-                                <TextBlock Text="⊟  Hesapla" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
-                            </Button>
-                            <Border x:Name="SubnetResultBorder" Grid.Row="3" Background="#0D1117"
+                            <!-- Başlat / Durdur -->
+                            <Grid Grid.Row="2" Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="4"/>
+                                    <ColumnDefinition Width="40"/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="KameraBaslatBtn" Grid.Column="0" Style="{StaticResource PrimaryButton}"
+                                        Height="36" HorizontalContentAlignment="Center" Click="KameraBaslatBtn_Click">
+                                    <TextBlock Text="◎  Tara" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                                </Button>
+                                <Button x:Name="KameraDurdurBtn" Grid.Column="2" Content="■"
+                                        Style="{StaticResource DangerButton}"
+                                        Height="36" HorizontalContentAlignment="Center"
+                                        Visibility="Collapsed" Click="KameraDurdurBtn_Click"/>
+                            </Grid>
+                            <!-- İlerleme -->
+                            <TextBlock x:Name="KameraIlerlemeText" Grid.Row="3"
+                                       Foreground="#484F58" FontFamily="Consolas" FontSize="10"
+                                       Margin="0,0,0,4" Visibility="Collapsed" TextWrapping="Wrap"/>
+                            <!-- Sonuç -->
+                            <Border x:Name="KameraResultBorder" Grid.Row="4" Background="#0D1117"
                                     BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
-                                    Margin="0,4,0,0" Visibility="Collapsed">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <StackPanel x:Name="SubnetResultPanel" Margin="10,8,10,8"/>
+                                    Margin="0,2,0,0" Visibility="Collapsed">
+                                <ScrollViewer x:Name="KameraResultScroll"
+                                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="KameraResultPanel" Margin="8,6,8,6"/>
                                 </ScrollViewer>
                             </Border>
-                            <Button Grid.Row="4" Content="✕  Kapat" Style="{StaticResource ActionButton}"
-                                    Click="SubnetPanelKapat_Click" Margin="0,10,0,0"
+                            <!-- Kapat -->
+                            <Button Grid.Row="5" Content="✕  Kapat" Style="{StaticResource ActionButton}"
+                                    Click="KameraPanelKapat_Click" Margin="0,10,0,0"
                                     HorizontalContentAlignment="Center" Foreground="#8B949E"/>
                         </Grid>
                     </Border>
@@ -912,22 +911,36 @@
                 <!-- Taramayı Başlat -->
                 <Button x:Name="BtnTaramaBaslat"
                         Style="{StaticResource PrimaryButton}"
-                        Click="BtnTaramaBaslat_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="▶  " FontSize="13"/>
-                        <TextBlock Text="Taramayı Başlat" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnTaramaBaslat_Click"
+                        ToolTip="Ağ arayüzlerini tespit eder ve seçilen arayüzler üzerinde tshark ile paket yakalamasını başlatır. Sonuç .pcap dosyasına kaydedilir.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="▶  " FontSize="13"/>
+                            <TextBlock Text="Taramayı Başlat" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#3FB95088" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Taramayı Durdur -->
                 <Button x:Name="BtnTaramaDurdur"
                         Style="{StaticResource DangerButton}"
+                        HorizontalContentAlignment="Stretch"
                         IsEnabled="False"
-                        Click="BtnTaramaDurdur_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="■  " FontSize="13"/>
-                        <TextBlock Text="Taramayı Durdur" FontSize="13"/>
-                    </StackPanel>
+                        Click="BtnTaramaDurdur_Click"
+                        ToolTip="Devam eden tshark paketi yakalamayı durdurur. Kaydedilen pcap dosyası Wireshark ile açılabilir.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="■  " FontSize="13"/>
+                            <TextBlock Text="Taramayı Durdur" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#F8514988" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Ayırıcı -->
@@ -936,74 +949,123 @@
                 <!-- Ping Testi -->
                 <Button x:Name="BtnPing"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnPing_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="◈  " FontSize="13"/>
-                        <TextBlock Text="Ping Testi" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnPing_Click"
+                        ToolTip="Belirtilen IP veya hostname'e 4 ICMP ping paketi gönderir. Yanıt süresi (ms) ve TTL değeri gösterilir.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="◈  " FontSize="13"/>
+                            <TextBlock Text="Ping Testi" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Port Tara -->
                 <Button x:Name="BtnPortTara"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnPortTara_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⊞  " FontSize="13"/>
-                        <TextBlock Text="Port Tara" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnPortTara_Click"
+                        ToolTip="Hedef IP adresindeki belirtilen port aralığını tarar. TCP bağlantı denemeleri 50 paralel iş parçacığı ile gerçekleştirilir.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="⊞  " FontSize="13"/>
+                            <TextBlock Text="Port Tara" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Traceroute -->
                 <Button x:Name="BtnTrace"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnTrace_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⇢  " FontSize="13"/>
-                        <TextBlock Text="Traceroute" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnTrace_Click"
+                        ToolTip="Hedefe giden ağ yolunu adım adım izler. Her atlamada (hop) IP adresi ve gecikme süresi gösterilir.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="⇢  " FontSize="13"/>
+                            <TextBlock Text="Traceroute" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- DNS Lookup -->
                 <Button x:Name="BtnDns"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnDns_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⊕  " FontSize="13"/>
-                        <TextBlock Text="DNS Lookup" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnDns_Click"
+                        ToolTip="Alan adını IP adresine (veya tersine) çözümler. IPv4 ve IPv6 adresleri ile hostname bilgisi döner.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="⊕  " FontSize="13"/>
+                            <TextBlock Text="DNS Lookup" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Ayırıcı -->
                 <Rectangle Height="1" Fill="#21262D" Margin="0,8,0,8"/>
 
-                <!-- Cihazları Listele -->
+                <!-- Advanced IP Scanner -->
                 <Button x:Name="BtnCihazlar"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnCihazlar_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="≡  " FontSize="13"/>
-                        <TextBlock Text="Cihazları Listele" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnCihazlar_Click"
+                        ToolTip="Harici Advanced IP Scanner uygulamasını başlatır. Ağdaki tüm cihazları grafik arayüzle tarar, paylaşım ve servis bilgilerini gösterir.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="≡  " FontSize="13"/>
+                            <TextBlock Text="Advanced IP Scanner" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- ARP Tablosu -->
                 <Button x:Name="BtnArp"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnArp_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="◫  " FontSize="13"/>
-                        <TextBlock Text="ARP Tablosu" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnArp_Click"
+                        ToolTip="Yerel ağdaki IP-MAC adresi eşlemelerini listeler. 'arp -a' komutu çıktısı parse edilerek kart formatında gösterilir.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="◫  " FontSize="13"/>
+                            <TextBlock Text="ARP Tablosu" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Ağ Adaptörü -->
                 <Button x:Name="BtnAgBilgi"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnAgBilgi_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⊛  " FontSize="13"/>
-                        <TextBlock Text="Ağ Bilgisi" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnAgBilgi_Click"
+                        ToolTip="Bilgisayardaki tüm ağ adaptörlerinin IP adresi, MAC adresi, bağlantı hızı ve durumunu gösterir.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="⊛  " FontSize="13"/>
+                            <TextBlock Text="Ağ Bilgisi" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Ayırıcı -->
@@ -1012,31 +1074,52 @@
                 <!-- SADP -->
                 <Button x:Name="BtnSadp"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnSadp_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⬡  " FontSize="13"/>
-                        <TextBlock Text="SADP" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnSadp_Click"
+                        ToolTip="Hikvision SADP aracını başlatır. Ağdaki Hikvision IP kameralarını ve NVR'larını otomatik tespit eder, şifre sıfırlama imkânı sunar.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="⬡  " FontSize="13"/>
+                            <TextBlock Text="SADP" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Wake-on-LAN -->
                 <Button x:Name="BtnWol"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnWol_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⏻  " FontSize="13"/>
-                        <TextBlock Text="Wake-on-LAN" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnWol_Click"
+                        ToolTip="Belirtilen MAC adresine UDP Magic Packet göndererek kapalı cihazı uzaktan uyandırır. Cihazın WoL özelliğinin etkin olması gerekir.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="⏻  " FontSize="13"/>
+                            <TextBlock Text="Wake-on-LAN" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
-                <!-- SNMP Sorgusu -->
-                <Button x:Name="BtnSnmp"
+                <!-- Cihaz Tarayıcı -->
+                <Button x:Name="BtnKamera"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnSnmp_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⊙  " FontSize="13"/>
-                        <TextBlock Text="SNMP Sorgusu" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnKamera_Click"
+                        ToolTip="Subnet'teki tüm cihazları paralel tarar: kamera, NVR/DVR, router, switch, bilgisayar, NAS. Port tarama + ONVIF WS-Discovery + SSDP/UPnP yöntemleri kullanılır.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="◎  " FontSize="13"/>
+                            <TextBlock Text="Cihaz Tara" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Ayırıcı -->
@@ -1045,44 +1128,69 @@
                 <!-- Favoriler -->
                 <Button x:Name="BtnFavoriler"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnFavoriler_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="★  " FontSize="13"/>
-                        <TextBlock Text="Favoriler" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnFavoriler_Click"
+                        ToolTip="Sık kullanılan IP adreslerini kaydeder. Ping, port tarama gibi işlemlerde tek tıkla hedef seçimi sağlar.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="★  " FontSize="13"/>
+                            <TextBlock Text="Favoriler" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
-                <!-- Subnet Hesap -->
-                <Button x:Name="BtnSubnet"
+                <!-- Bant Genişliği -->
+                <Button x:Name="BtnBant"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnSubnet_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⊟  " FontSize="13"/>
-                        <TextBlock Text="Subnet Hesap" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnBant_Click"
+                        ToolTip="Ağ adaptörlerinin gerçek zamanlı indirme/yükleme hızlarını gösterir. Hangi adaptörün bant yediğini anlık olarak izler.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="▶  " FontSize="13"/>
+                            <TextBlock Text="Bant Genişliği" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
-
-                <!-- Ayırıcı -->
-                <Rectangle Height="1" Fill="#21262D" Margin="0,8,0,8"/>
 
                 <!-- Rapor Kaydet -->
                 <Button x:Name="BtnRapor"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnRapor_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="▤  " FontSize="13"/>
-                        <TextBlock Text="Rapor Kaydet" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnRapor_Click"
+                        ToolTip="Chat panelindeki tüm sonuçları ve log kayıtlarını metin dosyası (.txt) olarak dışa aktarır.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="▤  " FontSize="13"/>
+                            <TextBlock Text="Rapor Kaydet" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Ayarlar -->
                 <Button x:Name="BtnAyarlar"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnAyarlar_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⚙  " FontSize="13"/>
-                        <TextBlock Text="Ayarlar" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnAyarlar_Click"
+                        ToolTip="Uygulama ayarlarını düzenler: tema, timeout süreleri, log tercihleri ve başlangıç davranışı.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="⚙  " FontSize="13"/>
+                            <TextBlock Text="Ayarlar" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
                 <!-- Ayırıcı -->
@@ -1091,11 +1199,18 @@
                 <!-- Temizle -->
                 <Button x:Name="BtnTemizle"
                         Style="{StaticResource ActionButton}"
-                        Click="BtnTemizle_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⌫  " FontSize="13"/>
-                        <TextBlock Text="Ekranı Temizle" FontSize="13"/>
-                    </StackPanel>
+                        HorizontalContentAlignment="Stretch"
+                        Click="BtnTemizle_Click"
+                        ToolTip="Chat panelindeki tüm mesajları temizler. Aktif paket yakalama sırasında bu buton devre dışıdır.">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="⌫  " FontSize="13"/>
+                            <TextBlock Text="Ekranı Temizle" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Text="ⓘ" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Foreground="#58A6FF88" FontFamily="Consolas" FontSize="9"
+                                   Margin="0,2,2,0" IsHitTestVisible="False"/>
+                    </Grid>
                 </Button>
 
             </StackPanel>

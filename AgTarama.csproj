@@ -8,8 +8,14 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <!-- tools/ ve Req/ klasörlerini output dizinine kopyala -->
   <ItemGroup>
-    <PackageReference Include="Lextm.SharpSnmpLib" Version="12.*"/>
+    <None Include="tools\**\*" CopyToOutputDirectory="PreserveNewest">
+      <Link>tools\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </None>
+    <None Include="Req\**\*" CopyToOutputDirectory="PreserveNewest">
+      <Link>Req\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </None>
   </ItemGroup>
 
 </Project>

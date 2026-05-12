@@ -1,26 +1,18 @@
-# AGENT.md — Proje Tam Referans ve Geliştirici Rehberi
+# AGENTS.md — Proje Tam Referans ve Geliştirici Rehberi
 
-> Bu dosya yeni Claude Code session'larında tüm projeyi tek yerden anlayabilmek için hazırlanmıştır.
-> CLAUDE.md ve DETAY.md bu dosyada birleştirilmiştir; o dosyalar artık yoktur.
+> Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
 > Son güncelleme: 2026-05-12 (Faz 12: Bant Genişliği paneli, OUI üretici sorgulama, Ping Sweep,
 > rdp:// linkleri kaldırıldı, koyu ToolTip stili, WindowState=Maximized, SNMP+Subnet kaldırıldı)
 
 ---
 
-## ÖNCELİKLE BU DOSYAYI OKU
-
-Yeni bir session başladığında **önce bu dosyayı oku.** Projenin tüm dosya yapısı, mimarisi, alanları,
-metotları, UI bileşenleri ve TODO listesi burada — kaynak dosyaları tek tek taramaya gerek kalmaz.
-
----
-
 ## OTOMATİK GÜNCELLEME KURALI (ZORUNLU)
 
-Aşağıdaki tetikleyicilerden **herhangi biri** olduğunda `AGENT.md` dosyasını **aynı turda** güncelle
+Aşağıdaki değişikliklerden **herhangi birini** yaptığında `AGENTS.md` dosyasını **aynı turda** güncelle
 (kullanıcı ayrıca istemese bile):
 
-- `MainWindow.xaml` veya `MainWindow.xaml.cs` üzerinde Edit/Write yapıldığında
+- `MainWindow.xaml` veya `MainWindow.xaml.cs` dosyası değiştirildiğinde
 - Yeni `.cs` / `.xaml` dosyası eklendiğinde veya silindiğinde
 - `AgTarama.csproj` değiştirildiğinde (TargetFramework, paket vb.)
 - Yeni klasör/araç eklendiğinde (`tools/`, `Req/` altı dahil)
@@ -29,9 +21,9 @@ Aşağıdaki tetikleyicilerden **herhangi biri** olduğunda `AGENT.md` dosyasın
 - TODO maddesi tamamlandığında veya yeni TODO doğduğunda
 
 Güncelleme yaparken:
-- İlgili bölümü bul ve **yerinde** düzenle.
-- Üstteki `Son güncelleme:` satırını bugünün tarihine çevir.
-- Satır numaralarını mümkün olduğunca güncel tut.
+- İlgili bölümü bul ve **yerinde** düzenle — dosyayı baştan yazma.
+- Üstteki `Son güncelleme:` satırını değişikliğin tarihine çevir.
+- Yeni metotları §6'ya, yeni butonları §5.4'e, yeni alanları §6.2'ye ekle.
 
 ---
 
@@ -46,7 +38,7 @@ Güncelleme yaparken:
 | Output | `WinExe` |
 | Namespace | `AgTarama` |
 | Sürüm | v0.1.0 |
-| Branch | `TESTLERSSS` (main: `main`) |
+| Branch | `VOL-2` (main: `main`) |
 | Git user | Crakkadmr |
 | Kök yol | `C:\Projects\AG TARAMA PROGRAMI\AgTarama` |
 
@@ -96,10 +88,10 @@ AG TARAMA PROGRAMI/
     │   ├── SettingsService.cs            ← JSON serileştirme (%APPDATA%)
     │   └── FavoriService.cs              ← Favori IP CRUD (%APPDATA%)
     ├── SettingsWindow.xaml / .cs     ← Ayarlar penceresi
-    ├── AGENT.md                      ← (bu dosya) tam referans + geliştirici rehberi
+    ├── AGENTS.md                     ← (bu dosya) tam referans + geliştirici rehberi
+    ├── AGENT.md                      ← Claude Code için referans (Claude'a özgü kurallar içerir)
     ├── EKLENECEKLER.md               ← Geliştirme yol haritası (25+ özellik)
     ├── README.md                     ← Türkçe kullanıcı dokümantasyonu
-    ├── .claude/settings.local.json
     ├── Req/
     │   └── npcap-1.88.exe            ← Npcap installer
     ├── tools/
@@ -514,11 +506,11 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 
 ## 12. Git Durumu (snapshot 2026-05-12)
 
-- **Branch:** `TESTLERSSS`
+- **Branch:** `VOL-2`
 - **Main:** `main`
 - **Son commitler:**
+  - `6c6d8e9` refactor: remove SNMP and subnet modules, add bandwidth monitoring and OUI lookup database
   - `9a5d5b6` feat: add missing dependencies and documentation files for Wireshark, IP Scanner, and SADP tools
   - `016bdbb` Merge pull request #3 from Crakkadmr/yeni_ozelliklerpart2
   - `74a18df` feat: implement application settings system and favorite IP management with toast notifications
   - `c2b8c1c` refactor: extract network operations to service layer and centralize configuration into Paths and LogService
-  - `ebcbae7` refactor: standardize side panel animations with shared timer and implement active button state styling

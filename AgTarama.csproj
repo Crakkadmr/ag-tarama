@@ -8,10 +8,6 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Lextm.SharpSnmpLib" Version="12.*"/>
-  </ItemGroup>
-
   <!-- tools/ ve Req/ klasörlerini output dizinine kopyala -->
   <ItemGroup>
     <None Include="tools\**\*" CopyToOutputDirectory="PreserveNewest">

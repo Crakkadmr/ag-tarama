@@ -2,7 +2,7 @@
 
 > Bu dosya yeni Claude Code session'larında dosyaları taramadan tüm projeyi anlayabilmek için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da güncellenmelidir.** (Bkz. CLAUDE.md)
-> Son güncelleme: 2026-05-11 (Faz 8: Kamera Tarayıcı — HTTP banner, marka/model tespiti, tıklanabilir linkler)
+> Son güncelleme: 2026-05-12 (Faz 12: Bant Genişliği paneli, OUI üretici sorgulama, Ping Sweep, rdp:// linkleri kaldırıldı, koyu ToolTip stili, WindowState=Maximized)
 
 ---
 
@@ -129,7 +129,7 @@ Metin:         #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre
 | Port Tara | `BtnPortTara` | ActionButton | `BtnPortTara_Click` | ✅ Yan panel |
 | Traceroute | `BtnTrace` | ActionButton | `BtnTrace_Click` | ✅ Yan panel (`tracert -d`) |
 | DNS Lookup | `BtnDns` | ActionButton | `BtnDns_Click` | ✅ Yan panel (`Dns.GetHostEntryAsync`) |
-| Cihazları Listele | `BtnCihazlar` | ActionButton | `BtnCihazlar_Click` | ✅ Advanced IP Scanner |
+| Advanced IP Scanner | `BtnCihazlar` | ActionButton | `BtnCihazlar_Click` | ✅ Advanced IP Scanner |
 | ARP Tablosu | `BtnArp` | ActionButton | `BtnArp_Click` | ✅ `arp -a` → chat kart |
 | Ağ Bilgisi | `BtnAgBilgi` | ActionButton | `BtnAgBilgi_Click` | ✅ `NetworkInterface` → chat kartı |
 | SADP | `BtnSadp` | ActionButton | `BtnSadp_Click` | ✅ `tools/sadp/sadptool.exe` |

@@ -15,8 +15,6 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using Lextm.SharpSnmpLib;
-using Lextm.SharpSnmpLib.Messaging;
 using Microsoft.Win32;
 using AgTarama.Services;
 
@@ -43,17 +41,19 @@ public partial class MainWindow : Window
     private bool _portPanelAcik = false;
     private CancellationTokenSource? _portScanCts;
 
-    // ─── Traceroute / DNS / WoL / SNMP / Favoriler / Subnet panelleri
+    // ─── Traceroute / DNS / WoL / Favoriler panelleri ───────────────
     private bool _tracePanelAcik     = false;
     private CancellationTokenSource? _traceCts;
     private bool _dnsPanelAcik       = false;
     private bool _wolPanelAcik       = false;
-    private bool _snmpPanelAcik      = false;
-    private string _snmpVersiyon     = "v2c";
     private bool _favorilerPanelAcik = false;
-    private bool _subnetPanelAcik    = false;
     private bool _kameraPanelAcik    = false;
     private CancellationTokenSource? _kameraCts;
+
+    // ─── Bant Genişliği paneli ────────────────────────────────────────
+    private bool _bantPanelAcik = false;
+    private System.Windows.Threading.DispatcherTimer? _bantTimer;
+    private readonly Dictionary<string, (long RxBytes, long TxBytes, long Timestamp)> _bantOnceki = new();
 
     // ─── Animasyon / aktif buton / toast ─────────────────────────────
     private System.Windows.Threading.DispatcherTimer? _yanPanelTimer;
@@ -79,6 +79,74 @@ public partial class MainWindow : Window
         {3389,"RDP"},{5900,"VNC"},{8000,"HTTP-Alt"},{8080,"HTTP-Alt"},
         {8443,"HTTPS-Alt"},{37777,"Hikvision-SDK"},
     };
+
+    private static readonly Dictionary<string, string> OuiTablosu = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Hikvision
+        {"4C1FCC","Hikvision"},{"3C58C2","Hikvision"},{"D867D9","Hikvision"},{"B4A3B1","Hikvision"},
+        {"24B20E","Hikvision"},{"C0F0B4","Hikvision"},{"ACCC8E","Hikvision"},
+        // Dahua
+        {"9CFBD5","Dahua"},{"E0626E","Dahua"},{"108CCF","Dahua"},{"A00A7E","Dahua"},
+        // Axis
+        {"B8A44E","Axis"},{"00408C","Axis"},
+        // Reolink
+        {"EC71DB","Reolink"},{"B4530F","Reolink"},
+        // TP-Link
+        {"F4F26D","TP-Link"},{"50C7BF","TP-Link"},{"B0487A","TP-Link"},{"B4B024","TP-Link"},
+        {"3C52A1","TP-Link"},{"FC3FDB","TP-Link"},{"689427","TP-Link"},{"A40249","TP-Link"},
+        {"98DAFF","TP-Link"},{"C46E1F","TP-Link"},
+        // Cisco
+        {"001A2F","Cisco"},{"0019E7","Cisco"},{"00178C","Cisco"},{"000BFD","Cisco"},
+        {"485B39","Cisco"},{"3C0E23","Cisco"},{"70697F","Cisco"},
+        // MikroTik
+        {"4C5E0C","MikroTik"},{"6C3B6B","MikroTik"},{"D4CA6D","MikroTik"},
+        {"DC2C6E","MikroTik"},{"B8690E","MikroTik"},{"E48D8C","MikroTik"},
+        // Ubiquiti
+        {"788A20","Ubiquiti"},{"FCECD2","Ubiquiti"},{"E063DA","Ubiquiti"},
+        {"00272E","Ubiquiti"},{"44D9E7","Ubiquiti"},{"802AA8","Ubiquiti"},{"24A43C","Ubiquiti"},
+        // ASUS
+        {"107B44","ASUS"},{"1C872C","ASUS"},{"2C56DC","ASUS"},{"30D3D8","ASUS"},
+        {"50465D","ASUS"},{"AC9E17","ASUS"},
+        // D-Link
+        {"14D64D","D-Link"},{"1CBE69","D-Link"},{"28107B","D-Link"},{"34088A","D-Link"},
+        {"BCAEC5","D-Link"},{"F07D68","D-Link"},{"B8A386","D-Link"},
+        // NETGEAR
+        {"6CB0CE","NETGEAR"},{"A040A0","NETGEAR"},{"C03F0E","NETGEAR"},{"E091F5","NETGEAR"},
+        {"20E52A","NETGEAR"},{"9C3DCF","NETGEAR"},
+        // Huawei
+        {"0022A1","Huawei"},{"086070","Huawei"},{"1022BC","Huawei"},{"286ED4","Huawei"},
+        {"48A472","Huawei"},{"5422F8","Huawei"},{"9C28EF","Huawei"},{"F4CBE6","Huawei"},
+        // Apple
+        {"3C0754","Apple"},{"A45E60","Apple"},{"98014A","Apple"},{"7CD1C3","Apple"},
+        {"90B21F","Apple"},{"E0F847","Apple"},{"A8BE27","Apple"},{"3C15C2","Apple"},
+        // Samsung
+        {"00E0D0","Samsung"},{"1CEB43","Samsung"},{"2C0E3D","Samsung"},{"6C2069","Samsung"},
+        {"84A466","Samsung"},{"8838B4","Samsung"},{"549B12","Samsung"},
+        // Intel (NIC / Wi-Fi)
+        {"001B21","Intel"},{"A0A4C5","Intel"},{"94659C","Intel"},{"F8599C","Intel"},
+        {"8C8D28","Intel"},{"3C970E","Intel"},
+        // Realtek
+        {"E09185","Realtek"},{"00E04C","Realtek"},{"001D60","Realtek"},
+        // ZyXEL
+        {"001349","ZyXEL"},{"B0B2DC","ZyXEL"},{"E84DD0","ZyXEL"},{"F0B429","ZyXEL"},
+        // Synology
+        {"001132","Synology"},{"0011324","Synology"},
+        // QNAP
+        {"246E96","QNAP"},{"00089B","QNAP"},
+        // Tenda
+        {"C83A35","Tenda"},{"00D0F8","Tenda"},{"1880BE","Tenda"},
+        // VMware (virtual)
+        {"000C29","VMware"},{"005056","VMware"},{"000569","VMware"},
+        // Raspberry Pi
+        {"B827EB","Raspberry Pi"},{"DC4F22","Raspberry Pi"},{"E45F01","Raspberry Pi"},
+    };
+
+    private static string OuiAra(string mac)
+    {
+        var temiz = mac.Replace(":", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+        if (temiz.Length < 6) return "";
+        return OuiTablosu.TryGetValue(temiz[..6], out var marka) ? marka : "";
+    }
 
     // ─── Başlangıç ───────────────────────────────────────────────────
     public MainWindow()
@@ -700,10 +768,9 @@ public partial class MainWindow : Window
         if (_tracePanelAcik)     { _tracePanelAcik     = false; _traceCts?.Cancel();    TracePanel.Visibility     = Visibility.Collapsed; }
         if (_dnsPanelAcik)       { _dnsPanelAcik       = false; DnsPanel.Visibility     = Visibility.Collapsed; }
         if (_wolPanelAcik)       { _wolPanelAcik       = false; WolPanel.Visibility     = Visibility.Collapsed; }
-        if (_snmpPanelAcik)      { _snmpPanelAcik      = false; SnmpPanel.Visibility    = Visibility.Collapsed; }
         if (_favorilerPanelAcik) { _favorilerPanelAcik = false; FavorilerPanel.Visibility = Visibility.Collapsed; }
-        if (_subnetPanelAcik)    { _subnetPanelAcik    = false; SubnetPanel.Visibility  = Visibility.Collapsed; }
         if (_kameraPanelAcik)    { _kameraPanelAcik    = false; _kameraCts?.Cancel(); KameraPanel.Visibility  = Visibility.Collapsed; }
+        if (_bantPanelAcik)      { _bantPanelAcik      = false; _bantTimer?.Stop();   BantPanel.Visibility    = Visibility.Collapsed; }
         SetButonAktif(null);
         PingCol.Width = new GridLength(0);
     }
@@ -1009,14 +1076,6 @@ public partial class MainWindow : Window
         YanPanelAc(ref _wolPanelAcik, WolPanel);
         SetButonAktif(BtnWol);
         WolMacBox.Focus();
-    }
-
-    private void BtnSnmp_Click(object sender, RoutedEventArgs e)
-    {
-        if (_snmpPanelAcik) { SetButonAktif(null); _snmpPanelAcik = false; YanPanelKapatAnimasyon(() => SnmpPanel.Visibility = Visibility.Collapsed); return; }
-        YanPanelAc(ref _snmpPanelAcik, SnmpPanel);
-        SetButonAktif(BtnSnmp);
-        SnmpIpBox.Focus();
     }
 
     private void BtnArp_Click(object sender, RoutedEventArgs e)   => _ = ArpTablosuGoster();
@@ -1463,186 +1522,6 @@ public partial class MainWindow : Window
         LogService.Kaydet("WAKE-ON-LAN", mac, logSatirlari);
     }
 
-    // ─── SNMP Sorgusu ─────────────────────────────────────────────────
-    private void SnmpIpBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        OtomatikNoktaUygula(SnmpIpBox);
-        var metin = SnmpIpBox.Text.Trim();
-        SnmpIpPlaceholder.Visibility = string.IsNullOrEmpty(SnmpIpBox.Text) ? Visibility.Visible : Visibility.Collapsed;
-        if (string.IsNullOrEmpty(metin))
-        {
-            SnmpIpValidasyon.Text    = "";
-            SnmpBaslatBtn.IsEnabled  = false;
-        }
-        else if (GecerliIpv4Mu(metin))
-        {
-            SnmpIpValidasyon.Text       = "✓";
-            SnmpIpValidasyon.Foreground = new SolidColorBrush(Color.FromRgb(63, 185, 80));
-            SnmpBaslatBtn.IsEnabled     = true;
-        }
-        else
-        {
-            SnmpIpValidasyon.Text       = "✗";
-            SnmpIpValidasyon.Foreground = new SolidColorBrush(Color.FromRgb(248, 81, 73));
-            SnmpBaslatBtn.IsEnabled     = false;
-        }
-    }
-
-    private void SnmpIpBox_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter && SnmpBaslatBtn.IsEnabled)
-            _ = SnmpSorguBaslat(SnmpIpBox.Text.Trim());
-    }
-
-    private void SnmpCommunityBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        SnmpCommunityPlaceholder.Visibility = string.IsNullOrEmpty(SnmpCommunityBox.Text)
-            ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void SnmpVersiyonBtn_Click(object sender, RoutedEventArgs e)
-    {
-        _snmpVersiyon = (string)((Button)sender).Tag;
-        SnmpV2cBtn.Style = (Style)FindResource(_snmpVersiyon == "v2c" ? "SelectedChipButton" : "ChipButton");
-        SnmpV1Btn.Style  = (Style)FindResource(_snmpVersiyon == "v1"  ? "SelectedChipButton" : "ChipButton");
-    }
-
-    private void SnmpBaslatBtn_Click(object sender, RoutedEventArgs e)
-        => _ = SnmpSorguBaslat(SnmpIpBox.Text.Trim());
-
-    private void SnmpPanelKapat_Click(object sender, RoutedEventArgs e)
-    {
-        _snmpPanelAcik = false; SetButonAktif(null);
-        YanPanelKapatAnimasyon(() => SnmpPanel.Visibility = Visibility.Collapsed);
-    }
-
-    private void SnmpKutucugaYaz(string metin, string hex) =>
-        SnmpResultPanel.Children.Add(new TextBlock
-        {
-            Text         = metin,
-            FontFamily   = new FontFamily("Consolas"),
-            FontSize     = 12,
-            Foreground   = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
-            TextWrapping = TextWrapping.Wrap,
-            Margin       = new Thickness(0, 1, 0, 1),
-        });
-
-    private async Task SnmpSorguBaslat(string ip)
-    {
-        SnmpResultPanel.Children.Clear();
-        SnmpResultBorder.Visibility = Visibility.Visible;
-        SnmpBaslatBtn.IsEnabled     = false;
-
-        var community = string.IsNullOrWhiteSpace(SnmpCommunityBox.Text)
-            ? "public" : SnmpCommunityBox.Text.Trim();
-        var version   = _snmpVersiyon == "v1" ? VersionCode.V1 : VersionCode.V2;
-
-        SnmpKutucugaYaz($"◆ {ip}  community={community}  {_snmpVersiyon}", "#8B949E");
-
-        // Sorgulanacak MIB-II sysGroup OID'leri
-        var oidler = new List<Variable>
-        {
-            new(new ObjectIdentifier("1.3.6.1.2.1.1.1.0")), // sysDescr
-            new(new ObjectIdentifier("1.3.6.1.2.1.1.3.0")), // sysUpTime
-            new(new ObjectIdentifier("1.3.6.1.2.1.1.4.0")), // sysContact
-            new(new ObjectIdentifier("1.3.6.1.2.1.1.5.0")), // sysName
-            new(new ObjectIdentifier("1.3.6.1.2.1.1.6.0")), // sysLocation
-        };
-
-        var logSatirlari = new List<string>
-            { $"IP={ip}  community={community}  versiyon={_snmpVersiyon}" };
-
-        try
-        {
-            var adres    = IPAddress.Parse(ip);
-            var endpoint = new IPEndPoint(adres, 161);
-
-            IList<Variable> sonuc = await Task.Run(() =>
-                Messenger.Get(version, endpoint, new OctetString(community), oidler, 3000));
-
-            var adlar = new Dictionary<string, string>
-            {
-                { "1.3.6.1.2.1.1.1.0", "Açıklama " },
-                { "1.3.6.1.2.1.1.3.0", "Uptime   " },
-                { "1.3.6.1.2.1.1.4.0", "İletişim " },
-                { "1.3.6.1.2.1.1.5.0", "Ad       " },
-                { "1.3.6.1.2.1.1.6.0", "Konum    " },
-            };
-
-            bool veriVar = false;
-            foreach (var v in sonuc)
-            {
-                var oidStr = v.Id.ToString();
-                string ad  = adlar.TryGetValue(oidStr, out var a) ? a : oidStr;
-                string deger;
-                string hex;
-
-                if (v.Data is NoSuchObject or NoSuchInstance)
-                {
-                    deger = "(mevcut değil)";
-                    hex   = "#484F58";
-                }
-                else
-                {
-                    deger    = SnmpDegerFormatla(v.Data, oidStr);
-                    hex      = "#C9D1D9";
-                    veriVar  = true;
-                }
-
-                SnmpKutucugaYaz($"  {ad}  →  {deger}", hex);
-                logSatirlari.Add($"  {ad} → {deger}");
-            }
-
-            SnmpKutucugaYaz("─────────────────────────", "#30363D");
-            if (veriVar)
-            {
-                SnmpKutucugaYaz($"✔ Sorgu tamamlandı — {_snmpVersiyon}", "#3FB950");
-                logSatirlari.Add($"✔ Başarılı");
-            }
-            else
-            {
-                SnmpKutucugaYaz("✖ OID yanıtı boş (community hatalı olabilir)", "#F85149");
-                logSatirlari.Add("✖ Boş yanıt");
-            }
-        }
-        catch (Lextm.SharpSnmpLib.Messaging.TimeoutException)
-        {
-            SnmpKutucugaYaz("─────────────────────────", "#30363D");
-            SnmpKutucugaYaz("✖ Yanıt yok — SNMP aktif değil veya community hatalı", "#F85149");
-            logSatirlari.Add("✖ Timeout");
-        }
-        catch (Exception ex)
-        {
-            SnmpKutucugaYaz("─────────────────────────", "#30363D");
-            SnmpKutucugaYaz($"✖ {ex.Message}", "#F85149");
-            logSatirlari.Add($"✖ {ex.Message}");
-        }
-
-        LogService.Kaydet("SNMP", ip, logSatirlari);
-        SnmpResultScroll.ScrollToEnd();
-        SnmpBaslatBtn.IsEnabled = true;
-    }
-
-    private static string SnmpDegerFormatla(ISnmpData veri, string oid)
-    {
-        if (oid == "1.3.6.1.2.1.1.3.0" && veri is TimeTicks t)
-            return SnmpUptimeFormatla(t.ToUInt32());
-        return veri switch
-        {
-            OctetString s => s.ToString(),
-            Integer32   i => i.ToInt32().ToString(),
-            Counter32   c => c.ToUInt32().ToString(),
-            Gauge32     g => g.ToUInt32().ToString(),
-            _             => veri.ToString() ?? "-",
-        };
-    }
-
-    private static string SnmpUptimeFormatla(uint ticks)
-    {
-        var ts = TimeSpan.FromSeconds(ticks / 100.0);
-        return $"{(int)ts.TotalDays}g {ts.Hours:00}s {ts.Minutes:00}d {ts.Seconds:00}sn";
-    }
-
     // ─── Ağ Adaptörü Bilgileri ────────────────────────────────────────
     private void AgAdaptorleriniGoster()
     {
@@ -1695,10 +1574,13 @@ public partial class MainWindow : Window
 
             var sb = new StringBuilder();
             sb.AppendLine($"ARP tablosu — {esleseler.Count} kayıt:");
-            sb.AppendLine($"  {"IP Adresi",-18} {"MAC Adresi",-20} Tür");
-            sb.AppendLine($"  {"─────────────────",-18} {"───────────────────",-20} ──────");
+            sb.AppendLine($"  {"IP Adresi",-18} {"MAC Adresi",-20} {"Tür",-10} Üretici");
+            sb.AppendLine($"  {"─────────────────",-18} {"───────────────────",-20} {"──────────",-10} ──────────────────");
             foreach (Match m in esleseler)
-                sb.AppendLine($"  {m.Groups[1].Value,-18} {m.Groups[2].Value,-20} {m.Groups[3].Value}");
+            {
+                var uretici = OuiAra(m.Groups[2].Value);
+                sb.AppendLine($"  {m.Groups[1].Value,-18} {m.Groups[2].Value,-20} {m.Groups[3].Value,-10} {uretici}");
+            }
             var metin = sb.ToString().TrimEnd();
             MesajEkle("sonuc", metin);
             LogService.Kaydet("ARP", "arp -a", metin.Split('\n').Select(s => s.TrimEnd()));
@@ -1706,7 +1588,119 @@ public partial class MainWindow : Window
         catch (Exception ex) { MesajEkle("hata", $"ARP tablosu okunamadı: {ex.Message}"); }
     }
 
-    // ─── 4.1 Favori IP Listesi ───────────────────────────────────────
+    // ─── 4.1 Bant Genişliği Monitörü ─────────────────────────────────
+
+    private void BtnBant_Click(object sender, RoutedEventArgs e)
+    {
+        if (_bantPanelAcik)
+        {
+            SetButonAktif(null);
+            _bantPanelAcik = false;
+            _bantTimer?.Stop();
+            YanPanelKapatAnimasyon(() => BantPanel.Visibility = Visibility.Collapsed);
+            return;
+        }
+        YanPanelAc(ref _bantPanelAcik, BantPanel);
+        SetButonAktif(BtnBant);
+        BantIzlemeBaslat();
+    }
+
+    private void BantPanelKapat_Click(object sender, RoutedEventArgs e)
+    {
+        _bantPanelAcik = false;
+        SetButonAktif(null);
+        _bantTimer?.Stop();
+        YanPanelKapatAnimasyon(() => BantPanel.Visibility = Visibility.Collapsed);
+    }
+
+    private void BantIzlemeBaslat()
+    {
+        _bantOnceki.Clear();
+        BantAdaptorPanel.Children.Clear();
+        foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (ni.OperationalStatus != OperationalStatus.Up) continue;
+            if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+            var stats = ni.GetIPv4Statistics();
+            _bantOnceki[ni.Id] = (stats.BytesReceived, stats.BytesSent, Environment.TickCount64);
+        }
+        _bantTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _bantTimer.Tick += BantTimerTick;
+        _bantTimer.Start();
+        BantTimerTick(null, EventArgs.Empty);
+    }
+
+    private void BantTimerTick(object? sender, EventArgs e)
+    {
+        BantAdaptorPanel.Children.Clear();
+        var now = Environment.TickCount64;
+
+        var adaptorler = NetworkInterface.GetAllNetworkInterfaces()
+            .Where(ni => ni.OperationalStatus == OperationalStatus.Up
+                      && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+            .ToList();
+
+        if (adaptorler.Count == 0) { BantDurumText.Text = "Aktif adaptör bulunamadı."; return; }
+
+        BantDurumText.Text = $"{adaptorler.Count} adaptör — {DateTime.Now:HH:mm:ss}";
+
+        foreach (var ni in adaptorler)
+        {
+            var stats = ni.GetIPv4Statistics();
+            long rxNow = stats.BytesReceived;
+            long txNow = stats.BytesSent;
+            long rxHiz = 0, txHiz = 0;
+
+            if (_bantOnceki.TryGetValue(ni.Id, out var prev))
+            {
+                double sn = Math.Max((now - prev.Timestamp) / 1000.0, 0.001);
+                rxHiz = Math.Max((long)((rxNow - prev.RxBytes) / sn), 0);
+                txHiz = Math.Max((long)((txNow - prev.TxBytes) / sn), 0);
+            }
+            _bantOnceki[ni.Id] = (rxNow, txNow, now);
+
+            bool aktif = rxHiz > 0 || txHiz > 0;
+            var kart = new Border
+            {
+                Background      = new SolidColorBrush(Color.FromRgb(13, 17, 23)),
+                BorderBrush     = new SolidColorBrush(aktif ? Color.FromRgb(35, 134, 54) : Color.FromRgb(33, 38, 45)),
+                BorderThickness = new Thickness(1),
+                CornerRadius    = new CornerRadius(6),
+                Padding         = new Thickness(10, 8, 10, 8),
+                Margin          = new Thickness(0, 0, 0, 6),
+            };
+            var sp = new StackPanel();
+            sp.Children.Add(new TextBlock
+            {
+                Text         = ni.Name.Length > 30 ? ni.Name[..30] + "…" : ni.Name,
+                FontFamily   = new FontFamily("Consolas"),
+                FontSize     = 11,
+                FontWeight   = FontWeights.Bold,
+                Foreground   = new SolidColorBrush(Color.FromRgb(88, 166, 255)),
+                TextWrapping = TextWrapping.Wrap,
+            });
+            sp.Children.Add(new TextBlock
+            {
+                Text       = $"  ↓ {BantHizFormatla(rxHiz),10}   ↑ {BantHizFormatla(txHiz)}",
+                FontFamily = new FontFamily("Consolas"),
+                FontSize   = 12,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(aktif ? Color.FromRgb(63, 185, 80) : Color.FromRgb(72, 79, 88)),
+                Margin     = new Thickness(0, 3, 0, 0),
+            });
+            kart.Child = sp;
+            BantAdaptorPanel.Children.Add(kart);
+        }
+    }
+
+    private static string BantHizFormatla(long bytesPerSec)
+    {
+        if (bytesPerSec >= 1_000_000) return $"{bytesPerSec / 1_000_000.0:0.0} MB/s";
+        if (bytesPerSec >= 1_000)     return $"{bytesPerSec / 1_000.0:0.0} KB/s";
+        return $"{bytesPerSec} B/s";
+    }
+
+    // ─── 4.2 Favori IP Listesi ───────────────────────────────────────
 
     private void BtnFavoriler_Click(object sender, RoutedEventArgs e)
     {
@@ -1843,104 +1837,7 @@ public partial class MainWindow : Window
             _ayarlar = win.Ayarlar;
     }
 
-    // ─── 4.4 Subnet/CIDR Hesaplayıcı ────────────────────────────────
-
-    private void BtnSubnet_Click(object sender, RoutedEventArgs e)
-    {
-        if (_subnetPanelAcik) { SetButonAktif(null); _subnetPanelAcik = false; YanPanelKapatAnimasyon(() => SubnetPanel.Visibility = Visibility.Collapsed); return; }
-        YanPanelAc(ref _subnetPanelAcik, SubnetPanel);
-        SetButonAktif(BtnSubnet);
-        SubnetCidrBox.Focus();
-    }
-
-    private void SubnetPanelKapat_Click(object sender, RoutedEventArgs e)
-    {
-        _subnetPanelAcik = false; SetButonAktif(null);
-        YanPanelKapatAnimasyon(() => SubnetPanel.Visibility = Visibility.Collapsed);
-    }
-
-    private void SubnetCidrBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        SubnetPlaceholder.Visibility = string.IsNullOrEmpty(SubnetCidrBox.Text) ? Visibility.Visible : Visibility.Collapsed;
-        var metin = SubnetCidrBox.Text.Trim();
-        if (string.IsNullOrEmpty(metin))
-        {
-            SubnetValidasyon.Text = "";
-            SubnetHesaplaBtn.IsEnabled = false;
-        }
-        else if (GecerliCidrMu(metin))
-        {
-            SubnetValidasyon.Text       = "✓";
-            SubnetValidasyon.Foreground = new SolidColorBrush(Color.FromRgb(63, 185, 80));
-            SubnetHesaplaBtn.IsEnabled  = true;
-        }
-        else
-        {
-            SubnetValidasyon.Text       = "✗";
-            SubnetValidasyon.Foreground = new SolidColorBrush(Color.FromRgb(248, 81, 73));
-            SubnetHesaplaBtn.IsEnabled  = false;
-        }
-    }
-
-    private void SubnetHesaplaBtn_Click(object sender, RoutedEventArgs e)
-    {
-        var cidr = SubnetCidrBox.Text.Trim();
-        SubnetResultPanel.Children.Clear();
-        SubnetResultBorder.Visibility = Visibility.Visible;
-        try
-        {
-            var (ag, broadcast, maske, ilkHost, sonHost, hostSayisi) = SubnetHesapla(cidr);
-            SubnetKutucugaYaz("─────────────────────────", "#30363D");
-            SubnetKutucugaYaz($"  Ağ Adresi   :  {ag}",           "#58A6FF");
-            SubnetKutucugaYaz($"  Broadcast   :  {broadcast}",    "#58A6FF");
-            SubnetKutucugaYaz($"  Subnet Mask :  {maske}",        "#C9D1D9");
-            SubnetKutucugaYaz($"  İlk Host    :  {ilkHost}",      "#3FB950");
-            SubnetKutucugaYaz($"  Son Host    :  {sonHost}",      "#3FB950");
-            SubnetKutucugaYaz($"  Host Sayısı :  {hostSayisi:N0}", "#3FB950");
-            SubnetKutucugaYaz("─────────────────────────", "#30363D");
-        }
-        catch (Exception ex)
-        {
-            SubnetKutucugaYaz($"✖ {ex.Message}", "#F85149");
-        }
-    }
-
-    private void SubnetKutucugaYaz(string metin, string hex)
-        => SubnetResultPanel.Children.Add(new TextBlock
-        {
-            Text         = metin,
-            FontFamily   = new FontFamily("Consolas"),
-            FontSize     = 12,
-            Foreground   = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
-            TextWrapping = TextWrapping.Wrap,
-            Margin       = new Thickness(0, 1, 0, 1),
-        });
-
-    private static bool GecerliCidrMu(string s)
-    {
-        var p = s.Split('/');
-        if (p.Length != 2) return false;
-        if (!System.Net.IPAddress.TryParse(p[0].Trim(), out _)) return false;
-        return int.TryParse(p[1].Trim(), out int n) && n >= 0 && n <= 32;
-    }
-
-    private static (string Ag, string Broadcast, string Maske, string IlkHost, string SonHost, long HostSayisi)
-        SubnetHesapla(string cidr)
-    {
-        var p      = cidr.Split('/');
-        var bytes  = System.Net.IPAddress.Parse(p[0].Trim()).GetAddressBytes();
-        int prefix = int.Parse(p[1].Trim());
-        uint ipUint    = ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16) | ((uint)bytes[2] << 8) | bytes[3];
-        uint maske     = prefix == 0 ? 0u : ~0u << (32 - prefix);
-        uint ag        = ipUint & maske;
-        uint broadcast = ag | ~maske;
-        string ToIp(uint u) => $"{(u>>24)&0xFF}.{(u>>16)&0xFF}.{(u>>8)&0xFF}.{u&0xFF}";
-        if (prefix == 32) return (ToIp(ag), ToIp(ag),        ToIp(maske), ToIp(ag),     ToIp(ag),          1);
-        if (prefix == 31) return (ToIp(ag), ToIp(broadcast), ToIp(maske), ToIp(ag),     ToIp(broadcast),   2);
-        return              (ToIp(ag),      ToIp(broadcast), ToIp(maske), ToIp(ag + 1), ToIp(broadcast - 1), (long)(broadcast - ag - 1));
-    }
-
-    // ─── 4.5 HTML Rapor Çıktısı ──────────────────────────────────────
+    // ─── 4.4 HTML Rapor Çıktısı ──────────────────────────────────────
 
     private void BtnRapor_Click(object sender, RoutedEventArgs e) => RaporKaydet();
 
@@ -2056,7 +1953,7 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    // ─── 7. Kamera Tarayıcı ──────────────────────────────────────────
+    // ─── 7. Cihaz Tarayıcı ───────────────────────────────────────────
 
     private sealed class KameraBilgi
     {
@@ -2069,6 +1966,8 @@ public partial class MainWindow : Window
         public string?   RtspDurum      { get; set; }
         public string?   SunucuBasligi  { get; set; }
         public string?   SayfaBasligi   { get; set; }
+        public bool      PingYanit      { get; set; }
+        public int       PingMs         { get; set; }
     }
 
     private sealed class CihazKimlik
@@ -2079,7 +1978,7 @@ public partial class MainWindow : Window
         public string  TurIkon { get; set; } = "◈";
     }
 
-    private static readonly int[] KameraPorts = { 554, 8000, 8080, 37777, 80, 8443 };
+    private static readonly int[] KameraPorts = { 554, 8000, 8080, 37777, 80, 8443, 22, 23, 443, 445, 3389, 9000, 34567 };
 
     private static readonly (string Anahtar, string Marka, string Tur)[] MarkaTablosu =
     {
@@ -2118,6 +2017,29 @@ public partial class MainWindow : Window
         ("witek",            "Witek",        "Kamera"),
         ("ttec",             "TTEC",         "Kamera"),
         ("stonet",           "Stonet",       "Kamera"),
+        ("vstarcam",         "VStarCam",     "Kamera"),
+        ("annke",            "ANNKE",        "Kamera"),
+        ("amcrest",          "Amcrest",      "Kamera"),
+        ("xmeye",            "XMeye",        "NVR/DVR"),
+        ("web service root", "XMeye",        "NVR/DVR"),
+        ("nvr",              "NVR",          "NVR/DVR"),
+        ("synology",         "Synology",     "NAS"),
+        ("qnap",             "QNAP",         "NAS"),
+        ("mycloud",          "WD",           "NAS"),
+        ("wd my",            "WD",           "NAS"),
+        ("asustor",          "Asustor",      "NAS"),
+        ("microsoft",        "Windows",      "Bilgisayar"),
+        ("iis",              "Windows/IIS",  "Bilgisayar"),
+        ("openwrt",          "OpenWrt",      "Router/AP"),
+        ("dd-wrt",           "DD-WRT",       "Router/AP"),
+        ("pfsense",          "pfSense",      "Güvenlik Duvarı"),
+        ("fortinet",         "Fortinet",     "Güvenlik Duvarı"),
+        ("fortigate",        "Fortinet",     "Güvenlik Duvarı"),
+        ("sonicwall",        "SonicWall",    "Güvenlik Duvarı"),
+        ("aruba",            "Aruba",        "Switch/AP"),
+        ("juniper",          "Juniper",      "Switch"),
+        ("procurve",         "HP ProCurve",  "Switch"),
+        ("hpe",              "HPE",          "Switch"),
     };
 
     private static CihazKimlik KimlikBelirle(KameraBilgi b)
@@ -2134,16 +2056,26 @@ public partial class MainWindow : Window
         // Port bazlı fallback
         if (k.Marka == "Bilinmiyor")
         {
-            if (b.AcikPortlar.Contains(37777))                               { k.Marka = "Dahua";    k.Tur = "Kamera"; }
-            else if (b.AcikPortlar.Contains(8000) && b.AcikPortlar.Contains(554)) { k.Marka = "Hikvision"; k.Tur = "Kamera"; }
-            else if (b.AcikPortlar.Contains(554))                            {                        k.Tur = "Kamera"; }
+            if (b.AcikPortlar.Contains(34567))                                        { k.Marka = "XMeye";     k.Tur = "NVR/DVR"; }
+            else if (b.AcikPortlar.Contains(9000) && b.AcikPortlar.Contains(554))    {                         k.Tur = "NVR/DVR"; }
+            else if (b.AcikPortlar.Contains(37777))                                   { k.Marka = "Dahua";     k.Tur = "Kamera"; }
+            else if (b.AcikPortlar.Contains(8000) && b.AcikPortlar.Contains(554))    { k.Marka = "Hikvision"; k.Tur = "Kamera"; }
+            else if (b.AcikPortlar.Contains(554))                                     {                         k.Tur = "Kamera"; }
+            else if (b.AcikPortlar.Contains(445) || b.AcikPortlar.Contains(3389))    {                         k.Tur = "Bilgisayar"; }
+            else if (b.AcikPortlar.Contains(23))                                      {                         k.Tur = "Router/Switch"; }
         }
 
         k.TurIkon = k.Tur switch
         {
             "Kamera"           => "◎",
+            "NVR/DVR"          => "▣",
+            "Bilgisayar"       => "▢",
+            "NAS"              => "▦",
+            "Sunucu"           => "▤",
+            "Güvenlik Duvarı"  => "⊞",
             "Erişim Noktası"   => "⊛",
             "Router/AP"        => "⊛",
+            "Router/Switch"    => "⊛",
             "Switch/AP"        => "◫",
             "Switch"           => "◫",
             _                  => "◈",
@@ -2273,7 +2205,7 @@ public partial class MainWindow : Window
                                     bilgi.RtspDurum = await RtspHizliKontrol(ip, 554, token);
 
                                 // HTTP banner — ilk açık HTTP portunu dene
-                                foreach (var hp in new[] { 80, 8080, 8443, 443 })
+                                foreach (var hp in new[] { 80, 8080, 8443, 443, 9000 })
                                 {
                                     if (!acik.Contains(hp)) continue;
                                     var (sunucu, baslik) = await HttpBannerOku(ip, hp, token);
@@ -2291,7 +2223,7 @@ public partial class MainWindow : Window
                             sem.Release();
                             int n = Interlocked.Increment(ref taranan);
                             if (n % 32 == 0)
-                                await Dispatcher.InvokeAsync(() => KameraIlerlemeText.Text = $"Port tarama: {n}/254 kontrol edildi…");
+                                await Dispatcher.InvokeAsync(() => KameraIlerlemeText.Text = $"Cihaz tarama: {n}/254 kontrol edildi…");
                         }
                     }, token);
                 });
@@ -2349,14 +2281,12 @@ public partial class MainWindow : Window
 
                     using var cts3 = CancellationTokenSource.CreateLinkedTokenSource(token);
                     cts3.CancelAfter(3000);
-                    var kameraAnahtarlari = new[] { "camera", "ipcam", "nvr", "dvr", "dahua", "hikvision", "hanwha", "axis", "bosch" };
                     while (!cts3.Token.IsCancellationRequested)
                     {
                         var res  = await udp.ReceiveAsync(cts3.Token);
                         var resp = Encoding.UTF8.GetString(res.Buffer);
-                        if (!kameraAnahtarlari.Any(k => resp.Contains(k, StringComparison.OrdinalIgnoreCase))) continue;
-
                         var ip    = res.RemoteEndPoint.Address.ToString();
+                        if (!ip.StartsWith(subnet + ".")) continue;
                         var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
                         bilgi.SsdpBulundu = true;
                         logSatirlari.Add($"{ip} UPnP/SSDP");
@@ -2367,15 +2297,44 @@ public partial class MainWindow : Window
                 catch { }
             });
 
-            await Task.WhenAll(portTask, onvifTask, ssdpTask);
+            // ── Ping Sweep (tüm subnet paralel ICMP) ─────────────────
+            var pingSweepTask = Task.Run(async () =>
+            {
+                var sem   = new SemaphoreSlim(64);
+                var tasks = Enumerable.Range(1, 254).Select(i =>
+                {
+                    var ip = $"{subnet}.{i}";
+                    return Task.Run(async () =>
+                    {
+                        await sem.WaitAsync(token);
+                        try
+                        {
+                            using var ping = new System.Net.NetworkInformation.Ping();
+                            var reply = await ping.SendPingAsync(ip, 1000);
+                            if (reply.Status == System.Net.NetworkInformation.IPStatus.Success)
+                            {
+                                var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
+                                bilgi.PingYanit = true;
+                                bilgi.PingMs    = (int)reply.RoundtripTime;
+                                await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
+                            }
+                        }
+                        catch { }
+                        finally { sem.Release(); }
+                    }, token);
+                });
+                await Task.WhenAll(tasks);
+            }, token);
+
+            await Task.WhenAll(portTask, onvifTask, ssdpTask, pingSweepTask);
 
             var sonuc = token.IsCancellationRequested
                 ? $"■ Durduruldu — {bulunanlar.Count} cihaz bulundu"
-                : $"✔ Tamamlandı — {bulunanlar.Count} kamera/cihaz bulundu";
+                : $"✔ Tamamlandı — {bulunanlar.Count} cihaz bulundu";
             KameraKutucugaYaz("─────────────────────────", "#30363D");
             KameraKutucugaYaz(sonuc, bulunanlar.Count > 0 ? "#3FB950" : "#D29922");
             KameraIlerlemeText.Text = sonuc;
-            LogService.Kaydet("KAMERA TARA", $"{subnet}.0/24", logSatirlari.ToList());
+            LogService.Kaydet("CİHAZ TARA", $"{subnet}.0/24", logSatirlari.ToList());
         }
         catch (OperationCanceledException)
         {
@@ -2488,6 +2447,10 @@ public partial class MainWindow : Window
         // Tür etiketi
         sp.Children.Add(KartSatir($"   Tür    : {kim.Tur}", "#8B949E"));
 
+        // Ping
+        if (bilgi.PingYanit)
+            sp.Children.Add(KartSatir($"   Ping   : {bilgi.PingMs} ms", "#3FB950"));
+
         // Açık portlar
         if (bilgi.AcikPortlar.Count > 0)
             sp.Children.Add(KartSatir($"   Port   : {string.Join(", ", bilgi.AcikPortlar.Order())}", "#C9D1D9"));
@@ -2519,20 +2482,27 @@ public partial class MainWindow : Window
         {
             (80,   "http",  "http"),
             (8080, "http",  "http:8080"),
+            (9000, "http",  "http:9000"),
             (8443, "https", "https:8443"),
             (443,  "https", "https"),
         })
         {
             if (!bilgi.AcikPortlar.Contains(port)) continue;
             var url = port is 80 or 443 ? $"{scheme}://{bilgi.Ip}/" : $"{scheme}://{bilgi.Ip}:{port}/";
-            linkSp.Children.Add(KartLink($"   🌐  [{etiket}]  ", url));
+            linkSp.Children.Add(KartLink($"   [web:{etiket}]  ", url));
             linkVar = true;
         }
 
         if (bilgi.AcikPortlar.Contains(554))
         {
             var url = $"rtsp://{bilgi.Ip}:554/";
-            linkSp.Children.Add(KartLink("   🎥  [rtsp]  ", url));
+            linkSp.Children.Add(KartLink("   [rtsp:554]  ", url));
+            linkVar = true;
+        }
+
+        if (bilgi.AcikPortlar.Contains(22))
+        {
+            linkSp.Children.Add(KartLink("   [ssh:22]  ", $"ssh://{bilgi.Ip}:22/"));
             linkVar = true;
         }
 

@@ -1,17 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -32,33 +36,33 @@ public partial class MainWindow : Window
     private bool _taramaDevamEdiyor = false;
     private CancellationTokenSource? _taramaCts;
 
+    // ─── Sekme indeksleri ────────────────────────────────────────────
+    private const int TabChatbot   = 0;
+    private const int TabCihazTara = 1;
+    private const int TabPing      = 2;
+    private const int TabPort      = 3;
+    private const int TabTrace     = 4;
+    private const int TabDns       = 5;
+    private const int TabWol       = 6;
+    private const int TabFavoriler = 7;
+    private const int TabBant      = 8;
+
     // ─── Ping paneli ─────────────────────────────────────────────────
-    private bool _pingPanelAcik = false;
     private CancellationTokenSource? _pingCts;
-    private const double PingPanelGenisligi = 340;
 
     // ─── Port tarama paneli ──────────────────────────────────────────
-    private bool _portPanelAcik = false;
     private CancellationTokenSource? _portScanCts;
 
-    // ─── Traceroute / DNS / WoL / Favoriler panelleri ───────────────
-    private bool _tracePanelAcik     = false;
+    // ─── Traceroute / Kamera ─────────────────────────────────────────
     private CancellationTokenSource? _traceCts;
-    private bool _dnsPanelAcik       = false;
-    private bool _wolPanelAcik       = false;
-    private bool _favorilerPanelAcik = false;
-    private bool _kameraPanelAcik    = false;
     private CancellationTokenSource? _kameraCts;
 
     // ─── Bant Genişliği paneli ────────────────────────────────────────
-    private bool _bantPanelAcik = false;
     private System.Windows.Threading.DispatcherTimer? _bantTimer;
     private readonly Dictionary<string, (long RxBytes, long TxBytes, long Timestamp)> _bantOnceki = new();
 
-    // ─── Animasyon / aktif buton / toast ─────────────────────────────
-    private System.Windows.Threading.DispatcherTimer? _yanPanelTimer;
+    // ─── Toast ────────────────────────────────────────────────────────
     private System.Windows.Threading.DispatcherTimer? _toastTimer;
-    private Button? _aktifPanelBtn;
 
     // ─── Mesaj geçmişi (HTML rapor için) ─────────────────────────────
     private readonly List<(string Tur, string Metin, string Zaman)> _mesajGecmisi = new();
@@ -152,7 +156,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        MesajEkle("sistem", "Ağ Tarama Programı başlatıldı.");
+        _kameraSatirView = CollectionViewSource.GetDefaultView(_kameraSatirlari);
+        _kameraSatirView.Filter = KameraSatirFiltredenGecer;
+        KameraDataGrid.ItemsSource = _kameraSatirView;
+        MesajEkle("sistem", "Network Sniffer başlatıldı — made by demircan.");
         _ = BaslangicAsync();
     }
 
@@ -761,128 +768,25 @@ public partial class MainWindow : Window
     private void BtnTaramaDurdur_Click(object sender, RoutedEventArgs e)
         => YakalamaDurdur();
 
-    private void TumYanPanelleriKapat()
+    private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_pingPanelAcik)      { _pingPanelAcik      = false; _pingCts?.Cancel();     }
-        if (_portPanelAcik)      { _portPanelAcik      = false; _portScanCts?.Cancel(); PortPanel.Visibility      = Visibility.Collapsed; }
-        if (_tracePanelAcik)     { _tracePanelAcik     = false; _traceCts?.Cancel();    TracePanel.Visibility     = Visibility.Collapsed; }
-        if (_dnsPanelAcik)       { _dnsPanelAcik       = false; DnsPanel.Visibility     = Visibility.Collapsed; }
-        if (_wolPanelAcik)       { _wolPanelAcik       = false; WolPanel.Visibility     = Visibility.Collapsed; }
-        if (_favorilerPanelAcik) { _favorilerPanelAcik = false; FavorilerPanel.Visibility = Visibility.Collapsed; }
-        if (_kameraPanelAcik)    { _kameraPanelAcik    = false; _kameraCts?.Cancel(); KameraPanel.Visibility  = Visibility.Collapsed; }
-        if (_bantPanelAcik)      { _bantPanelAcik      = false; _bantTimer?.Stop();   BantPanel.Visibility    = Visibility.Collapsed; }
-        SetButonAktif(null);
-        PingCol.Width = new GridLength(0);
-    }
-
-    private void SetButonAktif(Button? btn)
-    {
-        if (_aktifPanelBtn != null)
-            _aktifPanelBtn.Style = (Style)FindResource("ActionButton");
-        _aktifPanelBtn = btn;
-        if (btn != null)
-            btn.Style = (Style)FindResource("ActiveActionButton");
-    }
-
-    private void YanPanelAc(ref bool flag, UIElement panel)
-    {
-        bool ayniPanel = flag;
-        TumYanPanelleriKapat();
-        if (ayniPanel) return;
-        flag = true;
-        panel.Visibility = Visibility.Visible;
-        YanPanelAcAnimasyon();
-    }
-
-    private void YanPanelAcAnimasyon()
-    {
-        _yanPanelTimer?.Stop();
-        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(12) };
-        timer.Tick += (s, _) =>
-        {
-            double mevcut = PingCol.Width.Value;
-            double adim   = Math.Max((PingPanelGenisligi - mevcut) * 0.28, 2);
-            double yeni   = mevcut + adim;
-            if (yeni >= PingPanelGenisligi - 1) { PingCol.Width = new GridLength(PingPanelGenisligi); _yanPanelTimer = null; ((System.Windows.Threading.DispatcherTimer)s!).Stop(); }
-            else PingCol.Width = new GridLength(yeni);
-        };
-        _yanPanelTimer = timer;
-        timer.Start();
-    }
-
-    private void YanPanelKapatAnimasyon(Action onBitti)
-    {
-        _yanPanelTimer?.Stop();
-        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(12) };
-        timer.Tick += (s, _) =>
-        {
-            double mevcut = PingCol.Width.Value;
-            double adim   = Math.Max(mevcut * 0.28, 2);
-            double yeni   = mevcut - adim;
-            if (yeni <= 1) { PingCol.Width = new GridLength(0); _yanPanelTimer = null; ((System.Windows.Threading.DispatcherTimer)s!).Stop(); onBitti(); }
-            else PingCol.Width = new GridLength(yeni);
-        };
-        _yanPanelTimer = timer;
-        timer.Start();
+        int sel = MainTabControl.SelectedIndex;
+        if (sel == TabBant)
+            BantIzlemeBaslat();
+        else
+            _bantTimer?.Stop();
+        if (sel == TabFavoriler)
+            FavorilerPanelGuncelle();
+        if (sel == TabCihazTara && string.IsNullOrEmpty(KameraSubnetBox.Text))
+            KameraSubnetBox.Text = YerelSubnetiBul() ?? "";
     }
 
     private void BtnPing_Click(object sender, RoutedEventArgs e)
     {
-        if (_pingPanelAcik) { SetButonAktif(null); _pingPanelAcik = false; YanPanelKapatAnimasyon(() => { }); return; }
-        YanPanelAc(ref _pingPanelAcik, PingPanel);
-        SetButonAktif(BtnPing);
+        MainTabControl.SelectedIndex = TabPing;
         PingIpBox.Focus();
     }
 
-    // ─── Ping paneli animasyonları ───────────────────────────────────
-    private void PingPanelAcAnimasyon()
-    {
-        _pingPanelAcik = true;
-        var timer = new System.Windows.Threading.DispatcherTimer
-            { Interval = TimeSpan.FromMilliseconds(12) };
-        timer.Tick += (s, _) =>
-        {
-            double mevcut = PingCol.Width.Value;
-            double kalan  = PingPanelGenisligi - mevcut;
-            double adim   = Math.Max(kalan * 0.28, 2);
-            double yeni   = mevcut + adim;
-            if (yeni >= PingPanelGenisligi - 1)
-            {
-                PingCol.Width = new GridLength(PingPanelGenisligi);
-                ((System.Windows.Threading.DispatcherTimer)s!).Stop();
-                PingIpBox.Focus();
-            }
-            else
-            {
-                PingCol.Width = new GridLength(yeni);
-            }
-        };
-        timer.Start();
-    }
-
-    private void PingPanelKapatAnimasyon()
-    {
-        _pingPanelAcik = false;
-        _pingCts?.Cancel();
-        var timer = new System.Windows.Threading.DispatcherTimer
-            { Interval = TimeSpan.FromMilliseconds(12) };
-        timer.Tick += (s, _) =>
-        {
-            double mevcut = PingCol.Width.Value;
-            double adim   = Math.Max(mevcut * 0.28, 2);
-            double yeni   = mevcut - adim;
-            if (yeni <= 1)
-            {
-                PingCol.Width = new GridLength(0);
-                ((System.Windows.Threading.DispatcherTimer)s!).Stop();
-            }
-            else
-            {
-                PingCol.Width = new GridLength(yeni);
-            }
-        };
-        timer.Start();
-    }
 
     // ─── IP / hostname doğrulama ─────────────────────────────────────
     private static bool GecerliIpv4Mu(string s)
@@ -984,8 +888,8 @@ public partial class MainWindow : Window
 
     private void PingPanelKapat_Click(object sender, RoutedEventArgs e)
     {
-        _pingPanelAcik = false; _pingCts?.Cancel(); SetButonAktif(null);
-        YanPanelKapatAnimasyon(() => { });
+        _pingCts?.Cancel();
+        MainTabControl.SelectedIndex = TabChatbot;
     }
 
     // ─── Ping işlemi ────────────────────────────────────────────────
@@ -1048,33 +952,25 @@ public partial class MainWindow : Window
 
     private void BtnPortTara_Click(object sender, RoutedEventArgs e)
     {
-        if (_portPanelAcik) { SetButonAktif(null); _portPanelAcik = false; YanPanelKapatAnimasyon(() => { _portScanCts?.Cancel(); PortPanel.Visibility = Visibility.Collapsed; }); return; }
-        YanPanelAc(ref _portPanelAcik, PortPanel);
-        SetButonAktif(BtnPortTara);
+        MainTabControl.SelectedIndex = TabPort;
         PortIpBox.Focus();
     }
 
     private void BtnTrace_Click(object sender, RoutedEventArgs e)
     {
-        if (_tracePanelAcik) { SetButonAktif(null); _tracePanelAcik = false; YanPanelKapatAnimasyon(() => { _traceCts?.Cancel(); TracePanel.Visibility = Visibility.Collapsed; }); return; }
-        YanPanelAc(ref _tracePanelAcik, TracePanel);
-        SetButonAktif(BtnTrace);
+        MainTabControl.SelectedIndex = TabTrace;
         TraceHedefBox.Focus();
     }
 
     private void BtnDns_Click(object sender, RoutedEventArgs e)
     {
-        if (_dnsPanelAcik) { SetButonAktif(null); _dnsPanelAcik = false; YanPanelKapatAnimasyon(() => DnsPanel.Visibility = Visibility.Collapsed); return; }
-        YanPanelAc(ref _dnsPanelAcik, DnsPanel);
-        SetButonAktif(BtnDns);
+        MainTabControl.SelectedIndex = TabDns;
         DnsHedefBox.Focus();
     }
 
     private void BtnWol_Click(object sender, RoutedEventArgs e)
     {
-        if (_wolPanelAcik) { SetButonAktif(null); _wolPanelAcik = false; YanPanelKapatAnimasyon(() => WolPanel.Visibility = Visibility.Collapsed); return; }
-        YanPanelAc(ref _wolPanelAcik, WolPanel);
-        SetButonAktif(BtnWol);
+        MainTabControl.SelectedIndex = TabWol;
         WolMacBox.Focus();
     }
 
@@ -1115,53 +1011,9 @@ public partial class MainWindow : Window
         MesajEkle("sistem", "Ekran temizlendi.");
     }
 
-    // ─── Port tarama paneli animasyonları ────────────────────────────
-    private void PortPanelAcAnimasyon()
-    {
-        _portPanelAcik = true;
-        PortPanel.Visibility = Visibility.Visible;
-        var timer = new System.Windows.Threading.DispatcherTimer
-            { Interval = TimeSpan.FromMilliseconds(12) };
-        timer.Tick += (s, _) =>
-        {
-            double mevcut = PingCol.Width.Value;
-            double kalan  = PingPanelGenisligi - mevcut;
-            double adim   = Math.Max(kalan * 0.28, 2);
-            double yeni   = mevcut + adim;
-            if (yeni >= PingPanelGenisligi - 1)
-            {
-                PingCol.Width = new GridLength(PingPanelGenisligi);
-                ((System.Windows.Threading.DispatcherTimer)s!).Stop();
-                PortIpBox.Focus();
-            }
-            else
-                PingCol.Width = new GridLength(yeni);
-        };
-        timer.Start();
-    }
-
-    private void PortPanelKapatAnimasyon()
-    {
-        _portPanelAcik = false;
-        _portScanCts?.Cancel();
-        var timer = new System.Windows.Threading.DispatcherTimer
-            { Interval = TimeSpan.FromMilliseconds(12) };
-        timer.Tick += (s, _) =>
-        {
-            double mevcut = PingCol.Width.Value;
-            double adim   = Math.Max(mevcut * 0.28, 2);
-            double yeni   = mevcut - adim;
-            if (yeni <= 1)
-            {
-                PingCol.Width = new GridLength(0);
-                ((System.Windows.Threading.DispatcherTimer)s!).Stop();
-                PortPanel.Visibility = Visibility.Collapsed;
-            }
-            else
-                PingCol.Width = new GridLength(yeni);
-        };
-        timer.Start();
-    }
+    // ─── (Eski animasyon — artık kullanılmıyor) ──────────────────────
+    private void PortPanelAcAnimasyon() { PortIpBox.Focus(); }
+    private void PortPanelKapatAnimasyon() { _portScanCts?.Cancel(); }
 
     // ─── Port paneli event'leri ───────────────────────────────────────
     private void PortIpBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -1229,8 +1081,8 @@ public partial class MainWindow : Window
 
     private void PortPanelKapat_Click(object sender, RoutedEventArgs e)
     {
-        _portPanelAcik = false; _portScanCts?.Cancel(); SetButonAktif(null);
-        YanPanelKapatAnimasyon(() => PortPanel.Visibility = Visibility.Collapsed);
+        _portScanCts?.Cancel();
+        MainTabControl.SelectedIndex = TabChatbot;
     }
 
     // ─── Port tarama işlevi ───────────────────────────────────────────
@@ -1316,8 +1168,8 @@ public partial class MainWindow : Window
     }
     private void TracePanelKapat_Click(object sender, RoutedEventArgs e)
     {
-        _tracePanelAcik = false; _traceCts?.Cancel(); SetButonAktif(null);
-        YanPanelKapatAnimasyon(() => TracePanel.Visibility = Visibility.Collapsed);
+        _traceCts?.Cancel();
+        MainTabControl.SelectedIndex = TabChatbot;
     }
 
     private void TraceKutucugaYaz(string metin, string hex) =>
@@ -1391,8 +1243,7 @@ public partial class MainWindow : Window
     private void DnsBaslatBtn_Click(object sender, RoutedEventArgs e) => _ = DnsLookupBaslat(DnsHedefBox.Text.Trim());
     private void DnsPanelKapat_Click(object sender, RoutedEventArgs e)
     {
-        _dnsPanelAcik = false; SetButonAktif(null);
-        YanPanelKapatAnimasyon(() => DnsPanel.Visibility = Visibility.Collapsed);
+        MainTabControl.SelectedIndex = TabChatbot;
     }
 
     private void DnsKutucugaYaz(string metin, string hex) =>
@@ -1479,8 +1330,7 @@ public partial class MainWindow : Window
     private void WolGonderBtn_Click(object sender, RoutedEventArgs e) => WolGonder(WolMacBox.Text.Trim());
     private void WolPanelKapat_Click(object sender, RoutedEventArgs e)
     {
-        _wolPanelAcik = false; SetButonAktif(null);
-        YanPanelKapatAnimasyon(() => WolPanel.Visibility = Visibility.Collapsed);
+        MainTabControl.SelectedIndex = TabChatbot;
     }
 
     private void WolKutucugaYaz(string metin, string hex) =>
@@ -1592,25 +1442,13 @@ public partial class MainWindow : Window
 
     private void BtnBant_Click(object sender, RoutedEventArgs e)
     {
-        if (_bantPanelAcik)
-        {
-            SetButonAktif(null);
-            _bantPanelAcik = false;
-            _bantTimer?.Stop();
-            YanPanelKapatAnimasyon(() => BantPanel.Visibility = Visibility.Collapsed);
-            return;
-        }
-        YanPanelAc(ref _bantPanelAcik, BantPanel);
-        SetButonAktif(BtnBant);
-        BantIzlemeBaslat();
+        MainTabControl.SelectedIndex = TabBant;
     }
 
     private void BantPanelKapat_Click(object sender, RoutedEventArgs e)
     {
-        _bantPanelAcik = false;
-        SetButonAktif(null);
         _bantTimer?.Stop();
-        YanPanelKapatAnimasyon(() => BantPanel.Visibility = Visibility.Collapsed);
+        MainTabControl.SelectedIndex = TabChatbot;
     }
 
     private void BantIzlemeBaslat()
@@ -1704,18 +1542,14 @@ public partial class MainWindow : Window
 
     private void BtnFavoriler_Click(object sender, RoutedEventArgs e)
     {
-        if (_favorilerPanelAcik) { SetButonAktif(null); _favorilerPanelAcik = false; YanPanelKapatAnimasyon(() => FavorilerPanel.Visibility = Visibility.Collapsed); return; }
-        FavorilerPanelGuncelle();
-        YanPanelAc(ref _favorilerPanelAcik, FavorilerPanel);
-        SetButonAktif(BtnFavoriler);
+        MainTabControl.SelectedIndex = TabFavoriler;
     }
 
     private void FavorilerPanelKapat_Click(object sender, RoutedEventArgs e) => FavorilerPanelKapat();
 
     private void FavorilerPanelKapat()
     {
-        _favorilerPanelAcik = false; SetButonAktif(null);
-        YanPanelKapatAnimasyon(() => FavorilerPanel.Visibility = Visibility.Collapsed);
+        MainTabControl.SelectedIndex = TabChatbot;
     }
 
     private void PingFavoriEkle_Click(object sender, RoutedEventArgs e)
@@ -1795,8 +1629,7 @@ public partial class MainWindow : Window
             };
             ipBtn.Click += (_, _) =>
             {
-                FavorilerPanelKapat();
-                if (!_pingPanelAcik) { YanPanelAc(ref _pingPanelAcik, PingPanel); SetButonAktif(BtnPing); }
+                MainTabControl.SelectedIndex = TabPing;
                 PingIpBox.Text = capturedIp;
                 _ = PingBaslat(capturedIp);
             };
@@ -2174,13 +2007,14 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private readonly Dictionary<string, Border> _kameraKartlar = new();
+    private readonly ObservableCollection<KameraSatir> _kameraSatirlari = new();
+    private readonly Dictionary<string, KameraSatir> _kameraSatirlar = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, KameraBilgi> _kameraBilgileri = new(StringComparer.Ordinal);
+    private ICollectionView? _kameraSatirView;
 
     private void BtnKamera_Click(object sender, RoutedEventArgs e)
     {
-        if (_kameraPanelAcik) { _kameraCts?.Cancel(); SetButonAktif(null); _kameraPanelAcik = false; YanPanelKapatAnimasyon(() => KameraPanel.Visibility = Visibility.Collapsed); return; }
-        YanPanelAc(ref _kameraPanelAcik, KameraPanel);
-        SetButonAktif(BtnKamera);
+        MainTabControl.SelectedIndex = TabCihazTara;
         if (string.IsNullOrEmpty(KameraSubnetBox.Text))
             KameraSubnetBox.Text = YerelSubnetiBul() ?? "";
     }
@@ -2188,13 +2022,49 @@ public partial class MainWindow : Window
     private void KameraPanelKapat_Click(object sender, RoutedEventArgs e)
     {
         _kameraCts?.Cancel();
-        _kameraPanelAcik = false; SetButonAktif(null);
-        YanPanelKapatAnimasyon(() => KameraPanel.Visibility = Visibility.Collapsed);
+        MainTabControl.SelectedIndex = TabChatbot;
     }
 
     private void KameraSubnetBox_TextChanged(object sender, TextChangedEventArgs e)
         => KameraSubnetPlaceholder.Visibility = string.IsNullOrEmpty(KameraSubnetBox.Text)
             ? Visibility.Visible : Visibility.Collapsed;
+
+    private void KameraKolonFiltre_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        KameraIpFiltrePlaceholder.Visibility = string.IsNullOrWhiteSpace(KameraIpFiltreBox.Text)
+            ? Visibility.Visible : Visibility.Collapsed;
+        KameraAdFiltrePlaceholder.Visibility = string.IsNullOrWhiteSpace(KameraAdFiltreBox.Text)
+            ? Visibility.Visible : Visibility.Collapsed;
+        KameraMarkaFiltrePlaceholder.Visibility = string.IsNullOrWhiteSpace(KameraMarkaFiltreBox.Text)
+            ? Visibility.Visible : Visibility.Collapsed;
+        KameraPortFiltrePlaceholder.Visibility = string.IsNullOrWhiteSpace(KameraPortFiltreBox.Text)
+            ? Visibility.Visible : Visibility.Collapsed;
+        KameraMacFiltrePlaceholder.Visibility = string.IsNullOrWhiteSpace(KameraMacFiltreBox.Text)
+            ? Visibility.Visible : Visibility.Collapsed;
+        KameraFiltreleriUygula();
+    }
+
+    private void KameraTurFiltreDegisti(object sender, SelectionChangedEventArgs e)
+        => KameraFiltreleriUygula();
+
+    private void KameraFiltreTemizle_Click(object sender, RoutedEventArgs e)
+    {
+        KameraIpFiltreBox.Clear();
+        KameraAdFiltreBox.Clear();
+        KameraMarkaFiltreBox.Clear();
+        KameraPortFiltreBox.Clear();
+        KameraMacFiltreBox.Clear();
+        KameraTurFiltreBox.SelectedIndex = 0;
+        KameraFiltreleriUygula();
+    }
+
+    private void KameraDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (KameraDataGrid.SelectedItem is not KameraSatir satir || string.IsNullOrWhiteSpace(satir.WebUrl))
+            return;
+
+        Process.Start(new ProcessStartInfo(satir.WebUrl) { UseShellExecute = true });
+    }
 
     private void KameraBaslatBtn_Click(object sender, RoutedEventArgs e) => _ = KameraTaramaBaslat();
     private void KameraDurdurBtn_Click(object sender, RoutedEventArgs e) => _kameraCts?.Cancel();
@@ -2271,8 +2141,10 @@ public partial class MainWindow : Window
             KameraSubnetBox.Text = subnet;
         }
 
-        KameraResultPanel.Children.Clear();
-        _kameraKartlar.Clear();
+        _kameraSatirlari.Clear();
+        _kameraSatirlar.Clear();
+        _kameraBilgileri.Clear();
+        KameraFiltreSayacText.Text = "0 cihaz";
         KameraResultBorder.Visibility   = Visibility.Visible;
         KameraIlerlemeText.Visibility   = Visibility.Visible;
         KameraBaslatBtn.IsEnabled       = false;
@@ -2767,199 +2639,148 @@ public partial class MainWindow : Window
 
     private void KameraKartEkleVeyaGuncelle(KameraBilgi bilgi)
     {
-        if (_kameraKartlar.TryGetValue(bilgi.Ip, out var kart))
+        _kameraBilgileri[bilgi.Ip] = bilgi;
+        var satir = KameraSatirOlustur(bilgi);
+        if (_kameraSatirlar.TryGetValue(bilgi.Ip, out var mevcut))
+            mevcut.Kopyala(satir);
+        else
         {
-            KameraKartIcDoldur(kart, bilgi);
-            return;
+            _kameraSatirlar[bilgi.Ip] = satir;
+            _kameraSatirlari.Add(satir);
         }
-        var yeniKart = new Border
-        {
-            Background      = new SolidColorBrush(Color.FromRgb(22, 27, 34)),
-            BorderBrush     = new SolidColorBrush(Color.FromRgb(48, 54, 61)),
-            BorderThickness = new Thickness(1),
-            CornerRadius    = new CornerRadius(6),
-            Padding         = new Thickness(10, 8, 10, 8),
-            Margin          = new Thickness(0, 0, 0, 6),
-        };
-        _kameraKartlar[bilgi.Ip] = yeniKart;
-        KameraKartIcDoldur(yeniKart, bilgi);
-        KameraResultPanel.Children.Add(yeniKart);
-        KameraResultScroll.ScrollToEnd();
+        KameraFiltreleriUygula();
     }
 
-    private static void KameraKartIcDoldur(Border kart, KameraBilgi bilgi)
+    private KameraSatir KameraSatirOlustur(KameraBilgi bilgi)
     {
-        var sp  = new StackPanel();
         var kim = KimlikBelirle(bilgi);
-        var cihazAdi = CihazAdiSec(bilgi);
+        var cihazAdi = CihazAdiSec(bilgi) ?? "";
 
-        // ── Başlık satırı ────────────────────────────────────────────
-        var baslikSb = new StringBuilder();
-        baslikSb.Append($"{kim.TurIkon}  {bilgi.Ip}");
-        if (cihazAdi != null)          baslikSb.Append($"   {cihazAdi}");
-        if (kim.Marka != "Bilinmiyor") baslikSb.Append($"   {kim.Marka}");
-        if (kim.Model != null && !string.Equals(kim.Model, cihazAdi, StringComparison.OrdinalIgnoreCase))
-            baslikSb.Append($" — {kim.Model}");
-        sp.Children.Add(new TextBlock
+        List<int> portlar;
+        lock (bilgi.AcikPortlar) portlar = bilgi.AcikPortlar.Order().ToList();
+
+        List<string> servisler;
+        lock (bilgi.ServisDetaylari)
+            servisler = bilgi.ServisDetaylari.OrderBy(x => x.Key).Select(x => $"{x.Key}/{x.Value}").ToList();
+
+        var kesifler = new List<string>();
+        if (bilgi.OnvifBulundu) kesifler.Add("ONVIF");
+        if (bilgi.SsdpBulundu) kesifler.Add("UPnP");
+
+        return new KameraSatir
         {
-            Text        = baslikSb.ToString(),
-            FontFamily  = new FontFamily("Consolas"),
-            FontSize    = 13,
-            FontWeight  = FontWeights.Bold,
-            Foreground  = new SolidColorBrush(Color.FromRgb(88, 166, 255)),
-            Margin      = new Thickness(0, 0, 0, 4),
-            TextWrapping = TextWrapping.Wrap,
-        });
+            Ip = bilgi.Ip,
+            Ad = cihazAdi,
+            Tur = kim.Tur,
+            Marka = kim.Marka == "Bilinmiyor" ? "" : kim.Marka,
+            Model = kim.Model ?? "",
+            Ping = bilgi.PingYanit ? $"{bilgi.PingMs} ms" : "",
+            PingMs = bilgi.PingYanit ? bilgi.PingMs : int.MaxValue,
+            Portlar = string.Join(", ", portlar),
+            Kesif = string.Join(", ", kesifler),
+            Mac = bilgi.MacAdresi ?? "",
+            Uretici = bilgi.Uretici ?? "",
+            Servis = string.Join(" | ", servisler.DefaultIfEmpty(IlkDolu(bilgi.AdvancedScannerServisler, bilgi.SunucuBasligi, bilgi.SayfaBasligi, bilgi.RtspDurum) ?? "")),
+            WebUrl = KameraWebUrlSec(bilgi),
+        };
+    }
 
-        // Tür etiketi
-        sp.Children.Add(KartSatir($"   Tür    : {kim.Tur}", "#8B949E"));
-
-        // Cihaz adı / marka / model
-        if (cihazAdi != null)
-            sp.Children.Add(KartSatir($"   Ad     : {cihazAdi}", "#C9D1D9"));
-
-        if (kim.Marka != "Bilinmiyor")
-            sp.Children.Add(KartSatir($"   Marka  : {kim.Marka}", "#8B949E"));
-
-        if (kim.Model != null && !string.Equals(kim.Model, cihazAdi, StringComparison.OrdinalIgnoreCase))
-            sp.Children.Add(KartSatir($"   Model  : {kim.Model}", "#8B949E"));
-
-        if (!string.IsNullOrWhiteSpace(bilgi.MacAdresi))
-            sp.Children.Add(KartSatir($"   MAC    : {bilgi.MacAdresi}", "#C9D1D9"));
-
-        if (!string.IsNullOrWhiteSpace(bilgi.Uretici))
-            sp.Children.Add(KartSatir($"   Üretici: {bilgi.Uretici}", "#8B949E"));
-
-        if (!string.IsNullOrWhiteSpace(bilgi.NetbiosGrupAdi))
-            sp.Children.Add(KartSatir($"   Grup   : {bilgi.NetbiosGrupAdi}", "#8B949E"));
-
-        if (!string.IsNullOrWhiteSpace(bilgi.OnvifKonum))
-            sp.Children.Add(KartSatir($"   Konum  : {bilgi.OnvifKonum}", "#8B949E"));
-
-        // Ping
-        if (bilgi.PingYanit)
-            sp.Children.Add(KartSatir($"   Ping   : {bilgi.PingMs} ms", "#3FB950"));
-
-        // Açık portlar
-        if (bilgi.AcikPortlar.Count > 0)
-            sp.Children.Add(KartSatir($"   Port   : {string.Join(", ", bilgi.AcikPortlar.Order())}", "#C9D1D9"));
-
-        if (bilgi.ServisDetaylari.Count > 0)
-        {
-            List<string> servisler;
-            lock (bilgi.ServisDetaylari)
-                servisler = bilgi.ServisDetaylari.OrderBy(x => x.Key).Select(x => $"{x.Key}/{x.Value}").ToList();
-            sp.Children.Add(KartSatir($"   Servis : {string.Join(" | ", servisler)}", "#8B949E"));
-        }
-
-        if (!string.IsNullOrWhiteSpace(bilgi.AdvancedScannerServisler))
-            sp.Children.Add(KartSatir($"   AIS    : {bilgi.AdvancedScannerServisler}", "#484F58"));
-
-        // HTTP Server header
-        if (bilgi.SunucuBasligi != null)
-            sp.Children.Add(KartSatir($"   Sunucu : {bilgi.SunucuBasligi}", "#484F58"));
-
-        if (!string.IsNullOrWhiteSpace(bilgi.SayfaBasligi))
-            sp.Children.Add(KartSatir($"   Başlık : {bilgi.SayfaBasligi}", "#484F58"));
-
-        if (bilgi.SsdpSunucu != null && bilgi.SunucuBasligi == null)
-            sp.Children.Add(KartSatir($"   Sunucu : {bilgi.SsdpSunucu}", "#484F58"));
-
-        // RTSP durumu
-        if (bilgi.RtspDurum != null)
-        {
-            bool ok = bilgi.RtspDurum.StartsWith("200") || bilgi.RtspDurum.StartsWith("401");
-            sp.Children.Add(KartSatir($"   RTSP   : {bilgi.RtspDurum}", ok ? "#3FB950" : "#8B949E"));
-        }
-
-        // ONVIF
-        if (bilgi.OnvifBulundu)
-            sp.Children.Add(KartSatir("   ONVIF  : ✔", "#3FB950"));
-
-        // UPnP
-        if (bilgi.SsdpBulundu)
-            sp.Children.Add(KartSatir("   UPnP   : ✔", "#3FB950"));
-
-        // ── Tıklanabilir linkler ─────────────────────────────────────
-        var linkSp = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
-        bool linkVar = false;
-
-        foreach (var (port, scheme, etiket) in new (int, string, string)[]
-        {
-            (80,   "http",  "http"),
-            (8080, "http",  "http:8080"),
-            (9000, "http",  "http:9000"),
-            (8443, "https", "https:8443"),
-            (443,  "https", "https"),
-        })
+    private static string? KameraWebUrlSec(KameraBilgi bilgi)
+    {
+        foreach (var (port, scheme) in new (int, string)[] { (80, "http"), (443, "https"), (8080, "http"), (8443, "https"), (9000, "http") })
         {
             if (!bilgi.AcikPortlar.Contains(port)) continue;
-            var url = port is 80 or 443 ? $"{scheme}://{bilgi.Ip}/" : $"{scheme}://{bilgi.Ip}:{port}/";
-            linkSp.Children.Add(KartLink($"   [web:{etiket}]  ", url));
-            linkVar = true;
+            return port is 80 or 443 ? $"{scheme}://{bilgi.Ip}/" : $"{scheme}://{bilgi.Ip}:{port}/";
         }
-
-        if (bilgi.AcikPortlar.Contains(554))
-        {
-            var url = $"rtsp://{bilgi.Ip}:554/";
-            linkSp.Children.Add(KartLink("   [rtsp:554]  ", url));
-            linkVar = true;
-        }
-
-        if (bilgi.AcikPortlar.Contains(22))
-        {
-            linkSp.Children.Add(KartLink("   [ssh:22]  ", $"ssh://{bilgi.Ip}:22/"));
-            linkVar = true;
-        }
-
-        if (bilgi.OnvifBulundu && bilgi.OnvifServisUrl != null)
-        {
-            linkSp.Children.Add(KartLink("   ⬡  [onvif]  ", bilgi.OnvifServisUrl));
-            linkVar = true;
-        }
-
-        if (linkVar) sp.Children.Add(linkSp);
-
-        kart.Child = sp;
+        return null;
     }
 
-    private static TextBlock KartSatir(string metin, string hex) => new()
+    private void KameraFiltreleriUygula()
     {
-        Text        = metin,
-        FontFamily  = new FontFamily("Consolas"),
-        FontSize    = 11,
-        Foreground  = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
-        TextWrapping = TextWrapping.Wrap,
-    };
-
-    private static UIElement KartLink(string etiket, string url)
-    {
-        var tb   = new TextBlock { FontFamily = new FontFamily("Consolas"), FontSize = 11, Margin = new Thickness(0, 1, 0, 1) };
-        var link = new Hyperlink(new Run(url))
-        {
-            NavigateUri     = new Uri(url),
-            Foreground      = new SolidColorBrush(Color.FromRgb(88, 166, 255)),
-            TextDecorations = null,
-        };
-        link.RequestNavigate += (_, e) =>
-        {
-            Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
-            e.Handled = true;
-        };
-        tb.Inlines.Add(new Run(etiket) { Foreground = new SolidColorBrush(Color.FromRgb(139, 148, 158)) });
-        tb.Inlines.Add(link);
-        return tb;
+        _kameraSatirView?.Refresh();
+        int toplam = _kameraSatirlari.Count;
+        int gorunen = _kameraSatirView?.Cast<object>().Count() ?? toplam;
+        KameraFiltreSayacText.Text = toplam == 0 ? "0 cihaz" : $"{gorunen}/{toplam} cihaz";
     }
+
+    private bool KameraSatirFiltredenGecer(object obj)
+    {
+        if (obj is not KameraSatir satir) return false;
+
+        var tur = (KameraTurFiltreBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Hepsi";
+        if (!string.Equals(tur, "Hepsi", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(satir.Tur, tur, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return Icerir(satir.Ip, KameraIpFiltreBox?.Text) &&
+               Icerir($"{satir.Ad} {satir.Model}", KameraAdFiltreBox?.Text) &&
+               Icerir($"{satir.Marka} {satir.Uretici}", KameraMarkaFiltreBox?.Text) &&
+               Icerir($"{satir.Portlar} {satir.Servis} {satir.Kesif}", KameraPortFiltreBox?.Text) &&
+               Icerir(satir.Mac, KameraMacFiltreBox?.Text);
+    }
+
+    private static bool Icerir(string? kaynak, string? filtre)
+        => string.IsNullOrWhiteSpace(filtre) ||
+           (kaynak?.Contains(filtre.Trim(), StringComparison.OrdinalIgnoreCase) ?? false);
 
     private void KameraKutucugaYaz(string metin, string hex)
-        => KameraResultPanel.Children.Add(new TextBlock
+        => KameraIlerlemeText.Text = metin;
+
+    public sealed class KameraSatir : INotifyPropertyChanged
+    {
+        private string _ip = "";
+        private string _ad = "";
+        private string _tur = "";
+        private string _marka = "";
+        private string _model = "";
+        private string _ping = "";
+        private int _pingMs = int.MaxValue;
+        private string _portlar = "";
+        private string _kesif = "";
+        private string _mac = "";
+        private string _uretici = "";
+        private string _servis = "";
+        private string? _webUrl;
+
+        public string Ip { get => _ip; set => Set(ref _ip, value); }
+        public string Ad { get => _ad; set => Set(ref _ad, value); }
+        public string Tur { get => _tur; set => Set(ref _tur, value); }
+        public string Marka { get => _marka; set => Set(ref _marka, value); }
+        public string Model { get => _model; set => Set(ref _model, value); }
+        public string Ping { get => _ping; set => Set(ref _ping, value); }
+        public int PingMs { get => _pingMs; set => Set(ref _pingMs, value); }
+        public string Portlar { get => _portlar; set => Set(ref _portlar, value); }
+        public string Kesif { get => _kesif; set => Set(ref _kesif, value); }
+        public string Mac { get => _mac; set => Set(ref _mac, value); }
+        public string Uretici { get => _uretici; set => Set(ref _uretici, value); }
+        public string Servis { get => _servis; set => Set(ref _servis, value); }
+        public string? WebUrl { get => _webUrl; set => Set(ref _webUrl, value); }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public void Kopyala(KameraSatir diger)
         {
-            Text         = metin,
-            FontFamily   = new FontFamily("Consolas"),
-            FontSize     = 12,
-            Foreground   = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
-            TextWrapping = TextWrapping.Wrap,
-            Margin       = new Thickness(0, 1, 0, 1),
-        });
+            Ip = diger.Ip;
+            Ad = diger.Ad;
+            Tur = diger.Tur;
+            Marka = diger.Marka;
+            Model = diger.Model;
+            Ping = diger.Ping;
+            PingMs = diger.PingMs;
+            Portlar = diger.Portlar;
+            Kesif = diger.Kesif;
+            Mac = diger.Mac;
+            Uretici = diger.Uretici;
+            Servis = diger.Servis;
+            WebUrl = diger.WebUrl;
+        }
+
+        private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
+        {
+            if (EqualityComparer<T>.Default.Equals(field, value)) return;
+            field = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+    }
 
 }

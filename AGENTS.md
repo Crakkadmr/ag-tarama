@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-12 (Windows cihaz adları için UDP 137 NetBIOS sweep eklendi)
+> Son güncelleme: 2026-05-12 (UI: sekme tabanlı tam ekran düzenine geçiş — TabControl mimarisi)
 
 ---
 
@@ -30,7 +30,7 @@ Güncelleme yaparken:
 
 | Alan | Değer |
 |---|---|
-| Ad | AG TARAMA PROGRAMI (AgTarama) |
+| Ad | Network Sniffer (AgTarama) |
 | Tip | WPF Desktop Uygulaması |
 | Hedef | .NET 10 (`net10.0-windows`), `UseWPF=true`, `Nullable=enable`, `ImplicitUsings=enable` |
 | csproj ek | `tools\**\*` ve `Req\**\*` → `CopyToOutputDirectory=PreserveNewest` |
@@ -45,13 +45,13 @@ Güncelleme yaparken:
 
 ## 2. Proje Amacı
 
-WPF tabanlı, **chatbot arayüzlü ağ tarama ve paket yakalama uygulaması**. Aktif ağ arayüzlerini
+WPF tabanlı, **Network Sniffer markalı chatbot arayüzlü ağ tarama ve paket yakalama uygulaması**. Aktif ağ arayüzlerini
 otomatik tespit eder, seçilen arayüzler üzerinde **tshark** ile paket yakalama gerçekleştirir,
 sonuçları **Wireshark Portable** ile analiz etmeye hazırlar.
 
 Ek özellikler: ping testi, port tarama, traceroute, DNS lookup, ARP tablosu (OUI üretici gösterimi),
 ağ adaptörü bilgisi, bant genişliği monitörü, Wake-on-LAN, Cihaz Tara (port scan + ONVIF + SSDP + Ping
-Sweep + DNS/ping-a/NetBIOS cihaz adı + UPnP/ONVIF ad-model + ARP/MAC/OUI + servis banner + Advanced IP Scanner console zenginleştirme), favori IP listesi, Advanced IP Scanner entegrasyonu, SADP entegrasyonu.
+Sweep + DNS/ping-a/NetBIOS cihaz adı + UPnP/ONVIF ad-model + ARP/MAC/OUI + servis banner + Advanced IP Scanner console zenginleştirme + canlı arama/tür/protokol filtreleri), favori IP listesi, Advanced IP Scanner entegrasyonu, SADP entegrasyonu.
 
 ---
 
@@ -74,8 +74,8 @@ AG TARAMA PROGRAMI/
     ├── AgTarama.csproj               ← .NET 10 WPF proje dosyası (NuGet bağımlılığı yok)
     ├── App.xaml / App.xaml.cs        ← Application giriş noktası (boş)
     ├── AssemblyInfo.cs               ← ThemeInfo
-    ├── MainWindow.xaml               ← UI tasarımı + stiller (~520 satır)
-    ├── MainWindow.xaml.cs            ← UI wiring + event handler'lar (~1950 satır)
+    ├── MainWindow.xaml               ← Network Sniffer UI tasarımı + stiller (~1144 satır)
+    ├── MainWindow.xaml.cs            ← UI wiring + event handler'lar (~2786 satır)
     ├── Paths.cs                      ← Tüm exe-relative yol sabitleri (static)
     ├── LogService.cs                 ← %APPDATA%\AgTarama\logs\YYYYMMDD.log
     ├── Services/
@@ -136,10 +136,25 @@ Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI contain
 ### 5.1 UI Düzeni (MainWindow.xaml)
 
 - `WindowState="Maximized"` — uygulama tam ekran açılır
-- **Sol** (`*` genişlik): Başlık (`AG TARAMA` + `StatusText`) + Chat alanı (`ChatScrollViewer` → `ChatPanel` StackPanel) + Animasyonla açılan yan panel (`PingCol` ColumnDefinition, 0 → 340px)
-- **Sağ** (220px sabit): Kontrol butonları StackPanel'i + alt versiyon yazısı
+- **2 satırlı kök Grid:** Satır 0 (Auto) = başlık kartı; Satır 1 (`*`) = `MainTabControl`
+- **Başlık kartı** (`#161B22`, CornerRadius=12): sol — ikon + `NETWORK SNIFFER` + `StatusText`; orta — araç WrapPanel (BtnTaramaBaslat, BtnTaramaDurdur, BtnArp, BtnAgBilgi, BtnCihazlar, BtnSadp, BtnRapor, BtnAyarlar, BtnTemizle); sağ — `made by demircan` versiyon yazısı
+- **TabControl** (`x:Name="MainTabControl"`, custom ControlTemplate — TabPanel ScrollViewer ile sarılmış): 9 sekme:
 
-Tüm yan paneller `PingCol` sütununu paylaşır — aynı anda yalnızca biri açık olabilir.
+| # | Sekme Başlığı | İçerik |
+|---|---|---|
+| 0 | 💬 Chatbot | ChatScrollViewer → ChatPanel + FavoriChipleri; header'daki araç butonları Chatbot'u kontrol eder |
+| 1 | ◎ Cihaz Tara | `KameraPanel` — tam genişlik envanter: subnet giriş, Tara/Durdur, filtreler, DataGrid |
+| 2 | ◈ Ping Testi | `PingPanel` — IP giriş, chip'ler, PingResultPanel |
+| 3 | ⊞ Port Tara | `PortPanel` — IP + port aralığı, chip'ler, PortResultPanel |
+| 4 | ⇢ Traceroute | `TracePanel` — IP giriş, TraceResultPanel |
+| 5 | ⊕ DNS Lookup | `DnsPanel` — hostname giriş, DnsResultPanel |
+| 6 | ⏻ Wake-on-LAN | `WolPanel` — MAC giriş, magic packet gönder |
+| 7 | ★ Favoriler | `FavorilerPanel` — favori IP listesi + sil chip'leri |
+| 8 | ▶ Bant Genişliği | `BantPanel` — adaptör kartları (canlı ↓↑ hız, 1s timer) |
+
+**TabItem stili (custom ControlTemplate):** Consolas 12pt, `#8B949E` fg, transparent border. Seçilince alt kenarlık `#2F81F7` (2px), bg `#0D1F2F`, metin `#58A6FF`. Hover (seçili değilken) bg `#161B22`, metin `#C9D1D9`. CornerRadius=6,6,0,0.
+
+**Eski yan panel / sidebar mimarisi tamamen kaldırıldı.** `PingCol` GridColumnDefinition, sağ 250px sütun ve tüm animasyon timer'ları artık yok.
 
 ### 5.2 Stil Sistemi (Window.Resources)
 
@@ -151,6 +166,12 @@ Tüm yan paneller `PingCol` sütununu paylaşır — aynı anda yalnızca biri a
 | `DangerButton` | Button | Kırmızı "Durdur" butonu (BasedOn ActionButton) |
 | `PingInputBox` | TextBox | Yan panel IP/değer giriş kutusu |
 | `ChipButton` | Button | Hızlı seçim chip'leri (yuvarlak, CornerRadius=12) |
+| `DarkComboBox` | ComboBox | Cihaz Tara tür filtresi; koyu açılır liste ve ok template'i |
+| `DarkComboBoxItem` | ComboBoxItem | Koyu dropdown satırları; hover/seçili durumları |
+| `DarkDataGrid` | DataGrid | Cihaz Tara tablo görünümü; koyu tema, sıralanabilir sütunlar |
+| `DarkDataGridColumnHeader` | DataGridColumnHeader | Koyu sütun başlıkları |
+| `DarkDataGridCell` | DataGridCell | Koyu hücre template'i |
+| `DarkDataGridRow` | DataGridRow | Koyu satır/hover/seçili durumları |
 | `ToolTip` (default) | ToolTip | Koyu tema ToolTip — `#1C2128` bg, `#C9D1D9` fg, `#3D444D` border, CornerRadius=5, MaxWidth=280 |
 | (default) | ScrollBar | 6px ince ScrollBar |
 
@@ -167,44 +188,40 @@ Kırmızı:     #F85149 (hata), #3D1A1A (DangerButton bg), #8B1A1A
 Metin:       #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre dışı)
 ```
 
-### 5.4 Kontrol Butonları (sağ panel — sırayla)
+### 5.4 Araç Butonları (başlık WrapPanel — soldan sağa)
+
+Tüm butonlar artık **üst başlık kartındaki WrapPanel**'de bulunur (eski sağ kenar çubuğu kaldırıldı). Tıklama davranışları ya chat/tshark işlemi başlatır ya da ilgili sekmeye geçer.
 
 | Adı | x:Name | Click Handler | Açıklama |
 |---|---|---|---|
 | Taramayı Başlat | `BtnTaramaBaslat` | `BtnTaramaBaslat_Click` | tshark yakalama başlatır |
 | Taramayı Durdur | `BtnTaramaDurdur` | `BtnTaramaDurdur_Click` | CancellationToken iptal |
-| ─ ayırıcı ─ | | | |
-| Ping Testi | `BtnPing` | `BtnPing_Click` | Yan panel |
-| Port Tara | `BtnPortTara` | `BtnPortTara_Click` | Yan panel |
-| Traceroute | `BtnTrace` | `BtnTrace_Click` | Yan panel (`tracert -d`) |
-| DNS Lookup | `BtnDns` | `BtnDns_Click` | Yan panel |
-| ─ ayırıcı ─ | | | |
-| Advanced IP Scanner | `BtnCihazlar` | `BtnCihazlar_Click` | Harici exe başlatır |
 | ARP Tablosu | `BtnArp` | `BtnArp_Click` | `arp -a` → chat kart + OUI |
 | Ağ Bilgisi | `BtnAgBilgi` | `BtnAgBilgi_Click` | `NetworkInterface` → chat kartı |
+| Advanced IP Scanner | `BtnCihazlar` | `BtnCihazlar_Click` | Harici exe başlatır |
 | SADP | `BtnSadp` | `BtnSadp_Click` | `tools/sadp/sadptool.exe` |
-| Wake-on-LAN | `BtnWol` | `BtnWol_Click` | Yan panel (UDP magic packet) |
-| Cihaz Tara | `BtnKamera` | `BtnKamera_Click` | Yan panel (Advanced IP Scanner tarzı detaylı envanter) |
-| ─ ayırıcı ─ | | | |
-| Favoriler | `BtnFavoriler` | `BtnFavoriler_Click` | Yan panel |
-| Bant Genişliği | `BtnBant` | `BtnBant_Click` | Yan panel (canlı ↓↑ hız) |
 | Rapor Kaydet | `BtnRapor` | `BtnRapor_Click` | Chat → .txt dosyası |
 | Ayarlar | `BtnAyarlar` | `BtnAyarlar_Click` | SettingsWindow açar |
-| ─ ayırıcı ─ | | | |
 | Ekranı Temizle | `BtnTemizle` | `BtnTemizle_Click` | Tarama sırasında disabled |
 
-### 5.5 Yan Paneller (PingCol paylaşımlı, 340px)
+> Ping, Port, Trace, DNS, WoL, Favoriler, Cihaz Tara, Bant Genişliği artık doğrudan TabControl sekmeleri olarak erişilir — ayrı butonları yok.
 
-| Panel x:Name | Flag | CTS | İçerik |
+### 5.5 Sekmeler (TabControl — x:Name içerikleri)
+
+Her sekme `TabItem` içine konumlanmış bir `Border` (eskiden yan panel) barındırır. `x:Name` referansları kodda korunmuştur.
+
+| Sekme # | Panel x:Name | CTS | İçerik |
 |---|---|---|---|
-| `PingPanel` | `_pingPanelAcik` | `_pingCts` | IP giriş, chip'ler, sonuç kutusu |
-| `PortPanel` | `_portPanelAcik` | `_portScanCts` | IP + port aralığı, chip'ler, sonuç |
-| `TracePanel` | `_tracePanelAcik` | `_traceCts` | IP giriş, sonuç kutusu |
-| `DnsPanel` | `_dnsPanelAcik` | — | Hostname giriş, sonuç kutusu |
-| `WolPanel` | `_wolPanelAcik` | — | MAC giriş, magic packet gönder |
-| `FavorilerPanel` | `_favorilerPanelAcik` | — | Favori IP listesi + sil chip'leri |
-| `KameraPanel` | `_kameraPanelAcik` | `_kameraCts` | Subnet giriş, cihaz kart listesi |
-| `BantPanel` | `_bantPanelAcik` | — | Adaptör kartları (canlı hız, 1s timer) |
+| 2 | `PingPanel` | `_pingCts` | IP giriş, chip'ler, PingResultPanel |
+| 3 | `PortPanel` | `_portScanCts` | IP + port aralığı, chip'ler, PortResultPanel |
+| 4 | `TracePanel` | `_traceCts` | IP giriş, TraceResultPanel |
+| 5 | `DnsPanel` | — | Hostname giriş, DnsResultPanel |
+| 6 | `WolPanel` | — | MAC giriş, magic packet gönder |
+| 7 | `FavorilerPanel` | — | Favori IP listesi + sil chip'leri |
+| 1 | `KameraPanel` | `_kameraCts` | Tam genişlik: subnet giriş, Tara/Durdur, canlı arama, tür filtresi, DataGrid |
+| 8 | `BantPanel` | — | Adaptör kartları (canlı hız, 1s timer) |
+
+> `_xxxPanelAcik` boolean flag'leri ve `PingCol` / `KameraPanelGenisligi` sabitleri **kaldırıldı**. Sekme geçişi `MainTabControl.SelectedIndex = TabXxx` ile yapılır.
 
 ---
 
@@ -215,18 +232,22 @@ Metin:       #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre d
 ```csharp
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -246,24 +267,26 @@ using AgTarama.Services;
 | `TestSuresiSn` | `int` (prop) | `_ayarlar.TestSuresiSn` |
 | `_taramaDevamEdiyor` | bool | Yakalama durumu flag'i |
 | `_taramaCts` | `CancellationTokenSource?` | Yakalama iptali |
-| `_pingPanelAcik` | bool | Ping paneli durumu |
+| `TabChatbot` | const int = 0 | Chatbot sekme indeksi |
+| `TabCihazTara` | const int = 1 | Cihaz Tara sekme indeksi |
+| `TabPing` | const int = 2 | Ping Testi sekme indeksi |
+| `TabPort` | const int = 3 | Port Tara sekme indeksi |
+| `TabTrace` | const int = 4 | Traceroute sekme indeksi |
+| `TabDns` | const int = 5 | DNS Lookup sekme indeksi |
+| `TabWol` | const int = 6 | Wake-on-LAN sekme indeksi |
+| `TabFavoriler` | const int = 7 | Favoriler sekme indeksi |
+| `TabBant` | const int = 8 | Bant Genişliği sekme indeksi |
 | `_pingCts` | `CancellationTokenSource?` | Ping iptali |
-| `PingPanelGenisligi` | const double = 340 | Yan panel hedef genişliği |
-| `_portPanelAcik` | bool | Port tara paneli durumu |
 | `_portScanCts` | `CancellationTokenSource?` | Port tarama iptali |
-| `_tracePanelAcik` | bool | Traceroute paneli durumu |
 | `_traceCts` | `CancellationTokenSource?` | Traceroute iptali |
-| `_dnsPanelAcik` | bool | DNS paneli durumu |
-| `_wolPanelAcik` | bool | Wake-on-LAN paneli durumu |
-| `_favorilerPanelAcik` | bool | Favoriler paneli durumu |
-| `_kameraPanelAcik` | bool | Cihaz Tara paneli durumu |
 | `_kameraCts` | `CancellationTokenSource?` | Cihaz tarama iptali |
-| `_bantPanelAcik` | bool | Bant Genişliği paneli durumu |
+| `_kameraBilgileri` | `Dictionary<string,KameraBilgi>` | Filtreleme için IP → son cihaz bilgisi cache'i |
+| `_kameraSatirlari` | `ObservableCollection<KameraSatir>` | Cihaz Tara DataGrid satır kaynağı |
+| `_kameraSatirlar` | `Dictionary<string,KameraSatir>` | IP → DataGrid satırı güncelleme cache'i |
+| `_kameraSatirView` | `ICollectionView?` | Sütun filtreleri ve DataGrid görünümü |
 | `_bantTimer` | `DispatcherTimer?` | 1s aralıklı bant hızı güncelleme timer'ı |
 | `_bantOnceki` | `Dictionary<string,(long Rx, long Tx, long Ts)>` | Önceki snapshot (hız hesabı için) |
-| `_yanPanelTimer` | `DispatcherTimer?` | Tek aktif panel animasyon timer'ı (çift tık race condition önler) |
 | `_toastTimer` | `DispatcherTimer?` | Toast bildirimi auto-hide |
-| `_aktifPanelBtn` | `Button?` | Şu an açık panelin sağ panel butonu |
 | `_mesajGecmisi` | `List<(string Tur, string Metin, string Zaman)>` | HTML rapor için geçmiş |
 | `_captureService` | `CaptureService` | tshark yönetimi |
 | `_otomatikGuncelleniyor` | bool | Otomatik nokta ekleme döngü koruması |
@@ -298,12 +321,15 @@ using AgTarama.Services;
 - **`NpcapKurulumu() static`**: `HKLM\SOFTWARE\Npcap` registry kontrolü.
 - **`NpcapKontrolVeKur()`**: Kurulu değilse `Paths.NpcapInstaller`'ı `runas` ile başlatır (görsel kurulum, `/S` flag yok).
 
-### 6.6 Panel Animasyon Sistemi
+### 6.6 Sekme Geçiş Sistemi
 
-- **`YanPanelAcAnimasyon()`** / **`YanPanelKapatAnimasyon(Action)`**: Her çağrıda önce `_yanPanelTimer?.Stop()` ile önceki timer durdurulur — çift tık race condition önlenir.
-- **`TumYanPanelleriKapat()`**: Tüm panel flag + Visibility + CTS iptal + `_bantTimer?.Stop()` + `SetButonAktif(null)` + `PingCol.Width=0`.
-- **`YanPanelAc(ref bool flag, UIElement panel)`**: `TumYanPanelleriKapat()` → flag=true → panel.Visible → animasyon. Aynı butona ikinci basışta kapatır (toggle).
-- **`SetButonAktif(Button?)`**: Style switching — `ActionButton` ↔ `ActiveActionButton`. DataTrigger/Tag değil (IsMouseOver çakışması yok).
+Eski animasyon sistemi (`YanPanelAcAnimasyon`, `YanPanelKapatAnimasyon`, `TumYanPanelleriKapat`, `YanPanelAc`, `SetButonAktif`, `_yanPanelTimer`) **tamamen kaldırıldı**.
+
+- **`MainTabControl_SelectionChanged(sender, e)`**: TabControl sekme değişimini dinler.
+  - Sekme 8 (Bant) seçilince → `BantIzlemeBaslat()`, diğer sekmelerde → `_bantTimer?.Stop()`.
+  - Sekme 7 (Favoriler) seçilince → `FavorilerPanelGuncelle()`.
+  - Sekme 1 (Cihaz Tara) seçilince ve `KameraSubnetBox.Text` boşsa → `YerelSubnetiBul()` ile otomatik doldurulur.
+- Tüm sekme geçişleri: `MainTabControl.SelectedIndex = TabXxx;`
 
 ### 6.7 Mesaj Sistemi
 
@@ -332,7 +358,7 @@ using AgTarama.Services;
 
 ### 6.9 Ping Handler'ları
 
-- **`BtnPing_Click`**: `YanPanelAc(ref _pingPanelAcik, PingPanel)` toggle + `SetButonAktif`.
+- **`BtnPing_Click`**: `MainTabControl.SelectedIndex = TabPing` + `PingIpBox.Focus()`.
 - **`PingIpBox_TextChanged`**: Canlı doğrulama `✓/~/✗` + `PingBaslatBtn.IsEnabled`.
 - **`PingBaslat(string hedef)`**: `PingService.PingleAsync` `IAsyncEnumerable` → `PingResultPanel` satırları. Ana chat'e **yazılmaz**. `LogService.Kaydet("PING", ...)`.
 - **`PingKutucugaYaz(string metin, string hex)`**: `PingResultPanel`'e stillenmiş `TextBlock` ekler.
@@ -340,7 +366,7 @@ using AgTarama.Services;
 
 ### 6.10 Port Tarama Handler'ları
 
-- **`BtnPortTara_Click`**: Panel toggle.
+- **`BtnPortTara_Click`**: `MainTabControl.SelectedIndex = TabPort`.
 - **`PortIpBox_TextChanged`** / **`PortAralikBox_TextChanged`**: Canlı doğrulama + `AktarButonDurumu()`.
 - **`PortHizliBtn_Click`**: Chip `Tag`'ini `PortAralikBox.Text`'e yazar.
 - **`PortTaraBaslat(string, int[])`**: `PortScanService.TaraAsync` + `SemaphoreSlim(50)` + 1000ms. Açık portlar `PortResultPanel`'e `[AÇIK]` yeşil ile. `LogService.Kaydet("PORT TARA", ...)`.
@@ -361,15 +387,14 @@ using AgTarama.Services;
 
 ### 6.12 Favori IP Sistemi
 
-- **`BtnFavoriler_Click`**: `FavorilerPanelGuncelle()` + panel toggle.
+- **`BtnFavoriler_Click`**: `MainTabControl.SelectedIndex = TabFavoriler` (`FavorilerPanelGuncelle` `SelectionChanged`'dan tetiklenir).
 - **`FavorilerPanelGuncelle()`**: `FavoriService.YukleHepsi()` → `FavorilerListePanel`'e IP chip'leri + sil butonu.
 - **`FavoriChipleriniYenile()`**: Ping ve Port panellerindeki `PingFavorilerPanel` / `PortFavorilerPanel` chip'lerini günceller.
 
 ### 6.13 Bant Genişliği Paneli
 
-- **`BtnBant_Click`**: Panel toggle. Açarken `BantIzlemeBaslat()` çağırır.
-- **`BantPanelKapat_Click`**: `_bantTimer?.Stop()` + animasyonla kapat.
-- **`BantIzlemeBaslat()`**: Tüm aktif (Loopback hariç) adaptörler için ilk snapshot alır → `DispatcherTimer` (1s) başlatır.
+- **`BtnBant_Click`**: `MainTabControl.SelectedIndex = TabBant` (timer `SelectionChanged` içinde başlar).
+- **`BantIzlemeBaslat()`**: Tüm aktif (Loopback hariç) adaptörler için ilk snapshot alır → `DispatcherTimer` (1s) başlatır. `SelectionChanged`'dan tetiklenir.
 - **`BantTimerTick(object?, EventArgs)`**: Her tick'te `NetworkInterface.GetIPv4Statistics()` okur, önceki snapshot ile fark alır → `BantAdaptorPanel`'e kart yeniler. Aktif adaptörler yeşil kenarlık.
 - **`BantHizFormatla(long bytesPerSec) static`**: `≥1MB/s`, `≥1KB/s`, `B/s`.
 
@@ -415,8 +440,19 @@ Her bulgu `ConcurrentDictionary<string, KameraBilgi>` ile dedup edilir → `Disp
 
 **`KimlikBelirle(KameraBilgi) static`**: `MarkaTablosu` → Server header + page title + ONVIF name/hardware + SSDP friendlyName/manufacturer/model/server → marka/tür. Port bazlı fallback: 34567/9000+554 → NVR/DVR, 445/3389 → Bilgisayar, NetBIOS/DNS/ping adı → Bilgisayar, 23 → Router/Switch.
 
-**`KameraKartIcDoldur`** gösterir: TürIkon+IP+Marka — Model başlık, Tür, **Ping (ms)**, Portlar, Sunucu, RTSP durumu, ONVIF/UPnP badge, linkler (`http/https/rtsp/ssh/onvif`).
-> **rdp:// linki yoktur** — 3389 portu taranır ama kart üzerinde link gösterilmez.
+**Cihaz Tara tablo görünümü:** `KameraDataGrid` koyu temalı, sıralanabilir bir DataGrid'dir. Sütunlar: IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif, MAC, Üretici, Servis. Web portu olan satıra çift tıklama ilk web URL'sini açar.
+
+**Cihaz Tara sütun filtreleri:** `KameraIpFiltreBox`, `KameraAdFiltreBox`, `KameraTurFiltreBox`, `KameraMarkaFiltreBox`, `KameraPortFiltreBox`, `KameraMacFiltreBox` DataGrid görünümünü sütun bazlı filtreler. `KameraFiltreSayacText` görünür/toplam cihaz sayısını gösterir.
+
+**`KameraSatir` sealed class:** `INotifyPropertyChanged` uygular; DataGrid için IP/ad/tür/marka/model/ping/port/keşif/MAC/üretici/servis/web URL alanlarını taşır.
+
+**`KameraSatirOlustur(KameraBilgi)`**: Tarama bulgusunu DataGrid satır modeline dönüştürür.
+
+**`KameraFiltreleriUygula()`**: `_kameraSatirView.Refresh()` çağırır ve görünür/toplam sayaç metnini günceller.
+
+**`KameraSatirFiltredenGecer(object)`**: IP, ad, tür, marka/üretici, port/servis/keşif ve MAC sütun filtrelerini uygular.
+
+**`KameraKolonFiltre_TextChanged`**, **`KameraTurFiltreDegisti`**, **`KameraFiltreTemizle_Click`**, **`KameraDataGrid_MouseDoubleClick`**: DataGrid filtre ve satır etkileşim event handler'ları.
 
 **`HttpBannerOku(ip, port, token) static`**: TCP HTTP GET `/` → `Server:` header + `<title>` (2.5sn timeout). `(Sunucu, Baslik)` tuple döner.
 
@@ -481,7 +517,7 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 
 - Tüm ağ işlemleri `async/await` + `CancellationToken` ile yapılmalı; UI thread bloke edilmemeli.
 - Sonuçlar `MesajEkle("sonuc", ...)` ile chat'e; panel sonuçları kendi `XxxResultPanel`'e yazılır — ana chat'e **yazılmaz**.
-- Yeni buton sağ paneldeki `StackPanel`'e `ActionButton` stiliyle eklenir. `Grid` içerik + `ⓘ` badge standardı izlenir.
+- Yeni araç butonu başlık kartındaki `WrapPanel`'e eklenir. Sekme yönlendirme butonu için `MainTabControl.SelectedIndex = TabXxx` kullanılır; doğrudan işlem yapan butonlar (ARP, ağ bilgisi) için doğrudan metot çağırılır.
 - Stil kaynakları yalnızca `MainWindow.xaml > Window.Resources`'da tanımlanır. `ActiveActionButton`, `ActionButton`'dan **SONRA** tanımlanmalı (StaticResource forward-ref hatası).
 - .NET 10 / WPF — `LetterSpacing` gibi web CSS özellikleri yoktur.
 - Harici araç başlatma için `HariciAracBaslat(exe, ad)` kullanılır.
@@ -505,6 +541,7 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 | ✅ | Advanced IP Scanner console zenginleştirme | `AdvancedIpScannerService` + `AdvancedScannerKayitlariniIsleAsync` |
 | ✅ | SADP | `HariciAracBaslat` |
 | ✅ | Cihaz Tara (Kamera+Router+PC+NVR…) | `KameraTaramaBaslat` + `KameraPanel` |
+| ✅ | Cihaz Tara DataGrid envanter UI + sütun filtreleri | `KameraDataGrid` + `KameraSatirFiltredenGecer` |
 | ✅ | Ping Sweep (Cihaz Tara içinde) | 4. paralel görev, `PingYanit/PingMs` |
 | ✅ | Katmanlı cihaz adı/model çözümleme (Cihaz Tara içinde) | `NetbiosService` + ONVIF/SSDP ad-model parse |
 | ✅ | ARP/MAC/OUI + servis banner detayları (Cihaz Tara içinde) | `ArpBilgileriniTopluGuncelleAsync` + `ServisDetaylariniGuncelleAsync` |
@@ -520,6 +557,7 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 | ✅ | Koyu ToolTip stili | `Window.Resources` default ToolTip |
 | ✅ | `ⓘ` bilgi badge (tüm butonlar) | Grid içerik + ToolTip |
 | ✅ | Tam ekran başlatma | `WindowState="Maximized"` |
+| ✅ | Sekme tabanlı tam ekran UI (TabControl mimarisi) | `MainTabControl` — 9 sekme, animasyonsuz, her araç tam genişlik |
 
 ---
 
@@ -542,7 +580,7 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 | 🔵 | SSH Komutu Çalıştırıcı | Zor |
 | 🔵 | Geçmiş / Son Taramalar | Orta |
 | 🔵 | Cihaz Tara servis katmanına alma | Orta-Zor |
-| 🔵 | Çoklu Sekme / Çalışma Alanı | Zor |
+| ✅ | Çoklu Sekme / Çalışma Alanı | TabControl mimarisi uygulandı |
 
 ---
 

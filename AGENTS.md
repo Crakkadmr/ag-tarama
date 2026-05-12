@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-12 (UI: sekme tabanlı tam ekran düzenine geçiş — TabControl mimarisi)
+> Son güncelleme: 2026-05-12 (Cihaz Tara: Telefon/Tablet türü tespiti eklendi)
 
 ---
 
@@ -415,14 +415,16 @@ PingYanit (bool), PingMs (int)
 **Tür ikonları:**
 | Tür | İkon |
 |---|---|
-| Kamera | ◉ |
+| Kamera | ◎ |
 | NVR/DVR | ▣ |
 | Bilgisayar | ▢ |
 | NAS | ▦ |
 | Sunucu | ▤ |
 | Güvenlik Duvarı | ⊞ |
-| Router/Switch | ⊛ |
-| Erişim Noktası | ◈ |
+| Router/AP / Switch | ⊛ |
+| Erişim Noktası | ⊛ |
+| Telefon | ⊡ |
+| Tablet | ▭ |
 | Cihaz (fallback) | ◈ |
 
 **`KameraTaramaBaslat()`** — 4 görev `Task.WhenAll` ile paralel:
@@ -438,7 +440,7 @@ PingYanit (bool), PingMs (int)
 
 Her bulgu `ConcurrentDictionary<string, KameraBilgi>` ile dedup edilir → `Dispatcher.InvokeAsync` → `KameraKartEkleVeyaGuncelle`.
 
-**`KimlikBelirle(KameraBilgi) static`**: `MarkaTablosu` → Server header + page title + ONVIF name/hardware + SSDP friendlyName/manufacturer/model/server → marka/tür. Port bazlı fallback: 34567/9000+554 → NVR/DVR, 445/3389 → Bilgisayar, NetBIOS/DNS/ping adı → Bilgisayar, 23 → Router/Switch.
+**`KimlikBelirle(KameraBilgi) static`**: `MarkaTablosu` → Server header + page title + ONVIF name/hardware + SSDP friendlyName/manufacturer/model/server → marka/tür. Port bazlı fallback: 34567/9000+554 → NVR/DVR, 445/3389 → Bilgisayar, NetBIOS/DNS/ping adı → Bilgisayar, 23 → Router/Switch. **Telefon tespiti** (üç katman): (1) MarkaTablosu'nda `android`, `miui`, `iphone`, `ipad`, `oneplus`, `oppo`, `vivo` anahtar kelimeleri → Telefon/Tablet; (2) DNS/ping/SSDP hostname'de `iphone`, `ipad`, `android-`, `galaxy`, `redmi`, `xiaomi`, `poco`, `pixel` → Telefon/Tablet; (3) OUI üreticisi mobil marka + sunucu portu yok (22/80/443/445/554/3389/8080/8443/8000) → Telefon.
 
 **Cihaz Tara tablo görünümü:** `KameraDataGrid` koyu temalı, sıralanabilir bir DataGrid'dir. Sütunlar: IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif, MAC, Üretici, Servis. Web portu olan satıra çift tıklama ilk web URL'sini açar.
 

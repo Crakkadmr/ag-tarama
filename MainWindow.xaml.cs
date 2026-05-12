@@ -1818,6 +1818,9 @@ public partial class MainWindow : Window
         public Dictionary<int, string> ServisDetaylari { get; } = new();
         public bool      PingYanit      { get; set; }
         public int       PingMs         { get; set; }
+        public int       PingTtl        { get; set; }
+        public string    MdnsMarka      { get; set; } = "";
+        public string    MdnsTur        { get; set; } = "";
     }
 
     private sealed class CihazKimlik
@@ -1878,6 +1881,15 @@ public partial class MainWindow : Window
         ("mycloud",          "WD",           "NAS"),
         ("wd my",            "WD",           "NAS"),
         ("asustor",          "Asustor",      "NAS"),
+        // Telefon / mobil
+        ("android",          "Android",      "Telefon"),
+        ("miui",             "Xiaomi",       "Telefon"),
+        ("iphone",           "Apple",        "Telefon"),
+        ("ipad",             "Apple",        "Tablet"),
+        ("oneplus",          "OnePlus",      "Telefon"),
+        ("oppo",             "OPPO",         "Telefon"),
+        ("vivo ",            "Vivo",         "Telefon"),
+        // Bilgisayar
         ("microsoft",        "Windows",      "Bilgisayar"),
         ("iis",              "Windows/IIS",  "Bilgisayar"),
         ("openwrt",          "OpenWrt",      "Router/AP"),
@@ -1897,10 +1909,31 @@ public partial class MainWindow : Window
         var k      = new CihazKimlik();
         var birles = $"{b.SunucuBasligi} {b.SayfaBasligi} {b.OnvifAdi} {b.OnvifHardware} {b.SsdpFriendlyName} {b.SsdpManufacturer} {b.SsdpModelName} {b.SsdpSunucu} {b.Uretici} {b.AdvancedScannerAdi}".ToLowerInvariant();
 
-        foreach (var (anahtar, marka, tur) in MarkaTablosu)
+        // mDNS en güvenilir kaynak — önce uygula
+        if (!string.IsNullOrEmpty(b.MdnsTur))
         {
-            if (!birles.Contains(anahtar)) continue;
-            k.Marka = marka; k.Tur = tur; break;
+            k.Tur = b.MdnsTur;
+            if (!string.IsNullOrEmpty(b.MdnsMarka)) k.Marka = b.MdnsMarka;
+        }
+
+        // Kamera/ağ ekipmanı marka tespiti (mDNS'e rağmen daha spesifik olabilir)
+        if (k.Tur == "Cihaz")
+        {
+            foreach (var (anahtar, marka, tur) in MarkaTablosu)
+            {
+                if (!birles.Contains(anahtar)) continue;
+                k.Marka = marka; k.Tur = tur; break;
+            }
+        }
+        else
+        {
+            // mDNS türü var ama marka bilinmiyorsa MarkaTablosu'dan marka al
+            foreach (var (anahtar, marka, _) in MarkaTablosu)
+            {
+                if (!birles.Contains(anahtar)) continue;
+                if (k.Marka == "Bilinmiyor") k.Marka = marka;
+                break;
+            }
         }
 
         // Port bazlı fallback
@@ -1917,6 +1950,55 @@ public partial class MainWindow : Window
             else if (b.AcikPortlar.Contains(23))                                      {                         k.Tur = "Router/Switch"; }
         }
 
+        // TTL tabanlı işletim sistemi tahmini (yalnızca hâlâ "Cihaz" olanlar için)
+        if (k.Tur == "Cihaz" && b.PingYanit && b.PingTtl > 0)
+        {
+            if (b.PingTtl >= 120 && b.PingTtl <= 128)       k.Tur = "Bilgisayar"; // Windows TTL=128
+            else if (b.PingTtl >= 250)                       k.Tur = "Router/Switch"; // Cisco/Juniper TTL=255
+        }
+
+        // Hostname tabanlı telefon tespiti (router DHCP'den gelen isimler)
+        if (k.Tur is "Cihaz" or "Bilgisayar")
+        {
+            var adlar = $"{b.DnsAdi} {b.PingAdi} {b.AdvancedScannerAdi} {b.SsdpFriendlyName}".ToLowerInvariant();
+            if (adlar.Contains("iphone"))                                              { k.Marka = "Apple";   k.Tur = "Telefon"; }
+            else if (adlar.Contains("ipad"))                                           { k.Marka = "Apple";   k.Tur = "Tablet"; }
+            else if (adlar.Contains("android-") || adlar.Contains("android_"))        {                       k.Tur = "Telefon"; }
+            else if (adlar.Contains("galaxy"))                                         { k.Marka = "Samsung"; k.Tur = "Telefon"; }
+            else if (adlar.Contains("redmi") || adlar.Contains("xiaomi") ||
+                     adlar.Contains("poco"))                                           { k.Marka = "Xiaomi";  k.Tur = "Telefon"; }
+            else if (adlar.Contains("pixel"))                                          { k.Marka = "Google";  k.Tur = "Telefon"; }
+        }
+
+        // OUI tabanlı telefon heuristiği: mobil üretici + sunucu portu yok
+        if (k.Tur == "Cihaz" && !string.IsNullOrEmpty(b.Uretici))
+        {
+            var ureticiKucuk = b.Uretici.ToLowerInvariant();
+            bool mobil = ureticiKucuk.Contains("apple") || ureticiKucuk.Contains("samsung") ||
+                         ureticiKucuk.Contains("huawei") || ureticiKucuk.Contains("xiaomi") ||
+                         ureticiKucuk.Contains("oneplus") || ureticiKucuk.Contains("oppo") ||
+                         ureticiKucuk.Contains("vivo") || ureticiKucuk.Contains("realme") ||
+                         ureticiKucuk.Contains("google") || ureticiKucuk.Contains("motorola") ||
+                         ureticiKucuk.Contains("nokia") || ureticiKucuk.Contains("sony mobile") ||
+                         ureticiKucuk.Contains("honor");
+            bool sunucuPortuYok = !b.AcikPortlar.Any(p => p is 22 or 80 or 443 or 445 or 554 or 3389 or 8080 or 8443 or 8000);
+            if (mobil && sunucuPortuYok)
+            {
+                k.Tur = "Telefon";
+                if (k.Marka == "Bilinmiyor")
+                {
+                    if (ureticiKucuk.Contains("samsung"))      k.Marka = "Samsung";
+                    else if (ureticiKucuk.Contains("apple"))   k.Marka = "Apple";
+                    else if (ureticiKucuk.Contains("huawei"))  k.Marka = "Huawei";
+                    else if (ureticiKucuk.Contains("xiaomi"))  k.Marka = "Xiaomi";
+                    else if (ureticiKucuk.Contains("google"))  k.Marka = "Google";
+                    else if (ureticiKucuk.Contains("motorola")) k.Marka = "Motorola";
+                    else if (ureticiKucuk.Contains("honor"))   k.Marka = "Honor";
+                    else                                        k.Marka = b.Uretici;
+                }
+            }
+        }
+
         k.TurIkon = k.Tur switch
         {
             "Kamera"           => "◎",
@@ -1930,6 +2012,11 @@ public partial class MainWindow : Window
             "Router/Switch"    => "⊛",
             "Switch/AP"        => "◫",
             "Switch"           => "◫",
+            "Telefon"          => "⊡",
+            "Tablet"           => "▭",
+            "Yazıcı"           => "▤",
+            "Akıllı TV"        => "▣",
+            "Apple TV"         => "▣",
             _                  => "◈",
         };
 
@@ -2130,6 +2217,128 @@ public partial class MainWindow : Window
         });
 
         await Task.WhenAll(tasks);
+    }
+
+    // ─── mDNS / Bonjour Sweep ────────────────────────────────────────────────
+
+    private static readonly (string Servis, string Marka, string Tur)[] MdnsServisler =
+    {
+        ("_apple-mobdev2._tcp.local", "Apple",   "Telefon"),
+        ("_apple-mobdev._tcp.local",  "Apple",   "Telefon"),
+        ("_airplay._tcp.local",       "Apple",   "Apple TV"),
+        ("_raop._tcp.local",          "Apple",   "Apple TV"),
+        ("_home-sharing._tcp.local",  "Apple",   "Bilgisayar"),
+        ("_googlecast._tcp.local",    "Google",  "Akıllı TV"),
+        ("_ipp._tcp.local",           "",        "Yazıcı"),
+        ("_printer._tcp.local",       "",        "Yazıcı"),
+        ("_pdl-datastream._tcp.local","",        "Yazıcı"),
+        ("_smb._tcp.local",           "",        "Bilgisayar"),
+        ("_workstation._tcp.local",   "",        "Bilgisayar"),
+        ("_ssh._tcp.local",           "",        "Bilgisayar"),
+    };
+
+    private async Task MdnsSweepAsync(
+        string subnet,
+        System.Collections.Concurrent.ConcurrentDictionary<string, KameraBilgi> bulunanlar,
+        System.Collections.Concurrent.ConcurrentBag<string> logSatirlari,
+        CancellationToken token)
+    {
+        var multicast = System.Net.IPAddress.Parse("224.0.0.251");
+        const int mdnsPort = 5353;
+
+        // Servis adından aranacak anahtar kelimeler (label kısmı, örn "_googlecast")
+        var anahtarlar = MdnsServisler
+            .Select(s => (Anahtar: s.Servis.Split('.')[0].ToLowerInvariant(), s.Marka, s.Tur))
+            .ToArray();
+
+        try
+        {
+            using var udp = new System.Net.Sockets.UdpClient(System.Net.Sockets.AddressFamily.InterNetwork);
+            udp.Client.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket,
+                                       System.Net.Sockets.SocketOptionName.ReuseAddress, true);
+            udp.ExclusiveAddressUse = false;
+            udp.Client.Bind(new System.Net.IPEndPoint(System.Net.IPAddress.Any, mdnsPort));
+            udp.JoinMulticastGroup(multicast);
+            udp.MulticastLoopback = false;
+
+            // Tüm servis türleri için sorgu gönder
+            var hedefEp = new System.Net.IPEndPoint(multicast, mdnsPort);
+            foreach (var (servis, _, _) in MdnsServisler)
+            {
+                try
+                {
+                    var sorgu = OlusturMdnsSorgusu(servis);
+                    await udp.SendAsync(sorgu, sorgu.Length, hedefEp);
+                    await Task.Delay(20, token);
+                }
+                catch { }
+            }
+
+            // 4 saniye dinle
+            var bitis = DateTime.UtcNow.AddSeconds(4);
+            while (DateTime.UtcNow < bitis && !token.IsCancellationRequested)
+            {
+                try
+                {
+                    using var zaman = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    zaman.CancelAfter(500);
+                    var alindi = await udp.ReceiveAsync(zaman.Token);
+
+                    var kaynakIp = alindi.RemoteEndPoint.Address.ToString();
+                    if (!kaynakIp.StartsWith(subnet + ".")) continue;
+
+                    var (marka, tur) = MdnsPaketCoz(alindi.Buffer, anahtarlar);
+                    if (tur == null) continue;
+
+                    var bilgi = bulunanlar.GetOrAdd(kaynakIp, new KameraBilgi { Ip = kaynakIp });
+                    if (string.IsNullOrEmpty(bilgi.MdnsTur))
+                    {
+                        bilgi.MdnsTur   = tur;
+                        bilgi.MdnsMarka = marka;
+                        logSatirlari.Add($"mDNS: {kaynakIp} → {tur} ({marka})");
+                        await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
+                    }
+                }
+                catch (OperationCanceledException) when (!token.IsCancellationRequested) { }
+                catch (OperationCanceledException) { break; }
+                catch { }
+            }
+        }
+        catch (Exception ex)
+        {
+            logSatirlari.Add($"mDNS hata: {ex.Message}");
+        }
+    }
+
+    private static byte[] OlusturMdnsSorgusu(string servisAdi)
+    {
+        var adBytes = new List<byte>();
+        foreach (var etiket in servisAdi.Split('.'))
+        {
+            var b = Encoding.ASCII.GetBytes(etiket);
+            adBytes.Add((byte)b.Length);
+            adBytes.AddRange(b);
+        }
+        adBytes.Add(0);
+
+        var paket = new byte[12 + adBytes.Count + 4];
+        paket[5] = 1; // QDCOUNT = 1
+        adBytes.CopyTo(0, paket, 12, adBytes.Count);
+        paket[12 + adBytes.Count + 1] = 0x0C; // Type PTR
+        paket[12 + adBytes.Count + 3] = 0x01; // Class IN
+        return paket;
+    }
+
+    private static (string Marka, string? Tur) MdnsPaketCoz(
+        byte[] veri,
+        (string Anahtar, string Marka, string Tur)[] anahtarlar)
+    {
+        // DNS etiketleri pakette ASCII olarak bulunur; doğrudan arama yeterli
+        var str = Encoding.Latin1.GetString(veri).ToLowerInvariant();
+        foreach (var (anahtar, marka, tur) in anahtarlar)
+            if (str.Contains(anahtar))
+                return (marka, tur);
+        return ("", null);
     }
 
     private async Task KameraTaramaBaslat()
@@ -2344,6 +2553,7 @@ public partial class MainWindow : Window
                                 var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
                                 bilgi.PingYanit = true;
                                 bilgi.PingMs    = (int)reply.RoundtripTime;
+                                bilgi.PingTtl   = reply.Options?.Ttl ?? 0;
                                 await NetbiosBilgileriniGuncelleAsync(ip, bilgi, netbiosDenenenler, logSatirlari, netbiosSem, token);
                                 await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
                             }
@@ -2355,6 +2565,10 @@ public partial class MainWindow : Window
                 await Task.WhenAll(tasks);
             }, token);
 
+            var mdnsTask = Task.Run(
+                () => MdnsSweepAsync(subnet, bulunanlar, logSatirlari, token),
+                token);
+
             var advancedScannerTask = Task.Run(
                 () => AdvancedScannerKayitlariniIsleAsync(subnet, bulunanlar, logSatirlari, token),
                 token);
@@ -2362,7 +2576,7 @@ public partial class MainWindow : Window
                 () => NetbiosSweepAsync(subnet, bulunanlar, logSatirlari, token),
                 token);
 
-            await Task.WhenAll(portTask, onvifTask, ssdpTask, pingSweepTask, advancedScannerTask, netbiosSweepTask);
+            await Task.WhenAll(portTask, onvifTask, ssdpTask, pingSweepTask, mdnsTask, advancedScannerTask, netbiosSweepTask);
             await ArpBilgileriniTopluGuncelleAsync(bulunanlar, logSatirlari, token);
 
             var sonuc = token.IsCancellationRequested

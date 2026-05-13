@@ -805,20 +805,6 @@
                             <StackPanel Grid.Column="12" Orientation="Horizontal" Margin="0,0,0,8">
                                 <Button Content="Filtreyi Temizle" Style="{StaticResource ChipButton}"
                                         Click="KameraFiltreTemizle_Click" Margin="0,0,6,0"/>
-                                <Button x:Name="KameraDisaAktarBtn" Content="Dışa Aktar" Style="{StaticResource ChipButton}"
-                                        Click="KameraDisaAktarBtn_Click">
-                                    <Button.ContextMenu>
-                                        <ContextMenu Style="{StaticResource FlatContextMenu}">
-                                            <ContextMenu.Resources>
-                                                <Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource FlatContextMenuItem}"/>
-                                            </ContextMenu.Resources>
-                                            <MenuItem Header="Excel (.xls)" Click="KameraExportExcel_Click"/>
-                                            <MenuItem Header="PDF (.pdf)" Click="KameraExportPdf_Click"/>
-                                            <MenuItem Header="Metin (.txt)" Click="KameraExportTxt_Click"/>
-                                            <MenuItem Header="CSV (.csv)" Click="KameraExportCsv_Click"/>
-                                        </ContextMenu>
-                                    </Button.ContextMenu>
-                                </Button>
                             </StackPanel>
                         </Grid>
                         <TextBlock x:Name="KameraIlerlemeText" Grid.Row="3"
@@ -849,10 +835,11 @@
                                         <MenuItem Header="PDF dışa aktar" Click="KameraExportPdf_Click"/>
                                         <MenuItem Header="TXT dışa aktar" Click="KameraExportTxt_Click"/>
                                         <MenuItem Header="CSV dışa aktar" Click="KameraExportCsv_Click"/>
+                                        <MenuItem Header="JSON dışa aktar" Click="KameraExportJson_Click"/>
                                     </ContextMenu>
                                 </DataGrid.ContextMenu>
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="IP"      Binding="{Binding Ip}"      SortMemberPath="Ip"      Width="96"/>
+                                    <DataGridTextColumn Header="IP"      Binding="{Binding Ip}"      SortMemberPath="Ip"      Width="118"/>
                                     <DataGridTextColumn Header="Ad"      Binding="{Binding Ad}"      SortMemberPath="Ad"      Width="140"/>
                                     <DataGridTextColumn Header="Tür"     Binding="{Binding Tur}"     SortMemberPath="Tur"     Width="115"/>
                                     <DataGridTextColumn Header="Marka"   Binding="{Binding Marka}"   SortMemberPath="Marka"   Width="105"/>
@@ -1201,6 +1188,51 @@
                         <Border Grid.Row="1" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6">
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <StackPanel x:Name="BantAdaptorPanel" Margin="8,6,8,6"/>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- ═══ Sekme 9: Geçmiş ═══ -->
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Text="◷  Geçmiş"/>
+                </TabItem.Header>
+                <Border x:Name="GecmisPanel" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="10">
+                    <Grid Margin="20,16,20,16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                            <TextBlock Text="◷ GEÇMİŞ" Foreground="#58A6FF" FontFamily="Consolas"
+                                       FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <TextBlock Text="Ping, port, cihaz, ARP ve yakalama kayıtları:"
+                                       Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <WrapPanel Grid.Row="1" Margin="0,0,0,6">
+                            <Button Content="Yenile" Style="{StaticResource ChipButton}" Click="GecmisYenile_Click"/>
+                            <Button Content="Klasörü Aç" Style="{StaticResource ChipButton}" Click="GecmisKlasorAc_Click"/>
+                            <Button Content="Son Cihaz Taramalarını Karşılaştır" Style="{StaticResource ChipButton}" Click="GecmisKarsilastir_Click"/>
+                            <Button Content="Tümünü Temizle" Style="{StaticResource ChipButton}" Click="GecmisTumunuTemizle_Click"
+                                    Foreground="#F85149"/>
+                        </WrapPanel>
+                        <WrapPanel Grid.Row="2" Margin="0,0,0,8">
+                            <TextBlock Text="Filtre:" Foreground="#8B949E" FontFamily="Consolas" FontSize="11"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <Button x:Name="GecmisFiltreTumu"  Content="Tümü"       Tag=""          Style="{StaticResource ChipButton}" Click="GecmisFiltreBtn_Click"/>
+                            <Button x:Name="GecmisFiltreYakalama" Content="YAKALAMA"   Tag="YAKALAMA"  Style="{StaticResource ChipButton}" Click="GecmisFiltreBtn_Click"/>
+                            <Button x:Name="GecmisFiltreKamera"   Content="CİHAZ TARA" Tag="CİHAZ TARA" Style="{StaticResource ChipButton}" Click="GecmisFiltreBtn_Click"/>
+                            <Button x:Name="GecmisFiltrePing"     Content="PING"        Tag="PING"       Style="{StaticResource ChipButton}" Click="GecmisFiltreBtn_Click"/>
+                            <Button x:Name="GecmisFiltrePort"     Content="PORT TARA"  Tag="PORT TARA"  Style="{StaticResource ChipButton}" Click="GecmisFiltreBtn_Click"/>
+                            <Button x:Name="GecmisFiltreArp"      Content="ARP"         Tag="ARP"        Style="{StaticResource ChipButton}" Click="GecmisFiltreBtn_Click"/>
+                        </WrapPanel>
+                        <Border Grid.Row="3" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel x:Name="GecmisListePanel" Margin="10,8,10,8"/>
                             </ScrollViewer>
                         </Border>
                     </Grid>

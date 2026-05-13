@@ -431,6 +431,57 @@
             <Setter Property="RowStyle" Value="{StaticResource DarkDataGridRow}"/>
         </Style>
 
+        <Style x:Key="FlatContextMenuItem" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="#C9D1D9"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="MinWidth" Value="170"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header"
+                                              RecognizesAccessKey="True"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#0D3B66"/>
+                                <Setter Property="Foreground" Value="#E6EDF3"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#484F58"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FlatContextMenu" TargetType="ContextMenu">
+            <Setter Property="Background" Value="#161B22"/>
+            <Setter Property="Foreground" Value="#C9D1D9"/>
+            <Setter Property="BorderBrush" Value="#30363D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Uygulama içi koyu ToolTip stili -->
         <Style TargetType="ToolTip">
             <Setter Property="Background"       Value="#1C2128"/>
@@ -737,6 +788,7 @@
                                 <ComboBoxItem Content="Router/Switch" Tag="Router/Switch"/>
                                 <ComboBoxItem Content="Güvenlik Duvarı" Tag="Güvenlik Duvarı"/>
                                 <ComboBoxItem Content="Erişim Noktası" Tag="Erişim Noktası"/>
+                                <ComboBoxItem Content="Yazıcı" Tag="Yazıcı"/>
                             </ComboBox>
                             <Grid Grid.Column="6">
                                 <TextBox x:Name="KameraMarkaFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7" TextChanged="KameraKolonFiltre_TextChanged"/>
@@ -750,8 +802,24 @@
                                 <TextBox x:Name="KameraMacFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7" TextChanged="KameraKolonFiltre_TextChanged"/>
                                 <TextBlock x:Name="KameraMacFiltrePlaceholder" Text="MAC" FontFamily="Consolas" FontSize="10" Foreground="#484F58" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
                             </Grid>
-                            <Button Grid.Column="12" Content="Filtreyi Temizle" Style="{StaticResource ChipButton}"
-                                    Click="KameraFiltreTemizle_Click" Margin="0,0,0,8"/>
+                            <StackPanel Grid.Column="12" Orientation="Horizontal" Margin="0,0,0,8">
+                                <Button Content="Filtreyi Temizle" Style="{StaticResource ChipButton}"
+                                        Click="KameraFiltreTemizle_Click" Margin="0,0,6,0"/>
+                                <Button x:Name="KameraDisaAktarBtn" Content="Dışa Aktar" Style="{StaticResource ChipButton}"
+                                        Click="KameraDisaAktarBtn_Click">
+                                    <Button.ContextMenu>
+                                        <ContextMenu Style="{StaticResource FlatContextMenu}">
+                                            <ContextMenu.Resources>
+                                                <Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource FlatContextMenuItem}"/>
+                                            </ContextMenu.Resources>
+                                            <MenuItem Header="Excel (.xls)" Click="KameraExportExcel_Click"/>
+                                            <MenuItem Header="PDF (.pdf)" Click="KameraExportPdf_Click"/>
+                                            <MenuItem Header="Metin (.txt)" Click="KameraExportTxt_Click"/>
+                                            <MenuItem Header="CSV (.csv)" Click="KameraExportCsv_Click"/>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
+                            </StackPanel>
                         </Grid>
                         <TextBlock x:Name="KameraIlerlemeText" Grid.Row="3"
                                    Foreground="#6E7681" FontFamily="Consolas" FontSize="11"
@@ -759,7 +827,30 @@
                         <Border x:Name="KameraResultBorder" Grid.Row="4" Background="#0D1117"
                                 BorderBrush="#243147" BorderThickness="1" CornerRadius="8" Visibility="Collapsed">
                             <DataGrid x:Name="KameraDataGrid" Style="{StaticResource DarkDataGrid}"
-                                      Margin="1" MouseDoubleClick="KameraDataGrid_MouseDoubleClick">
+                                      Margin="1"
+                                      PreviewMouseRightButtonDown="KameraDataGrid_PreviewMouseRightButtonDown"
+                                      MouseDoubleClick="KameraDataGrid_MouseDoubleClick">
+                                <DataGrid.ContextMenu>
+                                    <ContextMenu Style="{StaticResource FlatContextMenu}">
+                                        <ContextMenu.Resources>
+                                            <Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource FlatContextMenuItem}"/>
+                                        </ContextMenu.Resources>
+                                        <MenuItem Header="Web arayüzünü aç" Click="KameraMenuWeb_Click"/>
+                                        <Separator/>
+                                        <MenuItem Header="Ping at" Click="KameraMenuPing_Click"/>
+                                        <MenuItem Header="Port tara" Click="KameraMenuPort_Click"/>
+                                        <MenuItem Header="Traceroute" Click="KameraMenuTrace_Click"/>
+                                        <MenuItem Header="DNS lookup" Click="KameraMenuDns_Click"/>
+                                        <Separator/>
+                                        <MenuItem Header="IP kopyala" Click="KameraMenuIpKopyala_Click"/>
+                                        <MenuItem Header="Favorilere ekle" Click="KameraMenuFavoriEkle_Click"/>
+                                        <Separator/>
+                                        <MenuItem Header="Excel dışa aktar" Click="KameraExportExcel_Click"/>
+                                        <MenuItem Header="PDF dışa aktar" Click="KameraExportPdf_Click"/>
+                                        <MenuItem Header="TXT dışa aktar" Click="KameraExportTxt_Click"/>
+                                        <MenuItem Header="CSV dışa aktar" Click="KameraExportCsv_Click"/>
+                                    </ContextMenu>
+                                </DataGrid.ContextMenu>
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="IP"      Binding="{Binding Ip}"      SortMemberPath="Ip"      Width="96"/>
                                     <DataGridTextColumn Header="Ad"      Binding="{Binding Ad}"      SortMemberPath="Ad"      Width="140"/>

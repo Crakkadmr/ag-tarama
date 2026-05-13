@@ -1902,18 +1902,51 @@ public partial class MainWindow : Window
         ("juniper",          "Juniper",      "Switch"),
         ("procurve",         "HP ProCurve",  "Switch"),
         ("hpe",              "HPE",          "Switch"),
+        ("hp laserjet",      "HP",           "Yazıcı"),
+        ("laserjet",         "HP",           "Yazıcı"),
+        ("hewlett packard",  "HP",           "Yazıcı"),
+        ("seiko epson",      "Epson",        "Yazıcı"),
+        ("epson",            "Epson",        "Yazıcı"),
+        ("canon printer",    "Canon",        "Yazıcı"),
+        ("brother",          "Brother",      "Yazıcı"),
+        ("xerox",            "Xerox",        "Yazıcı"),
+        ("kyocera",          "Kyocera",      "Yazıcı"),
     };
 
     private static CihazKimlik KimlikBelirle(KameraBilgi b)
     {
         var k      = new CihazKimlik();
         var birles = $"{b.SunucuBasligi} {b.SayfaBasligi} {b.OnvifAdi} {b.OnvifHardware} {b.SsdpFriendlyName} {b.SsdpManufacturer} {b.SsdpModelName} {b.SsdpSunucu} {b.Uretici} {b.AdvancedScannerAdi}".ToLowerInvariant();
+        var kayitCihazi = KayitCihaziIpuclariVar(birles, b.AcikPortlar);
+        var yazici = YaziciIpuclariVar(birles, b.AcikPortlar);
 
         // mDNS en güvenilir kaynak — önce uygula
         if (!string.IsNullOrEmpty(b.MdnsTur))
         {
             k.Tur = b.MdnsTur;
             if (!string.IsNullOrEmpty(b.MdnsMarka)) k.Marka = b.MdnsMarka;
+        }
+
+        if (yazici)
+        {
+            k.Tur = "Yazıcı";
+            if (k.Marka == "Bilinmiyor")
+            {
+                if (birles.Contains("epson")) k.Marka = "Epson";
+                else if (birles.Contains("hewlett packard") || birles.Contains("laserjet") || Regex.IsMatch(birles, @"\bhp\b")) k.Marka = "HP";
+                else if (birles.Contains("canon")) k.Marka = "Canon";
+                else if (birles.Contains("brother")) k.Marka = "Brother";
+                else if (birles.Contains("xerox")) k.Marka = "Xerox";
+                else if (birles.Contains("kyocera")) k.Marka = "Kyocera";
+            }
+        }
+
+        // XVR/NVR/DVR ipuçları marka eşleşmesinden önce uygulanmalı; aksi halde
+        // "Hikvision" veya "Dahua" başlığı cihazı yanlışlıkla kamera yapabilir.
+        if (kayitCihazi && !yazici)
+        {
+            k.Tur = "NVR/DVR";
+            if (birles.Contains("xmeye")) k.Marka = "XMeye";
         }
 
         // Kamera/ağ ekipmanı marka tespiti (mDNS'e rağmen daha spesifik olabilir)
@@ -1937,12 +1970,19 @@ public partial class MainWindow : Window
         }
 
         // Port bazlı fallback
+        if (kayitCihazi && !yazici && k.Marka == "Bilinmiyor")
+        {
+            if (birles.Contains("hikvision"))     k.Marka = "Hikvision";
+            else if (birles.Contains("dahua"))    k.Marka = "Dahua";
+            else if (birles.Contains("uniview"))  k.Marka = "Uniview";
+        }
+
         if (k.Marka == "Bilinmiyor")
         {
             if (b.AcikPortlar.Contains(34567))                                        { k.Marka = "XMeye";     k.Tur = "NVR/DVR"; }
             else if (b.AcikPortlar.Contains(9000) && b.AcikPortlar.Contains(554))    {                         k.Tur = "NVR/DVR"; }
-            else if (b.AcikPortlar.Contains(37777))                                   { k.Marka = "Dahua";     k.Tur = "Kamera"; }
-            else if (b.AcikPortlar.Contains(8000) && b.AcikPortlar.Contains(554))    { k.Marka = "Hikvision"; k.Tur = "Kamera"; }
+            else if (b.AcikPortlar.Contains(37777))                                   { k.Marka = "Dahua";     k.Tur = kayitCihazi ? "NVR/DVR" : "Kamera"; }
+            else if (b.AcikPortlar.Contains(8000) && b.AcikPortlar.Contains(554))    { k.Marka = "Hikvision"; k.Tur = kayitCihazi ? "NVR/DVR" : "Kamera"; }
             else if (b.AcikPortlar.Contains(554))                                     {                         k.Tur = "Kamera"; }
             else if (!string.IsNullOrWhiteSpace(b.NetbiosCihazAdi))                  { k.Marka = "NetBIOS";   k.Tur = "Bilgisayar"; }
             else if (!string.IsNullOrWhiteSpace(b.DnsAdi) || !string.IsNullOrWhiteSpace(b.PingAdi))            {                         k.Tur = "Bilgisayar"; }
@@ -2028,6 +2068,27 @@ public partial class MainWindow : Window
             AnlamliSayfaBasligi(b.SayfaBasligi));
 
         return k;
+    }
+
+    private static bool KayitCihaziIpuclariVar(string metin, ICollection<int> acikPortlar)
+    {
+        if (Regex.IsMatch(metin, @"(^|[^a-z0-9])(xvr|nvr|dvr)[a-z0-9-]*", RegexOptions.IgnoreCase)) return true;
+        if (metin.Contains("network video recorder") || metin.Contains("digital video recorder")) return true;
+        if (metin.Contains("hybrid video recorder") || metin.Contains("video recorder")) return true;
+        if (Regex.IsMatch(metin, @"\b(ds-|dh-).*(xvr|nvr|dvr|ni|hghi|hqhi|huhi|ht)", RegexOptions.IgnoreCase)) return true;
+
+        return acikPortlar.Contains(34567) ||
+               (acikPortlar.Contains(9000) && acikPortlar.Contains(554));
+    }
+
+    private static bool YaziciIpuclariVar(string metin, ICollection<int> acikPortlar)
+    {
+        if (metin.Contains("laserjet") || metin.Contains("hewlett packard")) return true;
+        if (metin.Contains("seiko epson") || metin.Contains("epson")) return true;
+        if (metin.Contains("canon printer") || metin.Contains("brother") || metin.Contains("xerox") || metin.Contains("kyocera")) return true;
+        if (metin.Contains("printer") || metin.Contains("multifunction") || metin.Contains("mfp")) return true;
+
+        return acikPortlar.Contains(9100) || acikPortlar.Contains(515) || acikPortlar.Contains(631);
     }
 
     private static string? CihazAdiSec(KameraBilgi b)
@@ -2147,10 +2208,376 @@ public partial class MainWindow : Window
 
     private void KameraDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (KameraDataGrid.SelectedItem is not KameraSatir satir || string.IsNullOrWhiteSpace(satir.WebUrl))
+        if (KameraDataGrid.SelectedItem is not KameraSatir satir)
             return;
 
-        Process.Start(new ProcessStartInfo(satir.WebUrl) { UseShellExecute = true });
+        KameraWebArayuzunuAc(satir);
+    }
+
+    private void KameraDataGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var row = UstOgeBul<DataGridRow>(e.OriginalSource as DependencyObject);
+        if (row is null) return;
+
+        row.IsSelected = true;
+        KameraDataGrid.SelectedItem = row.Item;
+    }
+
+    private void KameraMenuWeb_Click(object sender, RoutedEventArgs e)
+    {
+        if (SeciliKameraSatiri() is { } satir)
+            KameraWebArayuzunuAc(satir);
+    }
+
+    private void KameraMenuPing_Click(object sender, RoutedEventArgs e)
+    {
+        if (SeciliKameraSatiri() is not { } satir) return;
+
+        MainTabControl.SelectedIndex = TabPing;
+        PingIpBox.Text = satir.Ip;
+        _ = PingBaslat(satir.Ip);
+    }
+
+    private void KameraMenuPort_Click(object sender, RoutedEventArgs e)
+    {
+        if (SeciliKameraSatiri() is not { } satir) return;
+
+        MainTabControl.SelectedIndex = TabPort;
+        PortIpBox.Text = satir.Ip;
+        PortAralikBox.Text = "21,22,23,53,80,139,443,445,554,8000,8080,8443,9000,34567,37777";
+        _ = PortTaraBaslat(satir.Ip, PortScanService.Parse(PortAralikBox.Text));
+    }
+
+    private void KameraMenuTrace_Click(object sender, RoutedEventArgs e)
+    {
+        if (SeciliKameraSatiri() is not { } satir) return;
+
+        MainTabControl.SelectedIndex = TabTrace;
+        TraceHedefBox.Text = satir.Ip;
+        _ = TracerouteBaslat(satir.Ip);
+    }
+
+    private void KameraMenuDns_Click(object sender, RoutedEventArgs e)
+    {
+        if (SeciliKameraSatiri() is not { } satir) return;
+
+        MainTabControl.SelectedIndex = TabDns;
+        DnsHedefBox.Text = satir.Ip;
+        _ = DnsLookupBaslat(satir.Ip);
+    }
+
+    private void KameraMenuIpKopyala_Click(object sender, RoutedEventArgs e)
+    {
+        if (SeciliKameraSatiri() is not { } satir) return;
+
+        Clipboard.SetText(satir.Ip);
+        ToastGoster($"IP kopyalandı: {satir.Ip}");
+    }
+
+    private void KameraMenuFavoriEkle_Click(object sender, RoutedEventArgs e)
+    {
+        if (SeciliKameraSatiri() is not { } satir) return;
+
+        bool eklendi = FavoriService.Ekle(satir.Ip);
+        FavoriChipleriniYenile();
+        FavorilerPanelGuncelle();
+        ToastGoster(eklendi ? $"★ Favoriye eklendi: {satir.Ip}" : $"Zaten favoride: {satir.Ip}", hata: !eklendi);
+    }
+
+    private void KameraDisaAktarBtn_Click(object sender, RoutedEventArgs e)
+    {
+        KameraDisaAktarBtn.ContextMenu.PlacementTarget = KameraDisaAktarBtn;
+        KameraDisaAktarBtn.ContextMenu.IsOpen = true;
+    }
+
+    private void KameraExportExcel_Click(object sender, RoutedEventArgs e)
+        => KameraDisariAktar(KameraExportFormat.Excel);
+
+    private void KameraExportPdf_Click(object sender, RoutedEventArgs e)
+        => KameraDisariAktar(KameraExportFormat.Pdf);
+
+    private void KameraExportTxt_Click(object sender, RoutedEventArgs e)
+        => KameraDisariAktar(KameraExportFormat.Txt);
+
+    private void KameraExportCsv_Click(object sender, RoutedEventArgs e)
+        => KameraDisariAktar(KameraExportFormat.Csv);
+
+    private KameraSatir? SeciliKameraSatiri()
+        => KameraDataGrid.SelectedItem as KameraSatir;
+
+    private void KameraWebArayuzunuAc(KameraSatir satir)
+    {
+        var url = string.IsNullOrWhiteSpace(satir.WebUrl) ? $"http://{satir.Ip}/" : satir.WebUrl;
+        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    }
+
+    private static T? UstOgeBul<T>(DependencyObject? baslangic) where T : DependencyObject
+    {
+        while (baslangic is not null)
+        {
+            if (baslangic is T hedef) return hedef;
+            baslangic = VisualTreeHelper.GetParent(baslangic);
+        }
+        return null;
+    }
+
+    private enum KameraExportFormat { Excel, Pdf, Txt, Csv }
+
+    private void KameraDisariAktar(KameraExportFormat format)
+    {
+        var satirlar = KameraGorunenSatirlariAl();
+        if (satirlar.Count == 0)
+        {
+            ToastGoster("Dışa aktarılacak cihaz yok", hata: true);
+            return;
+        }
+
+        var (filter, ext) = format switch
+        {
+            KameraExportFormat.Excel => ("Excel Raporu (*.xls)|*.xls", "xls"),
+            KameraExportFormat.Pdf   => ("PDF Raporu (*.pdf)|*.pdf", "pdf"),
+            KameraExportFormat.Txt   => ("Metin Raporu (*.txt)|*.txt", "txt"),
+            KameraExportFormat.Csv   => ("CSV Dosyası (*.csv)|*.csv", "csv"),
+            _                        => ("Rapor (*.*)|*.*", "txt"),
+        };
+
+        var dlg = new SaveFileDialog
+        {
+            Title = "Cihaz Tara Sonuçlarını Dışa Aktar",
+            Filter = filter,
+            DefaultExt = ext,
+            AddExtension = true,
+            FileName = $"Cihaz_Tara_Raporu_{DateTime.Now:yyyyMMdd_HHmm}",
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        try
+        {
+            switch (format)
+            {
+                case KameraExportFormat.Excel:
+                    File.WriteAllText(dlg.FileName, KameraExcelHtmlOlustur(satirlar), new UTF8Encoding(true));
+                    break;
+                case KameraExportFormat.Pdf:
+                    File.WriteAllBytes(dlg.FileName, KameraPdfOlustur(satirlar));
+                    break;
+                case KameraExportFormat.Txt:
+                    File.WriteAllText(dlg.FileName, KameraTxtOlustur(satirlar), new UTF8Encoding(true));
+                    break;
+                case KameraExportFormat.Csv:
+                    File.WriteAllText(dlg.FileName, KameraCsvOlustur(satirlar), new UTF8Encoding(true));
+                    break;
+            }
+
+            MesajEkle("sonuc", $"✔ Cihaz Tara raporu kaydedildi: {Path.GetFileName(dlg.FileName)}");
+            ToastGoster($"Dışa aktarıldı: {Path.GetFileName(dlg.FileName)}");
+        }
+        catch (Exception ex)
+        {
+            HataBildir("Cihaz Tara dışa aktarma hatası", ex);
+        }
+    }
+
+    private List<KameraSatir> KameraGorunenSatirlariAl()
+        => (_kameraSatirView?.Cast<object>().OfType<KameraSatir>().ToList() ?? _kameraSatirlari.ToList())
+           .OrderBy(s => IpSiralamaAnahtari(s.Ip))
+           .ThenBy(s => s.Ip, StringComparer.Ordinal)
+           .ToList();
+
+    private static long IpSiralamaAnahtari(string ip)
+    {
+        var parcalar = ip.Split('.');
+        if (parcalar.Length != 4) return long.MaxValue;
+        long sonuc = 0;
+        foreach (var parca in parcalar)
+        {
+            if (!byte.TryParse(parca, out var b)) return long.MaxValue;
+            sonuc = (sonuc << 8) + b;
+        }
+        return sonuc;
+    }
+
+    private static IEnumerable<string[]> KameraExportSatirlari(IEnumerable<KameraSatir> satirlar)
+    {
+        foreach (var s in satirlar)
+        {
+            yield return new[]
+            {
+                s.Ip, s.Ad, s.Tur, s.Marka, s.Model, s.Ping, s.Portlar,
+                s.Kesif, s.Mac, s.Uretici, s.Servis
+            };
+        }
+    }
+
+    private static readonly string[] KameraExportBasliklari =
+    {
+        "IP", "Ad", "Tür", "Marka", "Model", "Ping", "Portlar", "Keşif", "MAC", "Üretici", "Servis"
+    };
+
+    private static string KameraCsvOlustur(List<KameraSatir> satirlar)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(string.Join(";", KameraExportBasliklari.Select(CsvHucre)));
+        foreach (var row in KameraExportSatirlari(satirlar))
+            sb.AppendLine(string.Join(";", row.Select(CsvHucre)));
+        return sb.ToString();
+    }
+
+    private static string CsvHucre(string? metin)
+    {
+        metin ??= "";
+        metin = metin.Replace("\r", " ").Replace("\n", " ");
+        return $"\"{metin.Replace("\"", "\"\"")}\"";
+    }
+
+    private static string KameraTxtOlustur(List<KameraSatir> satirlar)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("NETWORK SNIFFER - CIHAZ TARA RAPORU");
+        sb.AppendLine($"Tarih : {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine($"Cihaz : {satirlar.Count}");
+        sb.AppendLine(new string('=', 110));
+
+        foreach (var s in satirlar)
+        {
+            sb.AppendLine($"{s.Ip,-15}  {MetniKirp(s.Tur, 14),-14}  {MetniKirp(s.Marka, 16),-16}  {MetniKirp(s.Model, 34)}");
+            sb.AppendLine($"  Ad      : {s.Ad}");
+            sb.AppendLine($"  Ping    : {s.Ping}");
+            sb.AppendLine($"  Portlar : {s.Portlar}");
+            sb.AppendLine($"  Keşif   : {s.Kesif}");
+            sb.AppendLine($"  MAC     : {s.Mac}  {s.Uretici}");
+            sb.AppendLine($"  Servis  : {s.Servis}");
+            sb.AppendLine(new string('-', 110));
+        }
+        return sb.ToString();
+    }
+
+    private static string KameraExcelHtmlOlustur(List<KameraSatir> satirlar)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>");
+        sb.AppendLine("body{font-family:Segoe UI,Arial,sans-serif;background:#0D1117;color:#C9D1D9;margin:24px}");
+        sb.AppendLine("h1{color:#58A6FF;margin:0 0 6px;font-size:24px}.meta{color:#8B949E;margin:0 0 18px}");
+        sb.AppendLine("table{border-collapse:collapse;width:100%;background:#0D1117}th{background:#0D3B66;color:#E6EDF3;text-align:left;padding:9px;border:1px solid #243147}");
+        sb.AppendLine("td{padding:8px;border:1px solid #243147;vertical-align:top}tr:nth-child(even){background:#101722}.type{font-weight:600;color:#3FB950}");
+        sb.AppendLine("</style></head><body>");
+        sb.AppendLine("<h1>Network Sniffer - Cihaz Tara Raporu</h1>");
+        sb.AppendLine($"<div class=\"meta\">Tarih: {DateTime.Now:yyyy-MM-dd HH:mm:ss} &nbsp;|&nbsp; Cihaz: {satirlar.Count}</div>");
+        sb.AppendLine("<table><thead><tr>");
+        foreach (var baslik in KameraExportBasliklari)
+            sb.Append("<th>").Append(WebUtility.HtmlEncode(baslik)).AppendLine("</th>");
+        sb.AppendLine("</tr></thead><tbody>");
+        foreach (var row in KameraExportSatirlari(satirlar))
+        {
+            sb.AppendLine("<tr>");
+            for (int i = 0; i < row.Length; i++)
+            {
+                var cls = i == 2 ? " class=\"type\"" : "";
+                sb.Append("<td").Append(cls).Append(">").Append(WebUtility.HtmlEncode(row[i])).AppendLine("</td>");
+            }
+            sb.AppendLine("</tr>");
+        }
+        sb.AppendLine("</tbody></table></body></html>");
+        return sb.ToString();
+    }
+
+    private static byte[] KameraPdfOlustur(List<KameraSatir> satirlar)
+    {
+        var sayfalar = new List<string>();
+        const int sayfaBasina = 18;
+        for (int i = 0; i < satirlar.Count; i += sayfaBasina)
+            sayfalar.Add(KameraPdfSayfaIcerigi(satirlar.Skip(i).Take(sayfaBasina).ToList(), (i / sayfaBasina) + 1, (satirlar.Count + sayfaBasina - 1) / sayfaBasina, satirlar.Count));
+
+        var objects = new List<byte[]>();
+        objects.Add(Encoding.ASCII.GetBytes("<< /Type /Catalog /Pages 2 0 R >>"));
+        objects.Add(Array.Empty<byte>());
+        objects.Add(Encoding.ASCII.GetBytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"));
+
+        var pageObjectNumbers = new List<int>();
+        foreach (var content in sayfalar)
+        {
+            var streamBytes = Encoding.ASCII.GetBytes(content);
+            var contentObj = objects.Count + 1;
+            objects.Add(Encoding.ASCII.GetBytes($"<< /Length {streamBytes.Length} >>\nstream\n{content}\nendstream"));
+            var pageObj = objects.Count + 1;
+            pageObjectNumbers.Add(pageObj);
+            objects.Add(Encoding.ASCII.GetBytes($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents {contentObj} 0 R >>"));
+        }
+
+        objects[1] = Encoding.ASCII.GetBytes($"<< /Type /Pages /Count {pageObjectNumbers.Count} /Kids [{string.Join(" ", pageObjectNumbers.Select(n => $"{n} 0 R"))}] >>");
+
+        using var ms = new MemoryStream();
+        var header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
+        ms.Write(header, 0, header.Length);
+        var offsets = new List<long> { 0 };
+        for (int i = 0; i < objects.Count; i++)
+        {
+            offsets.Add(ms.Position);
+            var objHeader = Encoding.ASCII.GetBytes($"{i + 1} 0 obj\n");
+            ms.Write(objHeader, 0, objHeader.Length);
+            ms.Write(objects[i], 0, objects[i].Length);
+            var objFooter = Encoding.ASCII.GetBytes("\nendobj\n");
+            ms.Write(objFooter, 0, objFooter.Length);
+        }
+        var xref = ms.Position;
+        var xrefHeader = Encoding.ASCII.GetBytes($"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n");
+        ms.Write(xrefHeader, 0, xrefHeader.Length);
+        foreach (var offset in offsets.Skip(1))
+        {
+            var line = Encoding.ASCII.GetBytes($"{offset:0000000000} 00000 n \n");
+            ms.Write(line, 0, line.Length);
+        }
+        var trailer = Encoding.ASCII.GetBytes($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF");
+        ms.Write(trailer, 0, trailer.Length);
+        return ms.ToArray();
+    }
+
+    private static string KameraPdfSayfaIcerigi(List<KameraSatir> satirlar, int sayfa, int toplamSayfa, int toplamCihaz)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("0.05 0.07 0.09 rg 0 0 595 842 re f");
+        sb.AppendLine("0.05 0.23 0.40 rg 30 790 535 28 re f");
+        sb.AppendLine("BT /F1 18 Tf 1 1 1 rg 42 808 Td (Network Sniffer - Cihaz Tara Raporu) Tj ET");
+        sb.AppendLine($"BT /F1 9 Tf 0.75 0.80 0.86 rg 42 776 Td ({PdfMetin($"Tarih: {DateTime.Now:yyyy-MM-dd HH:mm:ss}  |  Cihaz: {toplamCihaz}  |  Sayfa: {sayfa}/{toplamSayfa}")}) Tj ET");
+
+        var y = 742;
+        foreach (var s in satirlar)
+        {
+            sb.AppendLine("0.06 0.09 0.13 rg 30 " + (y - 4) + " 535 34 re f");
+            sb.AppendLine($"BT /F1 10 Tf 0.36 0.65 1 rg 42 {y + 14} Td ({PdfMetin(s.Ip)}) Tj ET");
+            sb.AppendLine($"BT /F1 10 Tf 0.23 0.72 0.31 rg 122 {y + 14} Td ({PdfMetin(MetniKirp(s.Tur, 18))}) Tj ET");
+            sb.AppendLine($"BT /F1 10 Tf 0.90 0.93 0.96 rg 230 {y + 14} Td ({PdfMetin(MetniKirp(IlkDolu(s.Marka, s.Uretici) ?? "", 34))}) Tj ET");
+            sb.AppendLine($"BT /F1 8 Tf 0.72 0.76 0.82 rg 42 {y} Td ({PdfMetin(MetniKirp($"{s.Ad} {s.Model}", 80))}) Tj ET");
+            sb.AppendLine($"BT /F1 8 Tf 0.72 0.76 0.82 rg 42 {y - 12} Td ({PdfMetin(MetniKirp($"Port: {s.Portlar}  MAC: {s.Mac}  Servis: {s.Servis}", 110))}) Tj ET");
+            y -= 40;
+        }
+        return sb.ToString();
+    }
+
+    private static string PdfMetin(string metin)
+        => PdfAscii(metin).Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)");
+
+    private static string PdfAscii(string metin)
+    {
+        var sb = new StringBuilder(metin.Length);
+        foreach (var ch in metin)
+        {
+            sb.Append(ch switch
+            {
+                'ı' => 'i', 'İ' => 'I', 'ğ' => 'g', 'Ğ' => 'G', 'ü' => 'u', 'Ü' => 'U',
+                'ş' => 's', 'Ş' => 'S', 'ö' => 'o', 'Ö' => 'O', 'ç' => 'c', 'Ç' => 'C',
+                >= ' ' and <= '~' => ch,
+                _ => '?'
+            });
+        }
+        return sb.ToString();
+    }
+
+    private static string MetniKirp(string? metin, int uzunluk)
+    {
+        if (string.IsNullOrWhiteSpace(metin)) return "";
+        metin = Regex.Replace(metin.Trim(), @"\s+", " ");
+        return metin.Length <= uzunluk ? metin : metin[..Math.Max(0, uzunluk - 1)] + "…";
     }
 
     private void KameraBaslatBtn_Click(object sender, RoutedEventArgs e) => _ = KameraTaramaBaslat();

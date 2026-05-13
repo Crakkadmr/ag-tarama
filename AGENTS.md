@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-12 (Cihaz Tara: Telefon/Tablet türü tespiti eklendi)
+> Son güncelleme: 2026-05-13 (Cihaz Tara: sağ tık çökmesi düzeltildi, Excel/PDF/TXT/CSV dışa aktarma eklendi)
 
 ---
 
@@ -172,6 +172,8 @@ Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI contain
 | `DarkDataGridColumnHeader` | DataGridColumnHeader | Koyu sütun başlıkları |
 | `DarkDataGridCell` | DataGridCell | Koyu hücre template'i |
 | `DarkDataGridRow` | DataGridRow | Koyu satır/hover/seçili durumları |
+| `FlatContextMenu` | ContextMenu | Cihaz Tara sağ tık/dışa aktarma menüsü; güvenli `ItemsPresenter` template'iyle varsayılan ikon gutter'ı kaldırılmış koyu tema |
+| `FlatContextMenuItem` | MenuItem | Sağ tık menü satırları; tek sütunlu sade template |
 | `ToolTip` (default) | ToolTip | Koyu tema ToolTip — `#1C2128` bg, `#C9D1D9` fg, `#3D444D` border, CornerRadius=5, MaxWidth=280 |
 | (default) | ScrollBar | 6px ince ScrollBar |
 
@@ -300,7 +302,7 @@ using AgTarama.Services;
 
 **`OuiTablosu`** (~90 giriş): IEEE OUI prefix (6 hex, büyük harf) → üretici adı. Kapsanan markalar: Hikvision, Dahua, Axis, Reolink, TP-Link, Cisco, MikroTik, Ubiquiti, ASUS, D-Link, NETGEAR, Huawei, Apple, Samsung, Intel, Realtek, ZyXEL, Synology, QNAP, Tenda, VMware, Raspberry Pi.
 
-**`MarkaTablosu`** (40+ giriş): `(anahtar, marka, tur)` dizisi — HTTP banner/title anahtar kelimesi → marka + cihaz türü. Kapsanan: tüm IP kamera markaları, Ubiquiti, MikroTik, TP-Link, Cisco, D-Link, NETGEAR, ZyXEL, ASUS, Huawei, H3C, Ruijie, Tenda, Synology, QNAP, WD, Asustor, Windows/IIS, OpenWrt, DD-WRT, pfSense, Fortinet, SonicWall, Aruba, Juniper, HP ProCurve.
+**`MarkaTablosu`** (40+ giriş): `(anahtar, marka, tur)` dizisi — HTTP banner/title anahtar kelimesi → marka + cihaz türü. Kapsanan: tüm IP kamera markaları, Ubiquiti, MikroTik, TP-Link, Cisco, D-Link, NETGEAR, ZyXEL, ASUS, Huawei, H3C, Ruijie, Tenda, Synology, QNAP, WD, Asustor, Windows/IIS, OpenWrt, DD-WRT, pfSense, Fortinet, SonicWall, Aruba, Juniper, HP ProCurve, HP/Epson/Canon/Brother/Xerox/Kyocera yazıcılar.
 
 **`KameraPorts`** (14 port): `{ 554, 8000, 8080, 37777, 80, 8443, 22, 23, 139, 443, 445, 3389, 9000, 34567 }`
 
@@ -440,11 +442,15 @@ PingYanit (bool), PingMs (int)
 
 Her bulgu `ConcurrentDictionary<string, KameraBilgi>` ile dedup edilir → `Dispatcher.InvokeAsync` → `KameraKartEkleVeyaGuncelle`.
 
-**`KimlikBelirle(KameraBilgi) static`**: `MarkaTablosu` → Server header + page title + ONVIF name/hardware + SSDP friendlyName/manufacturer/model/server → marka/tür. Port bazlı fallback: 34567/9000+554 → NVR/DVR, 445/3389 → Bilgisayar, NetBIOS/DNS/ping adı → Bilgisayar, 23 → Router/Switch. **Telefon tespiti** (üç katman): (1) MarkaTablosu'nda `android`, `miui`, `iphone`, `ipad`, `oneplus`, `oppo`, `vivo` anahtar kelimeleri → Telefon/Tablet; (2) DNS/ping/SSDP hostname'de `iphone`, `ipad`, `android-`, `galaxy`, `redmi`, `xiaomi`, `poco`, `pixel` → Telefon/Tablet; (3) OUI üreticisi mobil marka + sunucu portu yok (22/80/443/445/554/3389/8080/8443/8000) → Telefon.
+**`KimlikBelirle(KameraBilgi) static`**: Yazıcı ipuçlarını ve XVR/NVR/DVR ipuçlarını marka tablosundan önce yakalar; böylece HP/Epson yazıcılar router/switch, Hikvision/Dahua kayıt cihazları kamera olarak sınıflanmaz. Kayıt cihazı ipuçları: `xvr`, `nvr`, `dvr`, recorder başlıkları, `DS-`/`DH-` model desenleri, 34567 veya 9000+554 port kombinasyonu. Ardından `MarkaTablosu` → Server header + page title + ONVIF name/hardware + SSDP friendlyName/manufacturer/model/server → marka/tür. Port bazlı fallback: 34567/9000+554 → NVR/DVR, 445/3389 → Bilgisayar, NetBIOS/DNS/ping adı → Bilgisayar, 23 → Router/Switch. **Telefon tespiti** (üç katman): (1) MarkaTablosu'nda `android`, `miui`, `iphone`, `ipad`, `oneplus`, `oppo`, `vivo` anahtar kelimeleri → Telefon/Tablet; (2) DNS/ping/SSDP hostname'de `iphone`, `ipad`, `android-`, `galaxy`, `redmi`, `xiaomi`, `poco`, `pixel` → Telefon/Tablet; (3) OUI üreticisi mobil marka + sunucu portu yok (22/80/443/445/554/3389/8080/8443/8000) → Telefon.
 
-**Cihaz Tara tablo görünümü:** `KameraDataGrid` koyu temalı, sıralanabilir bir DataGrid'dir. Sütunlar: IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif, MAC, Üretici, Servis. Web portu olan satıra çift tıklama ilk web URL'sini açar.
+**`KayitCihaziIpuclariVar(string, ICollection<int>) static`**: NVR/XVR/DVR metin, model ve port ipuçlarını tek yerde değerlendirir.
 
-**Cihaz Tara sütun filtreleri:** `KameraIpFiltreBox`, `KameraAdFiltreBox`, `KameraTurFiltreBox`, `KameraMarkaFiltreBox`, `KameraPortFiltreBox`, `KameraMacFiltreBox` DataGrid görünümünü sütun bazlı filtreler. `KameraFiltreSayacText` görünür/toplam cihaz sayısını gösterir.
+**`YaziciIpuclariVar(string, ICollection<int>) static`**: HP LaserJet, Epson, Canon, Brother, Xerox, Kyocera, `printer`/`MFP` metinleri ve 9100/515/631 portlarıyla yazıcı türünü belirler.
+
+**Cihaz Tara tablo görünümü:** `KameraDataGrid` koyu temalı, sıralanabilir bir DataGrid'dir. Sütunlar: IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif, MAC, Üretici, Servis. Satıra çift tıklama web arayüzünü açar (`WebUrl` yoksa `http://IP/` denenir). Sağ tık menüsü: Web arayüzünü aç, Ping at, Port tara, Traceroute, DNS lookup, IP kopyala, Favorilere ekle, Excel/PDF/TXT/CSV dışa aktar. Filtre satırında `Dışa Aktar` chip butonu aynı format seçeneklerini açar.
+
+**Cihaz Tara sütun filtreleri:** `KameraIpFiltreBox`, `KameraAdFiltreBox`, `KameraTurFiltreBox`, `KameraMarkaFiltreBox`, `KameraPortFiltreBox`, `KameraMacFiltreBox` DataGrid görünümünü sütun bazlı filtreler. Tür filtresi `Yazıcı` dahil cihaz türlerini içerir. `KameraFiltreSayacText` görünür/toplam cihaz sayısını gösterir.
 
 **`KameraSatir` sealed class:** `INotifyPropertyChanged` uygular; DataGrid için IP/ad/tür/marka/model/ping/port/keşif/MAC/üretici/servis/web URL alanlarını taşır.
 
@@ -454,7 +460,15 @@ Her bulgu `ConcurrentDictionary<string, KameraBilgi>` ile dedup edilir → `Disp
 
 **`KameraSatirFiltredenGecer(object)`**: IP, ad, tür, marka/üretici, port/servis/keşif ve MAC sütun filtrelerini uygular.
 
-**`KameraKolonFiltre_TextChanged`**, **`KameraTurFiltreDegisti`**, **`KameraFiltreTemizle_Click`**, **`KameraDataGrid_MouseDoubleClick`**: DataGrid filtre ve satır etkileşim event handler'ları.
+**`KameraKolonFiltre_TextChanged`**, **`KameraTurFiltreDegisti`**, **`KameraFiltreTemizle_Click`**, **`KameraDataGrid_MouseDoubleClick`**, **`KameraDataGrid_PreviewMouseRightButtonDown`**: DataGrid filtre ve satır etkileşim event handler'ları.
+
+**`KameraMenuWeb_Click`**, **`KameraMenuPing_Click`**, **`KameraMenuPort_Click`**, **`KameraMenuTrace_Click`**, **`KameraMenuDns_Click`**, **`KameraMenuIpKopyala_Click`**, **`KameraMenuFavoriEkle_Click`**: Cihaz Tara sağ tık menü komutları; ilgili sekmeye geçer, IP'yi doldurur ve komutu başlatır.
+
+**`SeciliKameraSatiri()`**, **`KameraWebArayuzunuAc(KameraSatir)`**, **`UstOgeBul<T>(DependencyObject?) static`**: Sağ tık/çift tık yardımcıları; satır seçimi ve web arayüzü açma davranışını ortaklaştırır.
+
+**`KameraDisaAktarBtn_Click`**, **`KameraExportExcel_Click`**, **`KameraExportPdf_Click`**, **`KameraExportTxt_Click`**, **`KameraExportCsv_Click`**, **`KameraDisariAktar(KameraExportFormat)`**: Görünür/filtrelenmiş Cihaz Tara satırlarını `SaveFileDialog` ile Excel `.xls` (stilli HTML tablo), PDF `.pdf` (başlıklı sayfalı envanter), TXT `.txt` (hizalı metin raporu) veya CSV `.csv` (UTF-8, `;` ayracı) olarak dışa aktarır.
+
+**`KameraGorunenSatirlariAl()`**, **`IpSiralamaAnahtari(string) static`**, **`KameraExportSatirlari(...) static`**, **`KameraCsvOlustur(...) static`**, **`KameraTxtOlustur(...) static`**, **`KameraExcelHtmlOlustur(...) static`**, **`KameraPdfOlustur(...) static`**, **`KameraPdfSayfaIcerigi(...) static`**, **`PdfMetin(...) static`**, **`PdfAscii(...) static`**, **`MetniKirp(...) static`**: Dışa aktarma veri hazırlama ve format üretim yardımcıları.
 
 **`HttpBannerOku(ip, port, token) static`**: TCP HTTP GET `/` → `Server:` header + `<title>` (2.5sn timeout). `(Sunucu, Baslik)` tuple döner.
 

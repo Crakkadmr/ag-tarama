@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-13 (Geçmiş sekmesi — tür filtresi, kayıt silme, Tümünü Temizle, Tekrar Çalıştır'da çift kayıt engeli, auto-refresh)
+> Son güncelleme: 2026-05-14 (§6.1 tamamlandı — MainWindow.xaml.cs 7 partial dosyaya bölündü, Partials/ klasörü oluşturuldu)
 
 ---
 
@@ -75,7 +75,15 @@ AG TARAMA PROGRAMI/
     ├── App.xaml / App.xaml.cs        ← Application giriş noktası (boş)
     ├── AssemblyInfo.cs               ← ThemeInfo
     ├── MainWindow.xaml               ← Network Sniffer UI tasarımı + stiller (~1254 satır)
-    ├── MainWindow.xaml.cs            ← UI wiring + event handler'lar (~3716 satır)
+    ├── MainWindow.xaml.cs            ← Ana partial: alanlar, başlangıç, Npcap, ArayuzSecim, UygulaButonSablon (~354 satır)
+    ├── Partials/                     ← C# partial class dosyaları (hepsi `public partial class MainWindow`)
+    │   ├── MainWindow.Capture.cs         ← YakalamaBaslat/Durdur, YakalamaKartiOlustur, WiresharkIleAc
+    │   ├── MainWindow.NetworkTools.cs    ← MesajEkle, TaramaDurumunuAyarla, Ping, PortTara, Traceroute, DNS, WoL, ARP, AgBilgi
+    │   ├── MainWindow.Bandwidth.cs       ← BantIzlemeBaslat, BantTimerTick, BantHizFormatla
+    │   ├── MainWindow.Favorites.cs       ← FavoriChipleriniYenile, FavorilerPanelGuncelle ve event'ler
+    │   ├── MainWindow.History.cs         ← GecmisPanelGuncelle, GecmisKartiOlustur, Tekrar Çalıştır, Karşılaştır
+    │   ├── MainWindow.UI.cs              ← BtnAyarlar, RaporKaydet, Drag-Drop, ToastGoster, BildirimCal
+    │   └── MainWindow.DeviceScan.cs      ← KameraTaramaBaslat, tüm keşif protokolleri, export, KameraSatir sınıfı (~1730 satır)
     ├── Paths.cs                      ← Tüm exe-relative yol sabitleri (static)
     ├── LogService.cs                 ← %APPDATA%\AgTarama\logs\YYYYMMDD.log
     ├── Services/
@@ -118,7 +126,8 @@ AG TARAMA PROGRAMI/
 
 ## 5. Mimari
 
-**Tek pencere — MVVM yok.** UI wiring `MainWindow.xaml` + `MainWindow.xaml.cs` çiftinde.
+**Tek pencere — MVVM yok.** UI wiring `MainWindow.xaml` + `MainWindow.xaml.cs` (+ `Partials/`) çiftinde.
+`MainWindow.xaml.cs` 7 **partial dosyaya** bölünmüştür; derleyici bunları tek sınıfta birleştirir. Davranış değişikliği yoktur.
 Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI container yok.
 
 **Mimari katmanlar:**
@@ -231,7 +240,21 @@ Her sekme `TabItem` içine konumlanmış bir `Border` (eskiden yan panel) barın
 
 ---
 
-## 6. MainWindow.xaml.cs — Tam İçerik Haritası
+## 6. MainWindow — Partial Dosya Haritası
+
+> `MainWindow.xaml.cs` büyük dosya 7 partial'a bölünmüştür. Derleyici hepsini tek `MainWindow` sınıfında birleştirir.
+> Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` NetworkTools'ta tanımlı, her partial'dan çağrılabilir).
+
+| Dosya | İçerik |
+|---|---|
+| `MainWindow.xaml.cs` | Alanlar, sabitler, `OuiTablosu`, `BilindikPortlar`, `MainWindow()`, `BaslangicAsync`, `HataBildir`, `NpcapKontrolVeKur`, `ArayuzSecimAsync`, `UygulaButonSablon` |
+| `Partials/MainWindow.Capture.cs` | `_sonPcap`, `YakalamaBaslat`, `YakalamaKartiOlustur`, `YakalamaDurdur`, `WiresharkIleAc` |
+| `Partials/MainWindow.NetworkTools.cs` | `MesajEkle`, `TaramaDurumunuAyarla`, Ping, Port Tara, Traceroute, DNS, WoL, ARP, Ağ Bilgisi, IP doğrulama, otomatik nokta |
+| `Partials/MainWindow.Bandwidth.cs` | `BantIzlemeBaslat`, `BantTimerTick`, `BantHizFormatla` |
+| `Partials/MainWindow.Favorites.cs` | `FavoriChipleriniYenile`, `FavorilerPanelGuncelle`, favori event'leri |
+| `Partials/MainWindow.History.cs` | `GecmisPanelGuncelle`, `GecmisKartiOlustur`, `GecmisKaydiTekrarCalistir`, silme, temizleme, karşılaştırma |
+| `Partials/MainWindow.UI.cs` | `BtnAyarlar_Click`, `RaporKaydet`, `Window_DragOver/Drop`, `ToastGoster`, `BildirimCal` |
+| `Partials/MainWindow.DeviceScan.cs` | `KameraBilgi`, `CihazKimlik`, `KameraSatir`, `KimlikBelirle`, tüm keşif protokolleri, export, tablo UI (~1730 satır) |
 
 ### 6.1 Using İfadeleri
 
@@ -607,6 +630,7 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 | ✅ | `ⓘ` bilgi badge (tüm butonlar) | Grid içerik + ToolTip |
 | ✅ | Tam ekran başlatma | `WindowState="Maximized"` |
 | ✅ | Sekme tabanlı tam ekran UI (TabControl mimarisi) | `MainTabControl` — 10 sekme, animasyonsuz, her araç tam genişlik |
+| ✅ | `MainWindow.xaml.cs` partial dosyalara bölme | `Partials/` — 7 partial + 1 ana (§6.1 tamamlandı 2026-05-14) |
 
 ---
 
@@ -615,17 +639,28 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 | Öncelik | Özellik | Zorluk |
 |---|---|---|
 | 🔴 | HTTP/HTTPS Başlık Denetleyicisi | Kolay |
-| 🟡 | Cihaz detay çekmecesi | Orta |
-| 🟡 | Favorilere isim ve grup ekleme | Kolay-Orta |
-| 🟡 | ARP Spoof / Gateway MAC alarmı | Orta |
-| 🟢 | Rogue DHCP sunucu tespiti | Orta-Zor |
-| 🟢 | Açık port değişiklik izleme | Orta |
-| 🟢 | ONVIF profil ve stream URI çekme | Zor |
-| 🟢 | RTSP snapshot / kamera önizleme | Zor |
-| 🟢 | WiFi ağ tarayıcı | Kolay |
-| 🟢 | DNS araçlarını genişletme | Kolay-Orta |
-| 🔵 | `MainWindow.xaml.cs` partial dosyalara bölme | Orta |
-| 🔵 | Cihaz Tara motorunu servis katmanına alma | Orta-Zor |
+| 🔴 | Subnet / CIDR Hesaplayıcı | Kolay |
+| 🔴 | Çoklu Hedef Ping | Kolay-Orta |
+| 🟡 | Ping Gecikmesi Trend Grafiği | Orta |
+| 🟡 | Cihaz Detay Çekmecesi | Orta |
+| 🟡 | Giriş Otomatik Tamamlama | Kolay |
+| 🟡 | Favorilere İsim ve Grup Ekleme | Kolay-Orta |
+| 🟡 | DNS Araçlarını Genişletme | Kolay-Orta |
+| 🟡 | Cihaz Notları | Kolay |
+| 🟡 | ARP Spoof / Gateway MAC Alarmı | Orta |
+| 🟡 | Zamanlanmış / Otomatik Tarama | Orta |
+| 🟢 | WiFi Ağ Tarayıcı | Kolay |
+| 🟢 | Tray Bildirimi ve Arka Plan Çalışma | Orta |
+| 🟢 | Özelleştirilebilir Port / Servis Listesi | Kolay |
+| 🟢 | Cihaz Türü Düzeltme / Elle Etiketleme | Orta |
+| 🟢 | Rogue DHCP Sunucu Tespiti | Orta-Zor |
+| 🟢 | Açık Port Değişiklik İzleme | Orta |
+| 🟢 | SSH / Telnet Gömülü Terminal | Orta |
+| 🔵 | Cihaz Tara Motorunu Servis Katmanına Alma | Orta-Zor |
+| 🔵 | Ortak ExportService | Orta |
+| 🔵 | Test Projesi | Kolay-Orta |
+| 🔵 | ONVIF Profil ve Stream URI Çekme | Zor |
+| 🔵 | RTSP Snapshot / Kamera Önizleme | Zor |
 
 ---
 

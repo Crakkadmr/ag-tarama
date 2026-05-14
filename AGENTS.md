@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-14 (Lisans akışı sadeleştirildi — proxy/env kaldırıldı, doğrulama doğrudan Supabase REST üzerinden)
+> Son güncelleme: 2026-05-14 (Lisans aktivasyonunda privilege-escalation kapatıldı — `licenses` UPDATE kolon bazlı sınırlandı)
 
 ---
 
@@ -716,6 +716,7 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 - `Services/LicenseService.cs`:
   - `x-license-key` header gonderimi eklendi.
   - Aktivasyon PATCH `return=representation` + satir sayisi dogrulamasi eklendi.
+  - Supabase tarafinda `licenses` UPDATE yetkisi kolon bazli sinirlandi (`machine_id`, `activated_at`) ve ilk aktivasyon policy'si sertlestirildi.
   - Offline cache penceresi 24h -> 12h indirildi.
   - `HasFloor()==false` durumda network hatalarinda cache fallback devre disi (fail-closed).
 - `Services/TrustedTimeService.cs`:
@@ -736,3 +737,4 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
   - `tools/security/hashes.allowlist.sha256`
   - `tools/security/verify-bundled-hashes.ps1`
   - `supabase/migrations/20260514_harden_licenses.sql`
+  - `supabase/migrations/20260514_restrict_license_activation_update.sql`

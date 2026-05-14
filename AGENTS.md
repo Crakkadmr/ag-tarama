@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-14 (TrustedTimeService — NTP + kalıcı floor, sistem saati manipülasyon koruması)
+> Son güncelleme: 2026-05-14 (Lisans akışı sadeleştirildi — proxy/env kaldırıldı, doğrulama doğrudan Supabase REST üzerinden)
 
 ---
 
@@ -99,7 +99,7 @@ AG TARAMA PROGRAMI/
     │   ├── SettingsService.cs            ← JSON serileştirme (%APPDATA%)
     │   ├── FavoriService.cs              ← Favori IP CRUD (%APPDATA%)
     │   ├── HistoryService.cs             ← Geçmiş kayıt modeli + JSON CRUD (%APPDATA%\AgTarama\history)
-    │   ├── LicenseService.cs             ← Cloud lisans doğrulama (Supabase REST) + AES önbellek + makine bağlama; URL/key XOR-encoded (_eu/_ek byte dizileri, 0xA7), çevrimdışı tolerans 24h; tüm zaman kontrolü TrustedTimeService üzerinden
+    │   ├── LicenseService.cs             ← Cloud lisans doğrulama (Supabase REST) + AES önbellek + makine bağlama; URL/key XOR-encoded (_eu/_ek byte dizileri, 0xA7), çevrimdışı tolerans 12h; tüm zaman kontrolü TrustedTimeService üzerinden
     │   ├── TrustedTimeService.cs         ← NTP (cloudflare/pool/google) + kalıcı floor (tg.dat, AES) + IsClockRolledBack(); sistem saati manipülasyonuna karşı koruma
     │   └── SecurityService.cs            ← Dogrula() → debugger + analiz aracı tespiti (release-only, DEBUG'da no-op)
     ├── LicenseWindow.xaml / .cs      ← Lisans aktivasyon ekranı (karanlık tema, App_Startup'tan açılır)
@@ -642,6 +642,24 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 | ✅ | Tam ekran başlatma | `WindowState="Maximized"` |
 | ✅ | Sekme tabanlı tam ekran UI (TabControl mimarisi) | `MainTabControl` — 10 sekme, animasyonsuz, her araç tam genişlik |
 | ✅ | `MainWindow.xaml.cs` partial dosyalara bölme | `Partials/` — 7 partial + 1 ana (§6.1 tamamlandı 2026-05-14) |
+| ✅ | Supabase Faz B1 (kısmi) — `licenses` sertleştirme | Migration `harden_licenses_revoke_anon_and_unique_machine_id` (2026-05-14) |
+
+### 10.1 Supabase Lisans Backend — Mevcut Durum
+
+**Proje:** `network sniffer` (`hlljxkhtjzinfdiayjpf`, ap-northeast-1, PG 17.6)
+
+**`public.licenses` tablosu**
+- Kolonlar: `id (uuid pk), key (text unique, default generate_license_key()), type ('lifetime'|'subscription'), is_active, machine_id (nullable, UNIQUE), activated_at, expires_at, created_at, notes`
+- **RLS:** ✅ açık (forced değil)
+- **Policies:**
+  - `license_validate` — `FOR SELECT TO anon USING (true)` ⚠️ **daraltılması gerekiyor** (plan1.md Faz B1); ertelendi, client `LicenseService.cs`'in `x-license-key` header'ı göndermeye başlaması bekleniyor.
+  - `license_first_activation` — `FOR UPDATE TO anon USING (machine_id IS NULL) WITH CHECK (machine_id IS NOT NULL)` ✅
+- **Constraints:** `licenses_pkey (id)`, `licenses_key_key UNIQUE(key)`, `licenses_machine_id_unique UNIQUE(machine_id)` ✅ (2026-05-14), `licenses_type_check`
+- **GRANT'lar (anon, authenticated):** sadece `SELECT, UPDATE` — `INSERT, DELETE, TRUNCATE, REFERENCES, TRIGGER` 2026-05-14'te REVOKE edildi.
+
+**`public.licenses_view`** — `SECURITY DEFINER` ile tanımlı, Istanbul TZ string format döner. ⚠️ RLS bypass eder; düzeltme (`security_invoker = true`) açık TODO (§11).
+
+**Diğer Supabase objeleri:** `generate_license_key()`, `insert_license_30()`, `insert_license_90()`, `insert_license_lifetime()` — hepsinde `search_path` mutable (WARN).
 
 ---
 
@@ -649,6 +667,11 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 
 | Öncelik | Özellik | Zorluk |
 |---|---|---|
+| 🔴 | **Lisans Faz A (client sertleştirme)** — `LicenseService.cs` 4xx fail-closed (A3), exception logging (A4), HMAC+multi-source MachineId (A5), `Advance()` üst limit (A1), `NtpStale` 7g (A2), `LisansIptalEt`/`MasterCts` (A7) | Orta |
+| 🔴 | **Supabase Faz B1 tamamlanması** — client `x-license-key` header gönderdikten sonra `license_validate` policy'yi `key = header` ile daralt | Kolay |
+| 🔴 | **`licenses_view` SECURITY DEFINER fix** — `ALTER VIEW public.licenses_view SET (security_invoker = true)`; advisor ERROR | Kolay |
+| 🟡 | Supabase fonksiyonları `search_path` sertleştirme (`generate_license_key`, `insert_license_*`) — advisor WARN | Kolay |
+| 🟡 | Supabase Faz B2 (Edge Function + HMAC + nonce) — plan.md §3, ayrı sprint | Zor |
 | 🔴 | HTTP/HTTPS Başlık Denetleyicisi | Kolay |
 | 🔴 | Subnet / CIDR Hesaplayıcı | Kolay |
 | 🔴 | Çoklu Hedef Ping | Kolay-Orta |
@@ -685,3 +708,31 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
   - `016bdbb` Merge pull request #3 from Crakkadmr/yeni_ozelliklerpart2
   - `74a18df` feat: implement application settings system and favorite IP management with toast notifications
   - `c2b8c1c` refactor: extract network operations to service layer and centralize configuration into Paths and LogService
+
+---
+
+## 13. 2026-05-14 Guvenlik Sertlestirme Notu
+
+- `Services/LicenseService.cs`:
+  - `x-license-key` header gonderimi eklendi.
+  - Aktivasyon PATCH `return=representation` + satir sayisi dogrulamasi eklendi.
+  - Offline cache penceresi 24h -> 12h indirildi.
+  - `HasFloor()==false` durumda network hatalarinda cache fallback devre disi (fail-closed).
+- `Services/TrustedTimeService.cs`:
+  - `tg.dat` saklama formati AES-CBC+HMAC'e gecti.
+  - Legacy floor dosyasi icin backward-compatible okuma korundu.
+  - `UpdateFromTrustedUtc()` eklendi (trusted server time ileri alma).
+  - `VerifyClockAsync()` NTP yok + floor yok durumunda `Ok=false` doner.
+- `Services/UpdateService.cs` + `UpdateWindow.xaml.cs`:
+  - Deterministic ZIP secimi (`AgTarama-v*-win-x64.zip`) ve `.sha256` zorunlulugu eklendi.
+  - ZIP hash dogrulama basarisizsa kurulum durdurulur.
+  - Opsiyonel signer thumbprint pinning (`AGT_UPDATE_SIGNER_THUMBPRINT`) eklendi.
+- `Services/CaptureService.cs`:
+  - CA2024 icin stdout okuma dongusu `EndOfStream` kullanmadan asenkron satir okuma modeline gecti.
+- `AgTarama.csproj`:
+  - Publish oncesi `VerifyBundledToolHashes` target'i eklendi.
+  - `ObfuscarPostBuild` icin `ContinueOnError=false` yapildi.
+- Yeni dosyalar:
+  - `tools/security/hashes.allowlist.sha256`
+  - `tools/security/verify-bundled-hashes.ps1`
+  - `supabase/migrations/20260514_harden_licenses.sql`

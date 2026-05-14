@@ -18,9 +18,11 @@ public record ValidationResult(LicenseStatus Status, string Message, LicenseInfo
 
 public static class LicenseService
 {
-    private const byte _xk = 0xA7;
+    private const byte XorKey = 0xA7;
+    private const string LicenseKeyHeader = "x-license-key";
+    private const int OfflineCacheHours = 12;
 
-    // XOR-encoded Supabase endpoint — düz metin olarak derlenmez
+    // XOR-encoded Supabase endpoint
     private static readonly byte[] _eu = {
         0xCF, 0xD3, 0xD3, 0xD7, 0xD4, 0x9D, 0x88, 0x88, 0xCF, 0xCB, 0xCB, 0xCD,
         0xDF, 0xCC, 0xCF, 0xD3, 0xCD, 0xDD, 0xCE, 0xC9, 0xC1, 0xC3, 0xCE, 0xC6,
@@ -28,7 +30,7 @@ public static class LicenseService
         0xC2, 0x89, 0xC4, 0xC8
     };
 
-    // XOR-encoded Supabase anon key
+    // XOR-encoded Supabase anon key (legacy fallback mode)
     private static readonly byte[] _ek = {
         0xC2, 0xDE, 0xED, 0xCF, 0xC5, 0xE0, 0xC4, 0xCE, 0xE8, 0xCE, 0xED, 0xEE,
         0xF2, 0xDD, 0xEE, 0x96, 0xE9, 0xCE, 0xEE, 0xD4, 0xEE, 0xC9, 0xF5, 0x92,
@@ -51,7 +53,7 @@ public static class LicenseService
     };
 
     private static string Decode(byte[] data) =>
-        Encoding.UTF8.GetString(data.Select(b => (byte)(b ^ _xk)).ToArray());
+        Encoding.UTF8.GetString(data.Select(b => (byte)(b ^ XorKey)).ToArray());
 
     private static string SupabaseUrl => Decode(_eu);
     private static string SupabaseAnonKey => Decode(_ek);
@@ -70,7 +72,7 @@ public static class LicenseService
         return client;
     }
 
-    // Çoklu donanım kaynağı → registry clone ile spoofing'i zorlaştırır
+    // Multi-source hardware id to make simple spoofing harder
     public static string GetMachineId()
     {
         var parts = new List<string>();
@@ -111,94 +113,22 @@ public static class LicenseService
     {
         licenseKey = licenseKey.Trim();
         if (string.IsNullOrEmpty(licenseKey))
-            return new ValidationResult(LicenseStatus.Invalid, "Lisans anahtarı boş olamaz.");
+            return new ValidationResult(LicenseStatus.Invalid, "License key cannot be empty.");
 
-        // IsHealthy false → floor yazılamıyor → online doğrulama her seferinde zorunlu
-        // (NtpStale kontrolü burada değil, App.xaml.cs startup'ta)
-
-        try
-        {
-            var url = $"{SupabaseUrl}/rest/v1/licenses?key=eq.{Uri.EscapeDataString(licenseKey)}&select=*";
-            var response = await Http.GetAsync(url);
-
-            // Sunucunun Date başlığından güvenilir zamanı al → floor'u güncelle
-            TrustedTimeService.UpdateFromHttpDate(response);
-
-            // A3: HTTP 4xx → fail-closed (sunucu cevap verdi, reddetmiş)
-            if (!response.IsSuccessStatusCode)
-            {
-                var code = (int)response.StatusCode;
-                if (code >= 400 && code < 500)
-                    return new ValidationResult(LicenseStatus.Invalid,
-                        $"Sunucu reddetti (HTTP {code}).");
-                return FallbackToCache($"Sunucu hatası: HTTP {code}");
-            }
-
-            var json = await response.Content.ReadAsStringAsync();
-            var rows = JsonSerializer.Deserialize<LicenseRow[]>(json, JsonOpts);
-
-            if (rows is null || rows.Length == 0)
-                return new ValidationResult(LicenseStatus.Invalid, "Lisans anahtarı bulunamadı.");
-
-            var row = rows[0];
-
-            if (!row.is_active)
-                return new ValidationResult(LicenseStatus.Invalid, "Bu lisans devre dışı bırakılmış.");
-
-            var validTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "subscription", "lifetime" };
-            if (!validTypes.Contains(row.type))
-                return new ValidationResult(LicenseStatus.Invalid, "Bilinmeyen lisans tipi.");
-
-            // Güvenilir NTP/sunucu zamanıyla süre kontrolü
-            var trustedNow = await TrustedTimeService.GetUtcNowAsync();
-
-            if (row.type == "subscription" && row.expires_at.HasValue && row.expires_at.Value < trustedNow)
-                return new ValidationResult(LicenseStatus.Expired,
-                    $"Lisans süresi doldu: {row.expires_at.Value:dd.MM.yyyy}");
-
-            var machineId = GetMachineId();
-
-            if (row.machine_id is null)
-            {
-                // B1: conditional update — machine_id=is.null filtresi race condition'ı azaltır
-                var ok = await ActivateMachineAsync(licenseKey, machineId, trustedNow);
-                if (!ok)
-                    return new ValidationResult(LicenseStatus.NetworkError, "Aktivasyon kaydedilemedi. Tekrar deneyin.");
-            }
-            else if (!string.Equals(row.machine_id, machineId, StringComparison.OrdinalIgnoreCase))
-            {
-                return new ValidationResult(LicenseStatus.MachineConflict,
-                    "Bu lisans başka bir cihaza bağlı.\nFarklı cihazda kullanmak için destek ile iletişime geçin.");
-            }
-
-            var info = new LicenseInfo(licenseKey, row.type, row.expires_at);
-            SaveCache(info, trustedNow);
-            return new ValidationResult(LicenseStatus.Valid, "Lisans geçerli.", info);
-        }
-        catch (TaskCanceledException)
-        {
-            return FallbackToCache("Sunucu yanıt vermedi (zaman aşımı).");
-        }
-        catch (HttpRequestException)
-        {
-            return FallbackToCache("İnternet bağlantısı kurulamadı.");
-        }
-        catch (Exception ex)
-        {
-            LogService.Hata("LicenseService.ValidateAsync", ex);
-            return FallbackToCache($"Hata: {ex.Message}");
-        }
+        // Floor not loaded/available means trusted clock cannot defend offline mode.
+        var allowOfflineCache = TrustedTimeService.HasFloor();
+        return await ValidateViaSupabaseAsync(licenseKey, allowOfflineCache);
     }
 
-    // Önbellekteki lisansı kontrol et (uygulama açılışında hızlı kontrol)
+    // Fast startup check
     public static ValidationResult? CheckCache()
     {
-        // Saat geriye sarılmışsa erişimi reddet — ama cache'i silme.
-        // Cache'deki CachedAt güvenilir NTP zamanı içerdiğinden saat düzelince
-        // loadCache elapsed kontrolü zaten geçerli sonucu verir.
         if (TrustedTimeService.IsClockRolledBack())
-            return new ValidationResult(LicenseStatus.Invalid,
-                "Sistem saati manipüle edilmiş. Lisans doğrulanamadı.");
+        {
+            return new ValidationResult(
+                LicenseStatus.Invalid,
+                "System clock rollback detected. License check blocked.");
+        }
 
         var cached = LoadCache();
         if (cached is null) return null;
@@ -207,11 +137,12 @@ public static class LicenseService
         if (cached.Type == "subscription" && cached.ExpiresAt.HasValue && cached.ExpiresAt.Value < now)
         {
             ClearCache();
-            return new ValidationResult(LicenseStatus.Expired,
-                $"Abonelik süresi doldu: {cached.ExpiresAt.Value:dd.MM.yyyy}");
+            return new ValidationResult(
+                LicenseStatus.Expired,
+                $"Subscription expired: {cached.ExpiresAt.Value:dd.MM.yyyy}");
         }
 
-        return new ValidationResult(LicenseStatus.Valid, "Önbellekten doğrulandı.", cached);
+        return new ValidationResult(LicenseStatus.Valid, "Validated from cache.", cached);
     }
 
     public static void ClearCache()
@@ -220,33 +151,127 @@ public static class LicenseService
         catch (Exception ex) { LogService.Hata("LicenseService.ClearCache", ex); }
     }
 
-    // ─── Private helpers ──────────────────────────────────────────────────────
-
-    private static ValidationResult FallbackToCache(string networkError)
+    private static async Task<ValidationResult> ValidateViaSupabaseAsync(string licenseKey, bool allowOfflineCache)
     {
+        try
+        {
+            var url = $"{SupabaseUrl}/rest/v1/licenses?key=eq.{Uri.EscapeDataString(licenseKey)}&select=*";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add(LicenseKeyHeader, licenseKey);
+
+            using var response = await Http.SendAsync(request);
+            TrustedTimeService.UpdateFromHttpDate(response);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var code = (int)response.StatusCode;
+                if (code >= 400 && code < 500)
+                    return new ValidationResult(LicenseStatus.Invalid, $"Server rejected license (HTTP {code}).");
+                return FallbackToCache($"Server error: HTTP {code}", allowOfflineCache);
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var rows = JsonSerializer.Deserialize<LicenseRow[]>(json, JsonOpts);
+            if (rows is null || rows.Length == 0)
+                return new ValidationResult(LicenseStatus.Invalid, "License key not found.");
+
+            var row = rows[0];
+            if (!row.is_active)
+                return new ValidationResult(LicenseStatus.Invalid, "License is disabled.");
+
+            var validTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "subscription", "lifetime" };
+            if (!validTypes.Contains(row.type))
+                return new ValidationResult(LicenseStatus.Invalid, "Unknown license type.");
+
+            var trustedNow = await TrustedTimeService.GetUtcNowAsync();
+            if (row.type == "subscription" && row.expires_at.HasValue && row.expires_at.Value < trustedNow)
+            {
+                return new ValidationResult(
+                    LicenseStatus.Expired,
+                    $"License expired: {row.expires_at.Value:dd.MM.yyyy}");
+            }
+
+            var machineId = GetMachineId();
+            if (row.machine_id is null)
+            {
+                var activation = await ActivateMachineAsync(licenseKey, machineId, trustedNow);
+                if (activation == ActivationResult.Conflict)
+                {
+                    return new ValidationResult(
+                        LicenseStatus.MachineConflict,
+                        "License is already activated on another machine.");
+                }
+                if (activation != ActivationResult.Success)
+                    return new ValidationResult(LicenseStatus.NetworkError, "Activation could not be persisted.");
+            }
+            else if (!string.Equals(row.machine_id, machineId, StringComparison.OrdinalIgnoreCase))
+            {
+                return new ValidationResult(
+                    LicenseStatus.MachineConflict,
+                    "This license is bound to another machine.");
+            }
+
+            var info = new LicenseInfo(licenseKey, row.type, row.expires_at);
+            SaveCache(info, trustedNow);
+            return new ValidationResult(LicenseStatus.Valid, "License is valid.", info);
+        }
+        catch (TaskCanceledException)
+        {
+            return FallbackToCache("Server timeout.", allowOfflineCache);
+        }
+        catch (HttpRequestException)
+        {
+            return FallbackToCache("Network error.", allowOfflineCache);
+        }
+        catch (Exception ex)
+        {
+            LogService.Hata("LicenseService.ValidateViaSupabaseAsync", ex);
+            return FallbackToCache($"Unexpected error: {ex.Message}", allowOfflineCache);
+        }
+    }
+
+    private static ValidationResult FallbackToCache(string networkError, bool allowOfflineCache)
+    {
+        if (!allowOfflineCache)
+            return new ValidationResult(LicenseStatus.NetworkError, networkError);
+
         var cached = LoadCache();
         if (cached is not null)
-            return new ValidationResult(LicenseStatus.Valid, $"Çevrimdışı mod ({networkError})", cached);
+            return new ValidationResult(LicenseStatus.Valid, $"Offline mode ({networkError})", cached);
         return new ValidationResult(LicenseStatus.NetworkError, networkError);
     }
 
-    private static async Task<bool> ActivateMachineAsync(string key, string machineId, DateTime trustedNow)
+    private static async Task<ActivationResult> ActivateMachineAsync(string key, string machineId, DateTime trustedNow)
     {
-        // machine_id=is.null filtresi: sunucu sadece henüz aktive edilmemiş lisansı günceller
-        // → concurrent activation race condition'ını azaltır (Supabase UNIQUE constraint ile birlikte)
-        var url = $"{SupabaseUrl}/rest/v1/licenses?key=eq.{Uri.EscapeDataString(key)}&machine_id=is.null";
+        var url = $"{SupabaseUrl}/rest/v1/licenses?key=eq.{Uri.EscapeDataString(key)}&machine_id=is.null&select=key,machine_id";
         var body = JsonSerializer.Serialize(new
         {
             machine_id = machineId,
             activated_at = trustedNow.ToString("o")
         });
-        var request = new HttpRequestMessage(HttpMethod.Patch, url)
-        {
-            Content = new StringContent(body, Encoding.UTF8, "application/json")
-        };
-        request.Headers.Add("Prefer", "return=minimal");
-        var resp = await Http.SendAsync(request);
-        return resp.IsSuccessStatusCode;
+
+        using var request = new HttpRequestMessage(HttpMethod.Patch, url);
+        request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+        request.Headers.Add("Prefer", "return=representation");
+        request.Headers.Add(LicenseKeyHeader, key);
+
+        using var resp = await Http.SendAsync(request);
+        if (!resp.IsSuccessStatusCode)
+            return ActivationResult.Error;
+
+        var json = await resp.Content.ReadAsStringAsync();
+        var rows = JsonSerializer.Deserialize<ActivationRow[]>(json, JsonOpts);
+        if (rows is null || rows.Length == 0)
+            return ActivationResult.Conflict;
+
+        if (rows.Length != 1)
+            return ActivationResult.Error;
+
+        var row = rows[0];
+        if (!string.Equals(row.machine_id, machineId, StringComparison.OrdinalIgnoreCase))
+            return ActivationResult.Conflict;
+
+        return ActivationResult.Success;
     }
 
     private static void SaveCache(LicenseInfo info, DateTime trustedNow)
@@ -255,7 +280,7 @@ public static class LicenseService
         {
             Directory.CreateDirectory(Path.GetDirectoryName(CacheFile)!);
             var data = new CachePayload(info.Key, info.Type, info.ExpiresAt, trustedNow);
-            var json = JsonSerializer.Serialize(data);
+            var json = JsonSerializer.Serialize(data, JsonOpts);
             var machineKey = SHA256.HashData(Encoding.UTF8.GetBytes(GetMachineId()));
             File.WriteAllBytes(CacheFile, EncryptAesHmac(Encoding.UTF8.GetBytes(json), machineKey));
         }
@@ -269,19 +294,23 @@ public static class LicenseService
             if (!File.Exists(CacheFile)) return null;
             var machineKey = SHA256.HashData(Encoding.UTF8.GetBytes(GetMachineId()));
             var plain = DecryptAesHmac(File.ReadAllBytes(CacheFile), machineKey);
-            if (plain is null) return null; // HMAC tamper veya farklı makine
-            var json = Encoding.UTF8.GetString(plain);
-            var payload = JsonSerializer.Deserialize<CachePayload>(json, JsonOpts);
+            if (plain is null) return null;
+
+            var payload = JsonSerializer.Deserialize<CachePayload>(Encoding.UTF8.GetString(plain), JsonOpts);
             if (payload is null) return null;
+
             var trustedNow = TrustedTimeService.GetTrustedNowSync();
             var elapsed = trustedNow - payload.CachedAt;
-            if (elapsed.TotalHours > 24 || elapsed.TotalSeconds < 0) return null; // > 24h eskimiş veya saat geri sarılmış
+            if (elapsed.TotalHours > OfflineCacheHours || elapsed.TotalSeconds < 0) return null;
+
             return new LicenseInfo(payload.Key, payload.Type, payload.ExpiresAt);
         }
-        catch (Exception ex) { LogService.Hata("LicenseService.LoadCache", ex); return null; }
+        catch (Exception ex)
+        {
+            LogService.Hata("LicenseService.LoadCache", ex);
+            return null;
+        }
     }
-
-    // ─── AES-CBC + HMAC-SHA256 (Encrypt-then-MAC) ────────────────────────────
 
     // Format: [16 IV | AES ciphertext | 32 HMAC]
     private static byte[] EncryptAesHmac(byte[] data, byte[] key)
@@ -300,10 +329,9 @@ public static class LicenseService
         return payload.Concat(hmac).ToArray();
     }
 
-    // null döner → HMAC geçersiz (tamper veya yanlış makine anahtarı)
     private static byte[]? DecryptAesHmac(byte[] data, byte[] key)
     {
-        if (data.Length < 16 + 32) return null; // minimum boyut: IV + en az 1 block + HMAC
+        if (data.Length < 16 + 32) return null;
 
         var payloadLen = data.Length - 32;
         var storedHmac = data[payloadLen..];
@@ -311,7 +339,7 @@ public static class LicenseService
 
         var expectedHmac = HMACSHA256.HashData(key, payload);
         if (!CryptographicOperations.FixedTimeEquals(storedHmac, expectedHmac))
-            return null; // timing-safe karşılaştırma
+            return null;
 
         using var aes = Aes.Create();
         aes.Key = key;
@@ -322,9 +350,17 @@ public static class LicenseService
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
-    private record LicenseRow(
-        string key, string type, bool is_active,
-        string? machine_id, DateTime? expires_at, DateTime? activated_at);
+    private enum ActivationResult { Success, Conflict, Error }
 
-    private record CachePayload(string Key, string Type, DateTime? ExpiresAt, DateTime CachedAt);
+    private sealed record LicenseRow(
+        string key,
+        string type,
+        bool is_active,
+        string? machine_id,
+        DateTime? expires_at,
+        DateTime? activated_at);
+
+    private sealed record ActivationRow(string key, string? machine_id);
+
+    private sealed record CachePayload(string Key, string Type, DateTime? ExpiresAt, DateTime CachedAt);
 }

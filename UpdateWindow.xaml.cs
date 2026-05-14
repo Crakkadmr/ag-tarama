@@ -18,11 +18,11 @@ public partial class UpdateWindow : Window
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         TxtMevcut.Text = $"v{UpdateService.CurrentVersion}";
-        TxtYeni.Text   = $"v{_info.Version}";
-        TxtNotlar.Text = string.IsNullOrWhiteSpace(_info.ReleaseNotes) ? "—" : _info.ReleaseNotes;
+        TxtYeni.Text = $"v{_info.Version}";
+        TxtNotlar.Text = string.IsNullOrWhiteSpace(_info.ReleaseNotes) ? "-" : _info.ReleaseNotes;
 
         if (_info.SizeBytes > 0)
-            TxtIndirme.Text = $"İndiriliyor… ({_info.SizeBytes / 1024.0 / 1024.0:F1} MB)";
+            TxtIndirme.Text = $"Indiriliyor... ({_info.SizeBytes / 1024.0 / 1024.0:F1} MB)";
     }
 
     private void TitleBar_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -52,30 +52,34 @@ public partial class UpdateWindow : Window
 
         var progress = new Progress<int>(pct =>
         {
-            TxtYuzde.Text      = $"{pct}%";
+            TxtYuzde.Text = $"{pct}%";
             ProgressFill.Width = ProgressPanel.ActualWidth * pct / 100.0;
         });
 
         try
         {
             TxtIndirme.Text = _info.SizeBytes > 0
-                ? $"İndiriliyor… ({_info.SizeBytes / 1024.0 / 1024.0:F1} MB)"
-                : "İndiriliyor…";
+                ? $"Indiriliyor... ({_info.SizeBytes / 1024.0 / 1024.0:F1} MB)"
+                : "Indiriliyor...";
 
             await UpdateService.DownloadAsync(_info.DownloadUrl, zipPath, progress, _cts.Token);
 
-            TxtIndirme.Text = "Kuruluyor…";
-            TxtYuzde.Text   = "";
+            TxtIndirme.Text = "Dogrulaniyor...";
+            if (!UpdateService.VerifyHash(zipPath, _info.Sha256))
+                throw new InvalidDataException("Indirilen paket hash dogrulamasini gecemedi.");
 
-            UpdateService.ExtractAndRestart(zipPath); // uygulamayı kapatır
+            TxtIndirme.Text = "Kuruluyor...";
+            TxtYuzde.Text = "";
+
+            UpdateService.ExtractAndRestart(zipPath); // uygulamayi kapatir
         }
         catch (OperationCanceledException)
         {
-            // kullanıcı iptal etti
+            // user cancelled
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Güncelleme hatası:\n{ex.Message}",
+            MessageBox.Show($"Guncelleme hatasi:\n{ex.Message}",
                 "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
 
             BtnIndir.IsEnabled = true;

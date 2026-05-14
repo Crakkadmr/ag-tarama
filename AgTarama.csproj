@@ -39,12 +39,18 @@
     </PackageReference>
   </ItemGroup>
 
+  <Target Name="VerifyBundledToolHashes" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <Message Text="=== Bundled tool hash verification ===" Importance="high" />
+    <Exec
+      Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tools\security\verify-bundled-hashes.ps1&quot; -ProjectRoot &quot;$(MSBuildProjectDirectory)&quot; -AllowListPath &quot;$(MSBuildProjectDirectory)\tools\security\hashes.allowlist.sha256&quot;" />
+  </Target>
+
   <Target Name="ObfuscarPostBuild" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
     <Message Text="=== Obfuscar başlatılıyor ===" Importance="high" />
     <Exec
       Command="dotnet obfuscar.console &quot;$(MSBuildProjectDirectory)\obfuscar.xml&quot; /p:OutDir=&quot;$(PublishDir)&quot;"
       WorkingDirectory="$(MSBuildProjectDirectory)"
-      ContinueOnError="true" />
+      ContinueOnError="false" />
   </Target>
 
 </Project>

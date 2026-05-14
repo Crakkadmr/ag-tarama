@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-14 (§6.1 tamamlandı — MainWindow.xaml.cs 7 partial dosyaya bölündü, Partials/ klasörü oluşturuldu)
+> Son güncelleme: 2026-05-14 (Lisans sistemi eklendi — LicenseService, LicenseWindow, App.xaml.cs güncellendi)
 
 ---
 
@@ -96,7 +96,9 @@ AG TARAMA PROGRAMI/
     │   ├── AppSettings.cs                ← Ayar modeli (HedefMB, TestSuresiSn vb.)
     │   ├── SettingsService.cs            ← JSON serileştirme (%APPDATA%)
     │   ├── FavoriService.cs              ← Favori IP CRUD (%APPDATA%)
-    │   └── HistoryService.cs             ← Geçmiş kayıt modeli + JSON CRUD (%APPDATA%\AgTarama\history)
+    │   ├── HistoryService.cs             ← Geçmiş kayıt modeli + JSON CRUD (%APPDATA%\AgTarama\history)
+    │   └── LicenseService.cs             ← Cloud lisans doğrulama (Supabase REST) + AES önbellek + makine bağlama
+    ├── LicenseWindow.xaml / .cs      ← Lisans aktivasyon ekranı (karanlık tema, App_Startup'tan açılır)
     ├── SettingsWindow.xaml / .cs     ← Ayarlar penceresi
     ├── AGENTS.md                     ← (bu dosya) tam referans + geliştirici rehberi
     ├── AGENT.md                      ← Claude Code için referans (Claude'a özgü kurallar içerir)

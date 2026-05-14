@@ -128,6 +128,8 @@ public partial class MainWindow
             FavorilerPanelGuncelle();
         if (sel == TabGecmis)
             GecmisPanelGuncelle();
+        if (sel == TabLisans)
+            LisansPanelGuncelle();
         if (sel == TabCihazTara && string.IsNullOrEmpty(KameraSubnetBox.Text))
             KameraSubnetBox.Text = YerelSubnetiBul() ?? "";
     }

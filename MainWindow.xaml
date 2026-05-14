@@ -551,8 +551,13 @@
                                FontFamily="Consolas" HorizontalAlignment="Right"/>
                     <Border Background="#0D1F2F" BorderBrush="#1F6FEB" BorderThickness="1"
                             CornerRadius="10" Padding="10,4" Margin="0,8,0,0">
-                        <TextBlock Text="made by demircan"
-                                   Foreground="#58A6FF" FontSize="11" FontWeight="Bold" FontFamily="Consolas"/>
+                        <StackPanel>
+                            <TextBlock Text="made by demircan"
+                                       Foreground="#58A6FF" FontSize="11" FontWeight="Bold" FontFamily="Consolas"/>
+                            <TextBlock x:Name="VersionText" Text="v0.1.0"
+                                       Foreground="#484F58" FontSize="10" FontFamily="Consolas"
+                                       HorizontalAlignment="Center" Margin="0,1,0,0"/>
+                        </StackPanel>
                     </Border>
                 </StackPanel>
             </Grid>
@@ -1236,6 +1241,133 @@
                             </ScrollViewer>
                         </Border>
                     </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- ══ Sekme 10: Lisans ══════════════════════════════════════════ -->
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Text="⊙  Lisans"/>
+                </TabItem.Header>
+                <Border x:Name="LisansPanel" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="10">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Grid Margin="20,16,20,16" MaxWidth="680" HorizontalAlignment="Left">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Başlık -->
+                            <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                                <TextBlock Text="⊙ LİSANS DURUMU" Foreground="#58A6FF"
+                                           FontFamily="Consolas" FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <TextBlock Text="Uygulama lisansı bilgileri ve geçerlilik durumu."
+                                           Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <!-- Durum kartı -->
+                            <Border x:Name="LisansStatusKart" Grid.Row="1"
+                                    Background="#161B22" BorderBrush="#3FB950" BorderThickness="2"
+                                    CornerRadius="10" Padding="24,20" Margin="0,0,0,20">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock x:Name="LisansStatusIkon" Text="✓"
+                                               FontFamily="Consolas" FontSize="28" FontWeight="Bold"
+                                               Foreground="#3FB950" VerticalAlignment="Center"
+                                               Margin="0,0,16,0"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock x:Name="LisansStatusBaslik" Text="Lisans Geçerli"
+                                                   FontFamily="Consolas" FontSize="14" FontWeight="Bold"
+                                                   Foreground="#3FB950"/>
+                                        <TextBlock x:Name="LisansStatusAciklama" Text=""
+                                                   FontFamily="Consolas" FontSize="11"
+                                                   Foreground="#8B949E" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Kalan süre büyük gösterge (yalnızca abonelikte) -->
+                            <Border x:Name="LisansKalanKart" Grid.Row="2"
+                                    Background="#0D1F2F" BorderBrush="#1F6FEB" BorderThickness="1"
+                                    CornerRadius="10" Padding="24,16" Margin="0,0,0,20"
+                                    Visibility="Collapsed">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="KALAN SÜRE" Foreground="#8B949E"
+                                                   FontFamily="Consolas" FontSize="10" FontWeight="Bold"
+                                                   Margin="0,0,0,4"/>
+                                        <TextBlock x:Name="LisansKalanGun" Text="—"
+                                                   FontFamily="Consolas" FontSize="32" FontWeight="Bold"
+                                                   Foreground="#58A6FF"/>
+                                        <TextBlock x:Name="LisansKalanAciklama" Text=""
+                                                   FontFamily="Consolas" FontSize="11"
+                                                   Foreground="#8B949E" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <TextBlock Text="BİTİŞ TARİHİ" Foreground="#8B949E"
+                                                   FontFamily="Consolas" FontSize="10" FontWeight="Bold"
+                                                   HorizontalAlignment="Right" Margin="0,0,0,4"/>
+                                        <TextBlock x:Name="LisansBitisTarihi" Text="—"
+                                                   FontFamily="Consolas" FontSize="16" FontWeight="Bold"
+                                                   Foreground="#C9D1D9" HorizontalAlignment="Right"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Detay satırları -->
+                            <Border Grid.Row="3" Background="#161B22" BorderBrush="#21262D"
+                                    BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,0,20">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="160"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Lisans Türü" Foreground="#8B949E"
+                                                   FontFamily="Consolas" FontSize="11"/>
+                                        <TextBlock x:Name="LisansTurMetin" Grid.Column="1" Text="—"
+                                                   Foreground="#C9D1D9" FontFamily="Consolas" FontSize="11"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="160"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Lisans Anahtarı" Foreground="#8B949E"
+                                                   FontFamily="Consolas" FontSize="11"/>
+                                        <TextBlock x:Name="LisansAnahtarMetin" Grid.Column="1" Text="—"
+                                                   Foreground="#C9D1D9" FontFamily="Consolas" FontSize="11"
+                                                   TextWrapping="Wrap"/>
+                                    </Grid>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="160"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Makine Kimliği" Foreground="#8B949E"
+                                                   FontFamily="Consolas" FontSize="11"/>
+                                        <TextBlock x:Name="LisansMakineMetin" Grid.Column="1" Text="—"
+                                                   Foreground="#484F58" FontFamily="Consolas" FontSize="10"
+                                                   TextWrapping="Wrap"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Butonlar -->
+                            <WrapPanel Grid.Row="4">
+                                <Button Content="↻  Yenile" Style="{StaticResource ChipButton}"
+                                        Click="LisansYenile_Click"/>
+                                <Button Content="✕  Lisansı Sıfırla" Style="{StaticResource ChipButton}"
+                                        Foreground="#F85149" Click="LisansSifirla_Click"/>
+                            </WrapPanel>
+                        </Grid>
+                    </ScrollViewer>
                 </Border>
             </TabItem>
 

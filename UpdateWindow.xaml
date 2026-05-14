@@ -1,0 +1,155 @@
+<Window x:Class="AgTarama.UpdateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Güncelleme"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#0D1117"
+        Foreground="#E6EDF3"
+        FontFamily="Consolas"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Loaded="Window_Loaded">
+
+    <Window.Resources>
+        <Style x:Key="Btn" TargetType="Button">
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="18,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="#0D1117" BorderBrush="#30363D" BorderThickness="1" CornerRadius="12">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Başlık çubuğu (sürüklenebilir) -->
+            <Border Grid.Row="0" Background="#161B22" CornerRadius="12,12,0,0"
+                    Padding="20,14" MouseLeftButtonDown="TitleBar_MouseDown">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="⬆" FontSize="14" Foreground="#58A6FF"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="YENİ GÜNCELLEME MEVCUT" FontSize="12"
+                                   FontWeight="Bold" Foreground="#58A6FF"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button x:Name="BtnKapat" Content="✕" HorizontalAlignment="Right"
+                            Background="Transparent" BorderThickness="0"
+                            Foreground="#8B949E" FontSize="13" Cursor="Hand"
+                            Click="BtnKapat_Click" Padding="6,0">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Foreground" Value="#F85149"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Versiyon bilgisi -->
+            <Border Grid.Row="1" Padding="20,16,20,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Mevcut sürüm" Foreground="#8B949E" FontSize="10" Margin="0,0,0,2"/>
+                        <TextBlock x:Name="TxtMevcut" Text="v0.0.0" Foreground="#8B949E" FontSize="12"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                        <TextBlock Text="Yeni sürüm" Foreground="#8B949E" FontSize="10"
+                                   Margin="0,0,0,2" HorizontalAlignment="Right"/>
+                        <TextBlock x:Name="TxtYeni" Text="v0.0.0" Foreground="#3FB950"
+                                   FontSize="16" FontWeight="Bold" HorizontalAlignment="Right"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Sürüm notları -->
+            <Border Grid.Row="2" Margin="20,12,20,0"
+                    Background="#161B22" BorderBrush="#21262D" BorderThickness="1"
+                    CornerRadius="6" Padding="12,10" MaxHeight="160">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <TextBlock x:Name="TxtNotlar" TextWrapping="Wrap"
+                               Foreground="#C9D1D9" FontSize="11" LineHeight="18"
+                               Text="—"/>
+                </ScrollViewer>
+            </Border>
+
+            <!-- İlerleme çubuğu -->
+            <Border Grid.Row="3" Margin="20,12,20,0" Visibility="Collapsed" x:Name="ProgressPanel">
+                <StackPanel>
+                    <Grid Margin="0,0,0,4">
+                        <TextBlock x:Name="TxtIndirme" Text="İndiriliyor..." Foreground="#8B949E" FontSize="10"/>
+                        <TextBlock x:Name="TxtYuzde" Text="0%" Foreground="#58A6FF" FontSize="10"
+                                   HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Border Background="#21262D" CornerRadius="3" Height="6">
+                        <Border x:Name="ProgressFill" Background="#58A6FF" CornerRadius="3"
+                                Width="0" HorizontalAlignment="Left"/>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- Butonlar -->
+            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right"
+                        Margin="20,14,20,20">
+                <Button x:Name="BtnSonra" Content="Daha Sonra"
+                        Style="{StaticResource Btn}"
+                        Background="#21262D" BorderBrush="#30363D"
+                        Foreground="#8B949E" Margin="0,0,10,0"
+                        Click="BtnSonra_Click"/>
+                <Button x:Name="BtnIndir" Content="⬇  İndir ve Yükle"
+                        Style="{StaticResource Btn}"
+                        Background="#1A4A2E" BorderBrush="#3FB950"
+                        Foreground="#3FB950" FontWeight="Bold"
+                        Click="BtnIndir_Click"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

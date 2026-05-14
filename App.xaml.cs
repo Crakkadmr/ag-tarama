@@ -1,5 +1,6 @@
 using System.Windows;
 using AgTarama.Services;
+using System.Threading.Tasks;
 
 namespace AgTarama;
 
@@ -16,6 +17,7 @@ public partial class App : Application
 
             // Arka planda bulutla doğrula — sonuç geçersizse pencereyi kapat
             _ = ValidateInBackgroundAsync(main, cached.Info!.Key);
+            _ = CheckForUpdateInBackgroundAsync(main);
             return;
         }
 
@@ -24,23 +26,56 @@ public partial class App : Application
         licWin.Show();
     }
 
+    private static async Task CheckForUpdateInBackgroundAsync(Window mainWindow)
+    {
+        await Task.Delay(4000); // Uygulama tam yüklensin
+        var update = await UpdateService.CheckForUpdateAsync();
+        if (update is null) return;
+
+        mainWindow.Dispatcher.Invoke(() =>
+        {
+            var win = new UpdateWindow(update) { Owner = mainWindow };
+            win.Show();
+        });
+    }
+
     private static async Task ValidateInBackgroundAsync(Window mainWindow, string cachedKey)
     {
-        await Task.Delay(3000); // Uygulama tam açılsın
+        await Task.Delay(2000); // Uygulama tam açılsın
         var result = await LicenseService.ValidateAsync(cachedKey);
 
-        if (result.Status is LicenseStatus.Invalid or LicenseStatus.MachineConflict)
+        mainWindow.Dispatcher.Invoke(() =>
         {
-            mainWindow.Dispatcher.Invoke(() =>
+            switch (result.Status)
             {
-                MessageBox.Show(
-                    $"Lisans doğrulanamadı:\n{result.Message}\n\nUygulama kapatılıyor.",
-                    "Lisans Hatası", MessageBoxButton.OK, MessageBoxImage.Warning);
-                LicenseService.ClearCache();
-                mainWindow.Close();
-                var licWin = new LicenseWindow();
-                licWin.Show();
-            });
-        }
+                case LicenseStatus.Valid:
+                    // Geçerli — MainWindow'daki lisans sekmesi zaten önbellekten okuyor, ek işlem yok
+                    break;
+
+                case LicenseStatus.Expired:
+                    MessageBox.Show(
+                        $"Lisansınızın süresi doldu:\n{result.Message}\n\nUygulama kapatılıyor.",
+                        "Lisans Süresi Doldu", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    LicenseService.ClearCache();
+                    mainWindow.Close();
+                    new LicenseWindow().Show();
+                    break;
+
+                case LicenseStatus.Invalid:
+                case LicenseStatus.MachineConflict:
+                    MessageBox.Show(
+                        $"Lisans doğrulanamadı:\n{result.Message}\n\nUygulama kapatılıyor.",
+                        "Lisans Hatası", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    LicenseService.ClearCache();
+                    mainWindow.Close();
+                    new LicenseWindow().Show();
+                    break;
+
+                case LicenseStatus.NetworkError:
+                    // Çevrimdışı — önbellekten devam, kullanıcıya sessizce bilgi ver
+                    // (Toast için MainWindow referansı gerekir; ileride geliştirilebilir)
+                    break;
+            }
+        });
     }
 }

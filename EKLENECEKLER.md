@@ -220,11 +220,22 @@
 
 ---
 
-## 7. Önerilen Uygulama Sırası
+## 7. Güvenlik Borcu
+
+### 7.1 Supabase Anon Key → Proxy API
+- Şu an Supabase URL ve anon key XOR obfuscation + Obfuscar ile gizleniyor; bu zorlaştırır ama tam koruma sağlamaz.
+- Uzun vadede istemci Supabase'e doğrudan bağlanmamalı; araya kendi proxy API'ın (örn. Azure Function, Cloudflare Worker veya minimal ASP.NET Core endpoint) konulmalı.
+- Proxy, lisans anahtarını alıp Supabase'e kendi servis rollü anahtarıyla sorgular; istemcide hiçbir Supabase kimlik bilgisi kalmaz.
+- **Neden:** Anon key binary'de bulunduğu sürece belirlenmiş bir saldırgan lisans veritabanını doğrudan sorgulayabilir.
+
+---
+
+## 8. Önerilen Uygulama Sırası
 
 | Sıra | Özellik | Öncelik | Zorluk |
 |---:|---|---|---|
-| 1 | HTTP/HTTPS Başlık Denetleyicisi | Yüksek | Kolay |
+| 1 | Supabase Anon Key → Proxy API | Yüksek | Orta |
+| 2 | HTTP/HTTPS Başlık Denetleyicisi | Yüksek | Kolay |
 | 2 | Subnet / CIDR Hesaplayıcı | Yüksek | Kolay |
 | 3 | Çoklu Hedef Ping | Yüksek | Kolay-Orta |
 | 4 | Ping Gecikmesi Trend Grafiği | Orta-Yüksek | Orta |

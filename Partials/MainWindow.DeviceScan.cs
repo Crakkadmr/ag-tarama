@@ -1020,7 +1020,7 @@ public partial class MainWindow
         }
 
         _kameraCts?.Cancel();
-        _kameraCts = new CancellationTokenSource();
+        _kameraCts = CancellationTokenSource.CreateLinkedTokenSource(MasterCts.Token);
         var token  = _kameraCts.Token;
 
         var bulunanlar        = new ConcurrentDictionary<string, KameraBilgi>(StringComparer.Ordinal);

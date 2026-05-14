@@ -55,8 +55,12 @@ public partial class MainWindow
             if (info.Type == "subscription" && info.ExpiresAt.HasValue)
             {
                 LisansKalanKart.Visibility = Visibility.Visible;
-                var bitis   = info.ExpiresAt.Value.ToLocalTime();
-                var kalan   = bitis - DateTime.Now;
+                var bitisUtc = info.ExpiresAt!.Value.Kind == DateTimeKind.Utc
+                    ? info.ExpiresAt.Value
+                    : info.ExpiresAt.Value.ToUniversalTime();
+                var trustedNow = TrustedTimeService.GetTrustedNowSync();
+                var kalan = bitisUtc - trustedNow;
+                var bitis = bitisUtc.ToLocalTime(); // sadece görüntüleme
 
                 LisansBitisTarihi.Text = bitis.ToString("dd.MM.yyyy");
 

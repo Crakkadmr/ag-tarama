@@ -1,0 +1,33 @@
+<?xml version='1.0'?>
+<Obfuscator>
+  <Var name="InPath"  value="$(OutDir)" />
+  <Var name="OutPath" value="$(OutDir)Obfuscated" />
+
+  <!-- Güçlü obfuscation ayarları -->
+  <Var name="RenameFields"     value="true" />
+  <Var name="RenameProperties" value="true" />
+  <Var name="RenameEvents"     value="true" />
+  <Var name="RenameTypes"      value="true" />
+  <Var name="KeepPublicApi"    value="false" />
+
+  <!-- Kontrol akışı karartma -->
+  <Var name="UseUnicodeNames"  value="true" />
+  <Var name="HideStrings"      value="true" />
+
+  <Module file="$(InPath)\AgTarama.dll">
+    <!-- WPF XAML tarafından kullanılan tipler yeniden adlandırılmamalı -->
+    <SkipType name="AgTarama.App"        />
+    <SkipType name="AgTarama.MainWindow" />
+    <SkipType name="AgTarama.LicenseWindow" />
+    <SkipType name="AgTarama.UpdateWindow"  />
+    <SkipType name="AgTarama.SettingsWindow" />
+
+    <!-- DataGrid binding için KameraSatir property'leri korunmalı -->
+    <SkipType name="AgTarama.KameraSatir" />
+
+    <!-- Public enum'lar (XAML converter vs.) -->
+    <SkipType name="AgTarama.Services.LicenseStatus" />
+
+    <!-- Servis katmanının iç mantığı serbestçe karartılabilir -->
+  </Module>
+</Obfuscator>

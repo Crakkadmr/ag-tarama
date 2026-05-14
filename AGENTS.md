@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-14 (Otomatik güncelleme sistemi — UpdateService, UpdateWindow, App.xaml.cs entegrasyonu; lisans sekmesi)
+> Son güncelleme: 2026-05-14 (TrustedTimeService — NTP + kalıcı floor, sistem saati manipülasyon koruması)
 
 ---
 
@@ -86,7 +86,9 @@ AG TARAMA PROGRAMI/
     │   └── MainWindow.DeviceScan.cs      ← KameraTaramaBaslat, tüm keşif protokolleri, export, KameraSatir sınıfı (~1730 satır)
     ├── Paths.cs                      ← Tüm exe-relative yol sabitleri (static)
     ├── LogService.cs                 ← %APPDATA%\AgTarama\logs\YYYYMMDD.log
+    ├── obfuscar.xml                  ← Obfuscar yapılandırması (Release post-build)
     ├── Services/
+    │   ├── SecurityService.cs            ← Debugger + analiz aracı tespiti; Dogrula() App_Startup'tan çağrılır (release-only)
     │   ├── InterfaceDiscoveryService.cs  ← tshark -D + paket sayısı testi
     │   ├── CaptureService.cs             ← tshark yakalama + ilerleme callback
     │   ├── PingService.cs                ← IAsyncEnumerable ping akışı
@@ -97,7 +99,9 @@ AG TARAMA PROGRAMI/
     │   ├── SettingsService.cs            ← JSON serileştirme (%APPDATA%)
     │   ├── FavoriService.cs              ← Favori IP CRUD (%APPDATA%)
     │   ├── HistoryService.cs             ← Geçmiş kayıt modeli + JSON CRUD (%APPDATA%\AgTarama\history)
-    │   └── LicenseService.cs             ← Cloud lisans doğrulama (Supabase REST) + AES önbellek + makine bağlama
+    │   ├── LicenseService.cs             ← Cloud lisans doğrulama (Supabase REST) + AES önbellek + makine bağlama; URL/key XOR-encoded (_eu/_ek byte dizileri, 0xA7), çevrimdışı tolerans 24h; tüm zaman kontrolü TrustedTimeService üzerinden
+    │   ├── TrustedTimeService.cs         ← NTP (cloudflare/pool/google) + kalıcı floor (tg.dat, AES) + IsClockRolledBack(); sistem saati manipülasyonuna karşı koruma
+    │   └── SecurityService.cs            ← Dogrula() → debugger + analiz aracı tespiti (release-only, DEBUG'da no-op)
     ├── LicenseWindow.xaml / .cs      ← Lisans aktivasyon ekranı (karanlık tema, App_Startup'tan açılır)
     ├── UpdateWindow.xaml / .cs       ← Güncelleme bildirimi + indirme ilerleme çubuğu (App_Startup'tan Show())
     ├── Services/UpdateService.cs     ← GitHub Releases API kontrolü, ZIP indirme, PowerShell self-update betiği

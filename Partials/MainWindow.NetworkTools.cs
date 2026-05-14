@@ -263,7 +263,7 @@ public partial class MainWindow
     private async Task PingBaslat(string hedef)
     {
         _pingCts?.Cancel();
-        _pingCts = new CancellationTokenSource();
+        _pingCts = CancellationTokenSource.CreateLinkedTokenSource(MasterCts.Token);
         var token = _pingCts.Token;
 
         PingResultPanel.Children.Clear();
@@ -468,7 +468,7 @@ public partial class MainWindow
     private async Task PortTaraBaslat(string hedef, int[] portlar)
     {
         _portScanCts?.Cancel();
-        _portScanCts = new CancellationTokenSource();
+        _portScanCts = CancellationTokenSource.CreateLinkedTokenSource(MasterCts.Token);
         var token = _portScanCts.Token;
 
         PortResultPanel.Children.Clear();
@@ -564,7 +564,7 @@ public partial class MainWindow
     private async Task TracerouteBaslat(string hedef)
     {
         _traceCts?.Cancel();
-        _traceCts = new CancellationTokenSource();
+        _traceCts = CancellationTokenSource.CreateLinkedTokenSource(MasterCts.Token);
         var token = _traceCts.Token;
 
         TraceResultPanel.Children.Clear();

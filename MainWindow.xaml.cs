@@ -36,6 +36,16 @@ public partial class MainWindow : Window
     private bool _taramaDevamEdiyor = false;
     private CancellationTokenSource? _taramaCts;
 
+    // ─── Lisans iptal kontrolü ───────────────────────────────────────
+    public bool LisansIptal { get; private set; }
+    public CancellationTokenSource MasterCts { get; } = new();
+
+    public void LisansIptalEt()
+    {
+        LisansIptal = true;
+        MasterCts.Cancel();
+    }
+
     // ─── Sekme indeksleri ────────────────────────────────────────────
     private const int TabChatbot   = 0;
     private const int TabCihazTara = 1;

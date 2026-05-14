@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Network Sniffer - Made by Demircan" Height="720" Width="1180"
+        Icon="pack://application:,,,/app.ico"
         MinHeight="620" MinWidth="1100"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"

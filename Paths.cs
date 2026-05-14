@@ -20,4 +20,7 @@ internal static class Paths
 
     public static readonly string LogKlasor =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AgTarama", "logs");
+
+    public static readonly string HistoryKlasor =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AgTarama", "history");
 }

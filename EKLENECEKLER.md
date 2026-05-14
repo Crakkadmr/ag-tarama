@@ -1,207 +1,246 @@
 # EKLENECEKLER.md — Geliştirme Yol Haritası
 
-> Analiz tarihi: 2026-05-12
-> Mevcut durum: v0.1.0, .NET 10 WPF, ~1750 satır MainWindow.xaml.cs
+> Güncelleme: 2026-05-14
+> Mevcut durum: v0.1.0, .NET 10 WPF, `Partials/` mimarisi (8 dosya), sıfır NuGet bağımlılığı
+> Kapsam: Yalnızca henüz uygulanmamış veya mevcut özelliği anlamlı biçimde büyüten işler.
 
 ---
 
-## 1. Yüksek Öncelik — Hemen Yapılabilir
+## 1. Öncelikli Ürün Özellikleri
 
-### 1.1 Bant Genişliği / Trafik Monitörü
-- Ağ adaptörlerinden gerçek zamanlı indirme/yükleme hızı okuma
-- `NetworkInterface.GetIPv4Statistics()` ile poll döngüsü
-- Chat'te canlı güncellenen sparkline grafik (WPF Path ile çizim)
-- **Neden:** En sık sorulan ağ sorusu — "hangisi bant yiyor?"
+### 1.1 HTTP/HTTPS Başlık Denetleyicisi
+- URL, hostname veya IP girilince HTTP/HTTPS yanıt başlıklarını ayrı bir sekmede göster.
+- Status code, redirect zinciri, Server, Date, Content-Type, HSTS, CSP, X-Frame-Options ve X-Content-Type-Options alanlarını öne çıkar.
+- HTTPS ise sertifika özetini aynı ekranda göster: CN/SAN, issuer, başlangıç-bitiş tarihi, kalan gün.
+- **Neden:** Cihaz Tara içinde HTTP banner okuma var; bunu bağımsız saha aracına çevirmek hızlı değer üretir.
 
-### 1.2 HTTP/HTTPS Başlık Denetleyicisi (Header Checker)
-- URL gir → tam HTTP yanıt başlıklarını göster
-- Status code, Server, X-Frame-Options, HSTS, Content-Security-Policy vb.
-- Web sunucusu/kamera güvenlik denetimi için doğrudan kullanım
-- **Neden:** Cihaz Tara'daki HTTP banner okuma zaten var; bağımsız araç olarak çok değerli
+### 1.2 Çoklu Hedef Ping
+- Ping Testi sekmesine virgülle ayrılmış IP listesi veya subnet aralığı (`192.168.1.1-50`) girişi ekle.
+- Tüm hedeflere eşzamanlı ping at; sonuçları tablo olarak göster: IP, durum, gecikme, kayıp %.
+- En yavaş ve en kayıplı hedefleri renkli vurgula.
+- **Neden:** Tek ping yeterli; ama segment sorunlarını bulmak için toplu tablo çok daha hızlı.
 
-### 1.3 MAC Adresinden Üretici Sorgulama (OUI Lookup)
-- IEEE OUI veritabanını yerel dosyaya gömme (oui.txt ~6 MB)
-- ARP Tablosu ve Cihaz Tara kartlarında MAC'ın yanında üretici göster
-- **Neden:** "AA:BB:CC..." yazmak yerine "Hikvision / TP-Link" görmek çok daha kullanışlı
-
-### 1.4 Ping Sweep (Subnet Ping)
-- Tüm subnet'i (örn. 192.168.1.1–254) paralel ping ile tara
-- Yanıt verenleri listele, yanıt vermeyenleri atla
-- Cihaz Tara'nın hızlı ön taraması olarak da kullanılabilir
-- **Neden:** Cihaz Tara port taraması yapıyor ama bazı cihazlar port kapalıyken ICMP'ye yanıt verir
+### 1.3 Subnet / CIDR Hesaplayıcı
+- IP + CIDR mask (veya subnet mask) gir → Ağ adresi, broadcast, ilk/son host, host sayısı, wildcard mask hesapla.
+- Supernet ve alt-subnet bölme önizlemesi göster.
+- Sonucu panoya kopyalama butonu ekle.
+- **Neden:** Saha çalışmasında ağ sınırlarını hesaplamak günlük ihtiyaç; tarayıcıya gerek kalmasın.
 
 ---
 
-## 2. Orta Öncelik — Güçlü Özellikler
+## 2. Cihaz Tara Geliştirmeleri
 
-### 2.1 Gelişmiş Port Tarama — Servis/Sürüm Tespiti
-- Açık porta banner/versiyon isteği gönder (HTTP, FTP, SSH, Telnet)
-- `Services/PortScanService`'e `BannerAsync(ip, port)` metodu ekle
-- Çıktıda `[AÇIK] 22/ssh — OpenSSH 8.9` formatında servis adı göster
-- **Neden:** Şu an sadece "açık/kapalı" görünüyor; hangi yazılımın çalıştığı daha değerli
+### 2.1 Cihaz Detay Çekmecesi
+- DataGrid satırına çift tıklayınca web arayüzünü açmak yerine sağdan kayan detay paneli aç.
+- Detayda kaynaklara göre ayrılmış bilgi göster: Ping, portlar, NetBIOS, DNS, ONVIF, SSDP, ARP, Advanced IP Scanner, banner.
+- "Web arayüzünü aç", "Ping", "Port tara", "Favorilere ekle", "JSON kopyala" aksiyonları aynı panelde olsun.
+- **Neden:** Tablo hızlı tarama için iyi; ayrıntılı teşhis için düzenli bir detay görünümü gerekiyor.
 
-### 2.2 CVE / Güvenlik Açığı Kontrolü
-- Tespit edilen servis + sürüm bilgisiyle yerel CVE JSON veritabanını sorgula
-- NVD (NIST) CVE veritabanının küçük bir özetini gömülü tut
-- Kamera/router firmware versiyonlarında kritik CVE uyarısı göster
-- **Neden:** Güvenlik odaklı kullanım senaryosu; SADP + Cihaz Tara ile sinerji
+### 2.2 Cihaz Türü Düzeltme / Elle Etiketleme
+- Kullanıcı bir cihazın türünü/markasını/modelini elle düzeltebilsin.
+- Düzeltmeler `%APPDATA%\AgTarama\device-overrides.json` altında IP, MAC veya hostname anahtarıyla saklansın.
+- Sonraki taramalarda otomatik tespitin üstüne kullanıcı etiketi uygulansın.
+- **Neden:** Ağ keşfinde yüzde yüz otomatik sınıflandırma zor; kullanıcı bilgisini kalıcı yapmak kaliteyi artırır.
 
-### 2.3 RTSP Stream Önizleme
-- RTSP URL'den ilk frame'i VLC/FFmpeg ile yakala, küçük thumbnail göster
-- Kamera kartına "Önizle" butonu ekle
-- `ffmpeg -i rtsp://... -vframes 1 preview.jpg`
-- **Neden:** Kameranın gerçekten görüntü verip vermediğini görmek için kritik
+### 2.3 Risk ve Önem Rozetleri
+- Cihaz satırlarına "Kritik", "Yeni", "Kayboldu", "Web açık", "RDP açık", "Varsayılan kamera portu" gibi rozetler ekle.
+- Basit kurallar ayarlanabilir olsun: örn. 3389 açık → dikkat, 23 açık → yüksek risk.
+- Filtrelere risk rozeti de eklensin.
+- **Neden:** Envanter kalabalıklaştığında sadece liste değil önceliklendirme gerekir.
 
-### 2.4 DHCP Lease Tablosu Okuyucu
-- Windows: `netsh dhcp server ... show clients` veya router web arayüzünü scrape et
-- Alternatif: `ipconfig /all` + ARP birleştirmesi ile aktif DHCP cihazlarını göster
-- **Neden:** Kim hangi IP'yi almış? Router login olmadan kısmi cevap verilebilir
+### 2.4 ONVIF Profil ve Stream URI Çekme
+- WS-Discovery sonrası ONVIF servis URL'sinden profil ve stream URI bilgisi al.
+- Kimlik bilgisi gerekiyorsa kullanıcıdan iste; boş/anonim denemeyi güvenli timeout ile yap.
+- Bulunan RTSP URI'leri detay panelinde kopyalanabilir olarak göster.
+- **Neden:** RTSP yolunu tahmin etmek yerine cihazdan doğrudan almak daha doğru.
 
-### 2.5 SSH Komutu Çalıştırıcı (minimal)
-- IP + kullanıcı + şifre/key gir, tek komut çalıştır, çıktıyı göster
-- `SSH.NET` NuGet paketi (Renci.SshNet) kullanılabilir
-- **Neden:** Router/switch/Linux sunucu yönetimi için; SNMP'nin tamamlayıcısı
+### 2.5 RTSP Snapshot / Kamera Önizleme
+- FFmpeg portable varsa RTSP URL adaylarından tek kare yakala.
+- Önizlemeleri `captures/previews/` altında sakla ve Cihaz Tara detayında thumbnail göster.
+- Hata durumunda kimlik doğrulama, timeout veya stream bulunamadı nedenini kısa göster.
+- **Neden:** Kameranın gerçekten görüntü verip vermediği tek bakışta anlaşılır.
 
----
-
-## 3. UX / Arayüz İyileştirmeleri
-
-### 3.1 Arama / Filtre Çubuğu (Chat'te)
-- Chat panelinin üstüne küçük arama kutusu
-- Yazılınca chat mesajlarını filtrele, eşleşenleri vurgula
-- **Neden:** Uzun tarama çıktılarında belirli IP veya porta bakmak zorlaşıyor
-
-### 3.2 Sonuç Dışa Aktarma — JSON / CSV
-- Cihaz Tara, Port Tara, ARP sonuçlarını yapılandırılmış formatta kaydet
-- Mevcut `BtnRapor` yalnızca düz metin; JSON/CSV seçeneği ekle
-- **Neden:** Excel entegrasyonu, başka araçlara aktarım için
-
-### 3.3 Geçmiş / Son Taramalar
-- Son 10 tarama sonucunu `%APPDATA%\AgTarama\history\` altında JSON olarak sakla
-- "Geçmiş" panelinden önceki sonuçlara bakma
-- **Neden:** "Dün ne bulmuştum?" sorusuna cevap; log dosyası var ama arayüzden bakılamıyor
-
-### 3.4 Karanlık/Açık Tema Geçişi
-- Mevcut GitHub Dark teması korunarak bir de açık tema ekle
-- `App.Resources` merkezinden `ResourceDictionary` ile değiştir
-- Ayarlar panelinde toggle butonu
-
-### 3.5 Çoklu Sekme / Çalışma Alanı
-- Aynı anda iki ayrı port taraması veya iki ayrı ping seansı yürütme
-- Tab kontrolü ile her sekme bağımsız panel
-- **Neden:** Birden fazla hedefi aynı anda izleme ihtiyacı var
-
-### 3.6 Bildirim Sistemi (Tray)
-- Sistem tepsisine küçült
-- Tarama tamamlanınca veya belirli port açılınca tray bildirimi
-- `System.Windows.Forms.NotifyIcon` veya Windows App SDK Toast
+### 2.6 Cihaz Notları
+- Her IP'ye kalıcı serbest metin notu eklenebilsin (`%APPDATA%\AgTarama\device-notes.json`).
+- Not varsa DataGrid satırında küçük ikon göster; üzerine gelinince ToolTip ile içerik çıksın.
+- Cihaz detay çekmecesinde düzenleme alanı olsun.
+- **Neden:** "Bu IP ne işe yarıyor?" sorusunun cevabını tarama sonuçlarıyla birlikte tutmak envanter kalitesini artırır.
 
 ---
 
-## 4. Ağ Protokolü Genişletmeleri
+## 3. Güvenlik ve İzleme
 
-### 4.1 NetBIOS / SMB Cihaz Adı Çözümleme — TAMAMLANDI
-- `Services/NetbiosService.cs` ile UDP 137 NetBIOS Node Status, reverse DNS, `ping -a` ve `nbtstat -A <ip>` kaynakları birlikte deneniyor
-- Cihaz Tara içinde ping yanıtı veren veya 139/445/3389 portu açık görünen IP'lerde çalışıyor
-- Ek olarak tüm subnet'e UDP 137 NetBIOS sweep yapılıyor; ping kapalı Windows cihazlarında da ad yakalanabiliyor
-- Bilgisayar adı ve çalışma grubu bilgisi Cihaz Tara kartına `Ad` / `Grup` satırı olarak ekleniyor
-- ONVIF `name/hardware/location` ve SSDP `friendlyName/manufacturer/modelName/modelNumber` bilgileri de karttaki ad/marka/model seçimine katılıyor
-- Advanced IP Scanner console çıktısı, ARP tablosu, MAC üretici veritabanı ve servis banner bilgileri de Cihaz Tara kartlarına ekleniyor
-- **Not:** Favorilerde IP yanına isim gösterimi ayrı UX işi olarak hâlâ eklenebilir
+### 3.1 ARP Spoof / Gateway MAC Alarmı
+- Gateway IP'sinin MAC adresini periyodik izle.
+- Gateway MAC değişirse, aynı MAC birden fazla IP'de görünürse veya aynı IP farklı MAC'e geçerse uyar.
+- Uyarıyı logla ve geçmiş paneline olay olarak yaz.
+- **Neden:** MITM ve yanlış ağ cihazı problemlerinin erken belirtisi.
 
-### 4.2 mDNS / Bonjour Keşif
-- `224.0.0.251:5353`'e mDNS sorgusu gönder
-- Apple, Chromecast, akıllı TV, yazıcı gibi cihazları tespit et
-- Servis tipi: `_http._tcp`, `_printer._tcp`, `_googlecast._tcp` vb.
-- **Neden:** Cihaz Tara'daki SSDP'nin tamamlayıcısı; IoT cihazlar çoğunlukla mDNS kullanır
+### 3.2 Rogue DHCP Sunucu Tespiti
+- `tshark` ile kısa süreli DHCP/BOOTP yakalama yap.
+- DHCP Offer/Ack veren server IP/MAC listesini çıkar.
+- Birden fazla DHCP sunucu varsa uyarı göster.
+- **Neden:** Kurumsal ağlarda yanlış takılmış modem/router hızlı bulunur.
 
-### 4.3 LLDP / CDP Paket Okuyucu
-- tshark ile `lldp` veya `cdp` protokolü filtreli kısa yakalama
-- Komşu switch/router bilgilerini (port, VLAN, cihaz adı) göster
-- **Neden:** Kurumsal ağlarda fiziksel topoloji haritalaması için temel
+### 3.3 Açık Port Değişiklik İzleme
+- Kullanıcı seçtiği IP'leri periyodik port tarama ile izleyebilsin.
+- Önceki sonuca göre yeni açılan veya kapanan portları bildir.
+- İzleme profilleri ayarlardan yönetilsin.
+- **Neden:** Beklenmedik RDP/SSH/web arayüzü açılması güvenlik riski olabilir.
 
-### 4.4 ICMP Timestamp / Type Haritalama
-- Ping'e ek olarak ICMP timestamp, echo tiplerini raporla
-- Cihazın OS fingerprint ipucu (TTL 64 = Linux, 128 = Windows, 255 = Cisco)
-- **Neden:** Ping sonuçlarına TTL bilgisi zaten ekleniyor; OS tahmini adım küçük
+### 3.4 CVE / Güvenlik Açığı Kontrolü
+- Banner/sürüm tespiti sonrası yerel küçük bir CVE eşleştirme tablosuyla uyarı üret.
+- İlk aşamada NVD tamamı yerine kamera/router/web server için elle seçilmiş kritik imza seti kullanılabilir.
+- Dışa aktarma raporlarına risk özeti ekle.
+- **Neden:** Envanter bilgisi, güvenlik kararına dönüşür.
 
-### 4.5 WiFi Ağ Tarayıcı
-- `netsh wlan show networks mode=bssid` çıktısını parse et
-- Yakındaki SSID'ler, kanal, sinyal gücü, şifreleme türünü listele
-- **Neden:** Kanalın kalabalık olup olmadığını, yabancı AP'ları tespit etmek için
+### 3.5 Ağ Sağlığı Skoru
+- Ping gecikmesi, kayıp, açık riskli portlar, gateway değişimi, DNS başarısı ve cihaz sayısı değişiminden basit skor üret.
+- Skoru Bant veya yeni "Ağ Sağlığı" sekmesinde göster.
+- **Neden:** Teknik çıktıları hızlı okunur operasyonel özet haline getirir.
 
----
-
-## 5. Performans & Mimari
-
-### 5.1 Cihaz Tara Paralel Yoğunluk Ayarı
-- Şu an `SemaphoreSlim(80)` sabit; kullanıcıya slider ile 20–200 arası ayar
-- Yavaş ağlarda timeout süresini de ayarlanabilir yap (800ms → kullanıcı seçimi)
-
-### 5.2 `MainWindow.xaml.cs` Parçalama
-- ~1750 satırlık dosya çok büyüdü; `partial class` ile böl:
-  - `MainWindow.Capture.cs` — tshark yakalama
-  - `MainWindow.Panels.cs` — yan panel animasyonları
-  - `MainWindow.Devices.cs` — Cihaz Tara mantığı
-  - `MainWindow.Network.cs` — ping/port/trace/dns
-- **Neden:** Derleme süresi ve okunabilirlik; şu an tek dosyada 10+ bağımsız özellik var
-
-### 5.3 Ayarlar Kalıcılığı
-- `Services/AppSettings.cs` → `System.Text.Json` ile `%APPDATA%\AgTarama\settings.json`
-- Timeout, tema, favori subnet, varsayılan community string gibi değerleri sakla
-- Ayarlar paneli bu servisi okuyup yazsın
-
-### 5.4 Hata Raporlama / Crash Log
-- Yakalanmayan exception'lar için `AppDomain.CurrentDomain.UnhandledException` handler
-- Stack trace'i `LogService.Hata` ile yaz; kullanıcıya "Hata raporu kaydedildi" toast'u göster
+### 3.6 Zamanlanmış / Otomatik Tarama
+- Belirli aralıklarla (örn. her 10 dakika veya gün başında) Cihaz Tara veya Ping Sweep otomatik çalışsın.
+- Önceki taramaya göre fark varsa (yeni cihaz, kaybolan cihaz) toast + log ile bildir.
+- Zamanlama profilleri ayarlardan yapılandırılsın; uygulama tepsiye küçülmüşken de devam etsin.
+- **Neden:** Ağ değişikliklerini fark etmek için kullanıcının manuel tarama başlatması gerekmemeli.
 
 ---
 
-## 6. Entegrasyon Fırsatları
+## 4. Ağ Araçları ve Protokoller
 
-| Araç | Entegrasyon Tipi | Değer |
-|---|---|---|
-| Nmap | `nmap.exe` var ise sarmalayıcı çalıştır, OS detection sonucu göster | OS fingerprint |
-| FFmpeg | RTSP frame yakala, thumbnail göster | Kamera doğrulama |
-| OpenSSL | Sertifika bilgisini oku (HTTPS portları için) | Sertifika geçerlilik/CN |
-| Netcat | Hızlı port/banner testi; port tara fallback | Güvenilirlik |
-| Python/Scapy | Gelişmiş paket forge için opsiyonel bağımlılık | ARP spoof tespiti |
+### 4.1 WiFi Ağ Tarayıcı
+- `netsh wlan show networks mode=bssid` çıktısını parse et.
+- SSID, BSSID, kanal, sinyal gücü, şifreleme türü ve kanal kalabalığını göster.
+- Kanal çakışması için kısa öneri üret.
+- **Neden:** Kablosuz sorunlarında kanal ve sinyal görünürlüğü gerekir.
+
+### 4.2 LLDP / CDP Komşu Okuyucu
+- `tshark` ile kısa süre `lldp` veya `cdp` filtreli yakalama yap.
+- Komşu switch/router adı, port, VLAN ve management IP bilgilerini göster.
+- **Neden:** Kurumsal ağlarda fiziksel topoloji ve switch portu bulma için değerli.
+
+### 4.3 DNS Araçlarını Genişletme
+- Mevcut DNS Lookup'a kayıt tipi seçimi ekle: A, AAAA, CNAME, MX, TXT, NS, PTR.
+- DNS sunucusu seçilebilir olsun: sistem DNS, 1.1.1.1, 8.8.8.8 veya özel.
+- Yanıt süresini ve TTL değerlerini göster.
+- **Neden:** DNS sorunları için mevcut panel daha teşhis odaklı hale gelir.
+
+### 4.4 Traceroute Görsel Yol Haritası
+- Traceroute sonuçlarını tablo ve çizgisel akış olarak göster.
+- Hop gecikme ortalaması, zaman aşımı ve ani gecikme artışı renklendirilsin.
+- İsteğe bağlı olarak IP geolocation verisi desteklenebilir.
+- **Neden:** Düz metin traceroute çıktısını okumak zor; görsel farklar daha hızlı anlaşılır.
+
+### 4.5 iperf3 Performans Testi Entegrasyonu
+- `iperf3.exe` varsa client/server modunu arayüzden yönet.
+- Hedef, süre, paralel stream ve yön seçenekleri sun.
+- Sonuçları Mbps/Gbps ve jitter/loss olarak raporla.
+- **Neden:** Bant monitörü yerel hızları gösterir; iperf3 gerçek uçtan uca performansı ölçer.
+
+### 4.6 SSH / Telnet Gömülü Terminal
+- Seçili cihaza Cihaz Tara sağ tık → "Terminal Aç" ile bağlan.
+- SSH için `ssh.exe` (Windows 10+ yerleşik) veya `plink.exe` process olarak başlat; çıktıyı uygulama içi panel'de göster.
+- Telnet için `telnet.exe` aynı şekilde wrap et.
+- **Neden:** RDP yerine SSH ile yönetilen cihazlara tek tıkla bağlanmak saha verimliliğini artırır.
+
+### 4.7 Ping Gecikmesi Trend Grafiği
+- Süregelen ping modunda gecikme değerlerini gerçek zamanlı çizgi grafikle göster.
+- Son 60 değeri WPF `Polyline` / `Canvas` ile sıfır NuGet'e çiz; min/maks/ortalama değerleri göster.
+- Kayıp paketleri kırmızı nokta ile işaretle.
+- **Neden:** Anlık gecikme tek değer gösterir; trend kayıp ve spike'ları açıkça ortaya koyar.
 
 ---
 
-## 7. Güvenlik Geliştirmeleri
+## 5. Kullanıcı Deneyimi
 
-### 7.1 ARP Spoof / Zehirleme Tespiti
-- ARP tablosunu periyodik izle; aynı IP için MAC değişirse uyar
-- "Gateway MAC değişti!" kırmızı alert + log
-- **Neden:** MITM saldırısının en yaygın belirtisi
+### 5.1 Chat İçinde Arama ve Filtre
+- Chat alanında IP, port veya kelime arama kutusu ekle (`Ctrl+F`).
+- Eşleşen mesajları vurgula, eşleşmeyenleri soluklaştır veya gizle.
+- Enter ile sonraki eşleşmeye git.
+- **Neden:** Uzun tarama çıktılarında belirli sonucu bulmak zorlaşıyor.
 
-### 7.2 Rogue DHCP Sunucu Tespiti
-- Ağda birden fazla DHCP sunucu yanıtı alınırsa uyar
-- tshark ile `dhcp` filtreli kısa yakalama
-- **Neden:** Kurumsal ağlarda sık karşılaşılan güvenlik sorunu
+### 5.2 Komut Paleti
+- `Ctrl+K` ile hızlı komut paleti aç.
+- "Ping 192.168.1.1", "Cihaz Tara", "ARP göster", "Ayarlar" gibi komutlar aranabilir olsun.
+- Son kullanılan hedefleri öner.
+- **Neden:** Sekme ve butonlar çoğaldıkça hızlı klavye akışı değer kazanır.
 
-### 7.3 Açık Port Değişiklik Alarmı
-- Belirlenen IP'yi periyodik port tarama ile izle
-- Öncekine göre yeni açık port çıkarsa bildirim ver
-- **Neden:** Sunucu/kamera'da beklenmedik servis açılmasını fark etmek için
+### 5.3 Favorilere İsim ve Grup Ekleme
+- Favori IP'lere görünen ad, not ve grup atanabilsin.
+- Cihaz Tara'dan bulunan adlar favorilere öneri olarak gelsin.
+- Favorilerde hızlı ping/port/web aksiyonları korunsun.
+- **Neden:** Sadece IP listesi zamanla yetersiz kalır.
+
+### 5.4 Tray Bildirimi ve Arka Plan Çalışma
+- Uygulama sistem tepsisine küçültülebilsin.
+- Uzun tarama bitince, riskli port bulununca veya izleme alarmı oluşunca Windows bildirim baloncuğu çıksın.
+- Kapatma yerine tepsiye küçültme varsayılan davranış olsun (çarpı → tepsiye, sağ tık → Çıkış).
+- **Neden:** Kullanıcı uzun ağ taramalarını beklerken uygulamayı açık ekranda tutmak zorunda kalmaz.
+
+### 5.5 Tema ve Yoğunluk Ayarları
+- Mevcut koyu tema korunarak açık tema veya yüksek kontrast tema ekle.
+- DataGrid yoğunluğu için kompakt/rahat görünüm seçeneği sun.
+- **Neden:** Farklı ekran ve saha koşullarına uyum sağlar.
+
+### 5.6 Giriş Otomatik Tamamlama
+- Ping, Port Tara, DNS, WoL ve Traceroute giriş kutularında daha önce girilen IP/hostname değerlerini öneri olarak göster.
+- Son 20 benzersiz değer `%APPDATA%\AgTarama\input-history.json` içinde saklansın.
+- `↓` tuşu veya açılır liste ile seçim yapılabilsin.
+- **Neden:** Aynı hedeflere tekrar tekrar yazma zahmetini kaldırır; Geçmiş sekmesine alternatif değil tamamlayıcı.
 
 ---
 
-## Öncelik Özeti
+## 6. Mimari ve Bakım
 
-| Öncelik | Özellik | Tahmini Zorluk |
-|---|---|---|
-| 🔴 Çok Yüksek | Ping Sweep | Kolay |
-| 🔴 Çok Yüksek | MAC → Üretici (OUI) | Kolay |
-| 🔴 Çok Yüksek | Bant Genişliği Monitörü | Orta |
-| 🟡 Yüksek | HTTP Header Checker | Kolay |
-| 🟡 Yüksek | mDNS Keşif | Orta |
-| 🟡 Yüksek | Sonuç JSON/CSV Export | Kolay |
-| 🟢 Orta | RTSP Önizleme | Zor (ffmpeg dep.) |
-| 🟢 Orta | Port Sürüm Tespiti | Orta |
-| 🟢 Orta | ARP Spoof Tespiti | Orta |
-| 🟢 Orta | WiFi Ağ Tarayıcı | Kolay |
-| 🔵 Düşük | SSH Komutu Çalıştırıcı | Zor |
-| 🔵 Düşük | CVE Kontrolü | Zor |
-| 🔵 Düşük | Çoklu Sekme | Zor |
+### 6.1 Cihaz Tara Motorunu Servis Katmanına Alma
+- Port scan, ONVIF, SSDP, NetBIOS, ARP ve kimlik belirleme akışını `Services/DeviceDiscoveryService.cs` altına taşı.
+- UI yalnızca ilerleme ve sonuç bağlama işi yapsın.
+- **Neden:** Test yazmak ve yeni keşif protokolü eklemek kolaylaşır.
+
+### 6.2 Ortak ExportService
+- Cihaz Tara export kodu çalışıyor; bunu Port, ARP ve geçmiş export için ortak servise çıkar.
+- CSV, TXT, HTML/Excel, PDF ve JSON üretimini tek yerde topla.
+- **Neden:** Yeni rapor türlerinde kopya kod büyümesini önler.
+
+### 6.3 Test Projesi
+- Parse ve sınıflandırma fonksiyonları için `AgTarama.Tests` projesi ekle.
+- Test adayları: port aralığı parse, IPv4/hostname doğrulama, ARP parse, OUI lookup, HTTP title parse, NetBIOS parse, cihaz türü sınıflandırma.
+- **Neden:** Ağ araçlarında parse hataları sessiz ve can sıkıcı olur; küçük testler güven verir.
+
+### 6.4 İşlem Durum Merkezi
+- Aktif yakalama, ping, port tarama, cihaz tarama ve izleme görevlerini tek noktada listele.
+- İptal, tekrar çalıştır ve log aç aksiyonları sun.
+- **Neden:** Uygulama büyüdükçe "şu anda ne çalışıyor?" sorusuna net cevap gerekir.
+
+### 6.5 Özelleştirilebilir Port / Servis Listesi
+- `BilindikPortlar` sözlüğü şu an kod içinde sabit; bunu `%APPDATA%\AgTarama\custom-ports.json` ile kullanıcı tarafından genişletilebilir hale getir.
+- Ayarlar penceresine port ekle/sil/düzenle arayüzü ekle.
+- **Neden:** Kamera markaları ve kurumsal uygulamalar farklı özel portlar kullanabilir; kullanıcı bunları bir kez tanımlamalı.
+
+---
+
+## 7. Önerilen Uygulama Sırası
+
+| Sıra | Özellik | Öncelik | Zorluk |
+|---:|---|---|---|
+| 1 | HTTP/HTTPS Başlık Denetleyicisi | Yüksek | Kolay |
+| 2 | Subnet / CIDR Hesaplayıcı | Yüksek | Kolay |
+| 3 | Çoklu Hedef Ping | Yüksek | Kolay-Orta |
+| 4 | Ping Gecikmesi Trend Grafiği | Orta-Yüksek | Orta |
+| 5 | Cihaz Detay Çekmecesi | Orta-Yüksek | Orta |
+| 6 | Giriş Otomatik Tamamlama | Orta-Yüksek | Kolay |
+| 7 | Favorilere İsim ve Grup Ekleme | Orta | Kolay-Orta |
+| 8 | DNS Araçlarını Genişletme | Orta | Kolay-Orta |
+| 9 | Cihaz Notları | Orta | Kolay |
+| 10 | ARP Spoof / Gateway MAC Alarmı | Orta | Orta |
+| 11 | Zamanlanmış / Otomatik Tarama | Orta | Orta |
+| 12 | WiFi Ağ Tarayıcı | Orta | Kolay |
+| 13 | Tray Bildirimi ve Arka Plan Çalışma | Orta | Orta |
+| 14 | Özelleştirilebilir Port / Servis Listesi | Orta | Kolay |
+| 15 | Cihaz Türü Düzeltme / Elle Etiketleme | Orta | Orta |
+| 16 | Cihaz Tara motorunu servis katmanına alma | Düşük-Orta | Orta-Zor |
+| 17 | Ortak ExportService | Düşük | Orta |
+| 18 | Test Projesi | Düşük | Kolay-Orta |
+| 19 | ONVIF Profil ve Stream URI Çekme | Düşük | Zor |
+| 20 | RTSP Snapshot / Kamera Önizleme | Düşük | Zor |

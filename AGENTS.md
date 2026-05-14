@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeyi tek yerden anlayabilmesi için hazırlanmıştır.
 > **Kaynak kodda her değişiklik yapıldığında bu dosya da aynı turda güncellenmelidir.**
-> Son güncelleme: 2026-05-14 (Lisans sistemi eklendi — LicenseService, LicenseWindow, App.xaml.cs güncellendi)
+> Son güncelleme: 2026-05-14 (Otomatik güncelleme sistemi — UpdateService, UpdateWindow, App.xaml.cs entegrasyonu; lisans sekmesi)
 
 ---
 
@@ -99,6 +99,8 @@ AG TARAMA PROGRAMI/
     │   ├── HistoryService.cs             ← Geçmiş kayıt modeli + JSON CRUD (%APPDATA%\AgTarama\history)
     │   └── LicenseService.cs             ← Cloud lisans doğrulama (Supabase REST) + AES önbellek + makine bağlama
     ├── LicenseWindow.xaml / .cs      ← Lisans aktivasyon ekranı (karanlık tema, App_Startup'tan açılır)
+    ├── UpdateWindow.xaml / .cs       ← Güncelleme bildirimi + indirme ilerleme çubuğu (App_Startup'tan Show())
+    ├── Services/UpdateService.cs     ← GitHub Releases API kontrolü, ZIP indirme, PowerShell self-update betiği
     ├── SettingsWindow.xaml / .cs     ← Ayarlar penceresi
     ├── AGENTS.md                     ← (bu dosya) tam referans + geliştirici rehberi
     ├── AGENT.md                      ← Claude Code için referans (Claude'a özgü kurallar içerir)
@@ -165,6 +167,7 @@ Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI contain
 | 7 | ★ Favoriler | `FavorilerPanel` — favori IP listesi + sil chip'leri |
 | 8 | ▶ Bant Genişliği | `BantPanel` — adaptör kartları (canlı ↓↑ hız, 1s timer) |
 | 9 | ◷ Geçmiş | `GecmisPanel` — JSON geçmiş kayıtları, aç/tekrar çalıştır/son iki cihaz taramasını karşılaştır |
+| 10 | ⊙ Lisans | `LisansPanel` — Lisans durumu, kalan süre göstergesi, yenile/sıfırla butonları |
 
 **TabItem stili (custom ControlTemplate):** Consolas 12pt, `#8B949E` fg, transparent border. Seçilince alt kenarlık `#2F81F7` (2px), bg `#0D1F2F`, metin `#58A6FF`. Hover (seçili değilken) bg `#161B22`, metin `#C9D1D9`. CornerRadius=6,6,0,0.
 
@@ -256,6 +259,7 @@ Her sekme `TabItem` içine konumlanmış bir `Border` (eskiden yan panel) barın
 | `Partials/MainWindow.Favorites.cs` | `FavoriChipleriniYenile`, `FavorilerPanelGuncelle`, favori event'leri |
 | `Partials/MainWindow.History.cs` | `GecmisPanelGuncelle`, `GecmisKartiOlustur`, `GecmisKaydiTekrarCalistir`, silme, temizleme, karşılaştırma |
 | `Partials/MainWindow.UI.cs` | `BtnAyarlar_Click`, `RaporKaydet`, `Window_DragOver/Drop`, `ToastGoster`, `BildirimCal` |
+| `Partials/MainWindow.License.cs` | `LisansPanelGuncelle`, `SetLisansUI`, `MaskeLisansAnahtari`, `LisansYenile_Click`, `LisansSifirla_Click` |
 | `Partials/MainWindow.DeviceScan.cs` | `KameraBilgi`, `CihazKimlik`, `KameraSatir`, `KimlikBelirle`, tüm keşif protokolleri, export, tablo UI (~1730 satır) |
 
 ### 6.1 Using İfadeleri
@@ -308,6 +312,7 @@ using AgTarama.Services;
 | `TabFavoriler` | const int = 7 | Favoriler sekme indeksi |
 | `TabBant` | const int = 8 | Bant Genişliği sekme indeksi |
 | `TabGecmis` | const int = 9 | Geçmiş sekme indeksi |
+| `TabLisans` | const int = 10 | Lisans sekme indeksi |
 | `_pingCts` | `CancellationTokenSource?` | Ping iptali |
 | `_portScanCts` | `CancellationTokenSource?` | Port tarama iptali |
 | `_traceCts` | `CancellationTokenSource?` | Traceroute iptali |

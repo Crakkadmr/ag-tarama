@@ -1,6 +1,5 @@
 using System.Windows;
 using AgTarama.Services;
-using System.Threading.Tasks;
 
 namespace AgTarama;
 
@@ -8,22 +7,49 @@ public partial class App : Application
 {
     private async void App_Startup(object sender, StartupEventArgs e)
     {
-        // Önce yerel şifreli önbelleği kontrol et (hızlı, çevrimdışı da çalışır)
+        // Ortam güvenlik kontrolü — release build'de debugger/analiz aracı varsa sonlandırır
+        SecurityService.Dogrula();
+
+        // NTP öncelikli saat doğrulaması — sistem saati kullanılmaz
+        var clockCheck = await TrustedTimeService.VerifyClockAsync();
+        if (!clockCheck.Ok)
+        {
+            var kaynak = clockCheck.Source == ClockVerifySource.Ntp ? "NTP sunucusu" : "son kayıt";
+            MessageBox.Show(
+                $"Sistem saatiniz {kaynak} ile uyuşmuyor.\n\n" +
+                $"{clockCheck.Detail}\n\n" +
+                "Lütfen sistem saatinizi doğru değere güncelleyin ve uygulamayı yeniden başlatın.",
+                "Sistem Saati Hatası", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Shutdown();
+            return;
+        }
+
         var cached = LicenseService.CheckCache();
-        if (cached?.Status == LicenseStatus.Valid)
+
+        // 1) Cache geçerli + floor var → hızlı açılış, arka planda doğrula
+        if (cached?.Status == LicenseStatus.Valid && TrustedTimeService.HasFloor())
         {
             var main = new MainWindow();
             main.Show();
-
-            // Arka planda bulutla doğrula — sonuç geçersizse pencereyi kapat
             _ = ValidateInBackgroundAsync(main, cached.Info!.Key);
             _ = CheckForUpdateInBackgroundAsync(main);
             return;
         }
 
-        // Önbellekte geçerli lisans yok — lisans ekranını göster
-        var licWin = new LicenseWindow();
-        licWin.Show();
+        // 2) Cache geçerli ama floor yok → ilk kurulum veya tg.dat silindi;
+        //    saat manipülasyonu riski var, online doğrulama zorunlu
+        if (cached?.Status == LicenseStatus.Valid && !TrustedTimeService.HasFloor())
+        {
+            var result = await LicenseService.ValidateAsync(cached.Info!.Key);
+            if (result.Status == LicenseStatus.Valid)
+            {
+                new MainWindow().Show();
+                return;
+            }
+        }
+
+        // 3) Geçerli cache yok — lisans ekranı
+        new LicenseWindow().Show();
     }
 
     private static async Task CheckForUpdateInBackgroundAsync(Window mainWindow)
@@ -39,17 +65,16 @@ public partial class App : Application
         });
     }
 
-    private static async Task ValidateInBackgroundAsync(Window mainWindow, string cachedKey)
+    private static async Task ValidateInBackgroundAsync(MainWindow mainWindow, string cachedKey)
     {
         await Task.Delay(2000); // Uygulama tam açılsın
         var result = await LicenseService.ValidateAsync(cachedKey);
 
-        mainWindow.Dispatcher.Invoke(() =>
+        await mainWindow.Dispatcher.InvokeAsync(async () =>
         {
             switch (result.Status)
             {
                 case LicenseStatus.Valid:
-                    // Geçerli — MainWindow'daki lisans sekmesi zaten önbellekten okuyor, ek işlem yok
                     break;
 
                 case LicenseStatus.Expired:
@@ -57,6 +82,8 @@ public partial class App : Application
                         $"Lisansınızın süresi doldu:\n{result.Message}\n\nUygulama kapatılıyor.",
                         "Lisans Süresi Doldu", MessageBoxButton.OK, MessageBoxImage.Warning);
                     LicenseService.ClearCache();
+                    mainWindow.LisansIptalEt();
+                    await Task.Delay(500);
                     mainWindow.Close();
                     new LicenseWindow().Show();
                     break;
@@ -67,13 +94,14 @@ public partial class App : Application
                         $"Lisans doğrulanamadı:\n{result.Message}\n\nUygulama kapatılıyor.",
                         "Lisans Hatası", MessageBoxButton.OK, MessageBoxImage.Warning);
                     LicenseService.ClearCache();
+                    mainWindow.LisansIptalEt();
+                    await Task.Delay(500);
                     mainWindow.Close();
                     new LicenseWindow().Show();
                     break;
 
                 case LicenseStatus.NetworkError:
-                    // Çevrimdışı — önbellekten devam, kullanıcıya sessizce bilgi ver
-                    // (Toast için MainWindow referansı gerekir; ileride geliştirilebilir)
+                    // Çevrimdışı — önbellekten devam
                     break;
             }
         });

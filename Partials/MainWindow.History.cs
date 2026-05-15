@@ -1,20 +1,19 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Diagnostics;
-using System.Text.Json;
 using AgTarama.Services;
 
 namespace AgTarama;
 
 public partial class MainWindow
 {
-    // ─── Geçmiş Paneli ───────────────────────────────────────────────
-
     private void GecmisYenile_Click(object sender, RoutedEventArgs e) => GecmisPanelGuncelle();
 
     private void GecmisKlasorAc_Click(object sender, RoutedEventArgs e)
@@ -42,15 +41,15 @@ public partial class MainWindow
     {
         if (!Directory.Exists(Paths.HistoryKlasor)) return;
         var dosyalar = Directory.EnumerateFiles(Paths.HistoryKlasor, "*.json").ToList();
-        if (dosyalar.Count == 0) { ToastGoster("Temizlenecek geçmiş yok"); return; }
-        if (MessageBox.Show($"{dosyalar.Count} kayıt kalıcı olarak silinecek. Emin misiniz?",
-                "Geçmişi Temizle", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        if (dosyalar.Count == 0) { ToastGoster("Temizlenecek gecmis yok"); return; }
+        if (MessageBox.Show($"{dosyalar.Count} kayit kalici olarak silinecek. Emin misiniz?",
+                "Gecmisi Temizle", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
         foreach (var f in dosyalar)
             try { File.Delete(f); } catch { }
         _gecmisFiltreTur = "";
         GecmisPanelGuncelle();
-        ToastGoster($"{dosyalar.Count} kayıt silindi");
+        ToastGoster($"{dosyalar.Count} kayit silindi");
     }
 
     private void GecmisPanelGuncelle()
@@ -62,20 +61,21 @@ public partial class MainWindow
             ? _gecmisKayitlari
             : _gecmisKayitlari.Where(k => string.Equals(k.Type, _gecmisFiltreTur, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        GecmisFiltreTumu.FontWeight     = string.IsNullOrEmpty(_gecmisFiltreTur) ? FontWeights.Bold : FontWeights.Normal;
-        GecmisFiltreYakalama.FontWeight = _gecmisFiltreTur == "YAKALAMA"   ? FontWeights.Bold : FontWeights.Normal;
-        GecmisFiltreKamera.FontWeight   = _gecmisFiltreTur == "CİHAZ TARA" ? FontWeights.Bold : FontWeights.Normal;
-        GecmisFiltrePing.FontWeight     = _gecmisFiltreTur == "PING"        ? FontWeights.Bold : FontWeights.Normal;
-        GecmisFiltrePort.FontWeight     = _gecmisFiltreTur == "PORT TARA"   ? FontWeights.Bold : FontWeights.Normal;
-        GecmisFiltreArp.FontWeight      = _gecmisFiltreTur == "ARP"         ? FontWeights.Bold : FontWeights.Normal;
+        GecmisFiltreTumu.FontWeight = string.IsNullOrEmpty(_gecmisFiltreTur) ? FontWeights.Bold : FontWeights.Normal;
+        GecmisFiltreYakalama.FontWeight = _gecmisFiltreTur == "YAKALAMA" ? FontWeights.Bold : FontWeights.Normal;
+        GecmisFiltreKamera.FontWeight = _gecmisFiltreTur is "CİHAZ TARA" or "CIHAZ TARA" ? FontWeights.Bold : FontWeights.Normal;
+        GecmisFiltrePing.FontWeight = _gecmisFiltreTur == "PING" ? FontWeights.Bold : FontWeights.Normal;
+        GecmisFiltrePort.FontWeight = _gecmisFiltreTur == "PORT TARA" ? FontWeights.Bold : FontWeights.Normal;
+        GecmisFiltreArp.FontWeight = _gecmisFiltreTur == "ARP" ? FontWeights.Bold : FontWeights.Normal;
+        GecmisFiltreWifi.FontWeight = _gecmisFiltreTur == "WIFI TARA" ? FontWeights.Bold : FontWeights.Normal;
 
         if (liste.Count == 0)
         {
             GecmisListePanel.Children.Add(new TextBlock
             {
                 Text = string.IsNullOrEmpty(_gecmisFiltreTur)
-                    ? "Henüz geçmiş kaydı yok. Ping, Port Tara, Cihaz Tara, ARP veya paket yakalama çalıştırın."
-                    : $"«{_gecmisFiltreTur}» türünde geçmiş kaydı yok.",
+                    ? "Henuz gecmis kaydi yok. Ping, Port Tara, Cihaz Tara, Wi-Fi Tara, ARP veya paket yakalama calistirin."
+                    : $"\"{_gecmisFiltreTur}\" turunde gecmis kaydi yok.",
                 Foreground = new SolidColorBrush(Color.FromRgb(72, 79, 88)),
                 FontFamily = new FontFamily("Consolas"),
                 FontSize = 11,
@@ -122,11 +122,11 @@ public partial class MainWindow
         });
 
         var actions = new WrapPanel();
-        var ac = new Button { Content = "JSON Aç", Style = (Style)FindResource("ChipButton"), Tag = kayit.Id };
+        var ac = new Button { Content = "JSON Ac", Style = (Style)FindResource("ChipButton"), Tag = kayit.Id };
         ac.Click += (_, _) => GecmisKaydiAc(kayit);
         actions.Children.Add(ac);
 
-        var tekrar = new Button { Content = "Tekrar Çalıştır", Style = (Style)FindResource("ChipButton"), Tag = kayit.Id };
+        var tekrar = new Button { Content = "Tekrar Calistir", Style = (Style)FindResource("ChipButton"), Tag = kayit.Id };
         tekrar.Click += (_, _) => GecmisKaydiTekrarCalistir(kayit);
         actions.Children.Add(tekrar);
 
@@ -154,6 +154,7 @@ public partial class MainWindow
     private void GecmisKaydiTekrarCalistir(HistoryRecord kayit)
     {
         _gecmisdenCalistiriliyor = true;
+
         switch (kayit.Type.ToUpperInvariant())
         {
             case "PING":
@@ -161,6 +162,7 @@ public partial class MainWindow
                 PingIpBox.Text = kayit.Target;
                 _ = PingBaslat(kayit.Target);
                 break;
+
             case "PORT TARA":
                 MainTabControl.SelectedIndex = TabPort;
                 PortIpBox.Text = kayit.Target;
@@ -168,19 +170,30 @@ public partial class MainWindow
                     PortAralikBox.Text = portlar;
                 _ = PortTaraBaslat(kayit.Target, PortScanService.Parse(portlar ?? PortAralikBox.Text));
                 break;
+
             case "CİHAZ TARA":
             case "CIHAZ TARA":
                 MainTabControl.SelectedIndex = TabCihazTara;
-                if (kayit.Metadata.TryGetValue("Subnet", out var subnet)) KameraSubnetBox.Text = subnet;
+                if (kayit.Metadata.TryGetValue("SubnetInput", out var subnetInput) && !string.IsNullOrWhiteSpace(subnetInput))
+                    KameraSubnetBox.Text = subnetInput;
+                else if (kayit.Metadata.TryGetValue("Subnet", out var subnet) && !string.IsNullOrWhiteSpace(subnet))
+                    KameraSubnetBox.Text = subnet;
                 _ = KameraTaramaBaslat();
                 break;
+
             case "ARP":
                 MainTabControl.SelectedIndex = TabChatbot;
                 _ = ArpTablosuGoster();
                 break;
+
+            case "WIFI TARA":
+                MainTabControl.SelectedIndex = TabWlan;
+                _ = WlanTaramaBaslat();
+                break;
+
             default:
                 _gecmisdenCalistiriliyor = false;
-                ToastGoster("Bu kayıt türü tekrar çalıştırılamıyor", hata: true);
+                ToastGoster("Bu kayit turu tekrar calistirilamiyor", hata: true);
                 break;
         }
     }
@@ -188,48 +201,134 @@ public partial class MainWindow
     private void GecmisKarsilastir_Click(object sender, RoutedEventArgs e)
     {
         var cihazKayitlari = HistoryService.SonKayitlariYukle(200)
-            .Where(k => k.Type.Equals("CİHAZ TARA", StringComparison.OrdinalIgnoreCase) ||
-                        k.Type.Equals("CIHAZ TARA", StringComparison.OrdinalIgnoreCase))
+            .Where(k => k.Type.Equals("CİHAZ TARA", StringComparison.OrdinalIgnoreCase)
+                     || k.Type.Equals("CIHAZ TARA", StringComparison.OrdinalIgnoreCase))
             .Take(2)
             .ToList();
+
         if (cihazKayitlari.Count < 2)
         {
-            ToastGoster("Karşılaştırma için en az iki Cihaz Tara kaydı gerekli", hata: true);
+            ToastGoster("Karsilastirma icin en az iki Cihaz Tara kaydi gerekli", hata: true);
             return;
         }
 
-        var yeni = GecmisCihazIpSeti(cihazKayitlari[0]);
-        var eski = GecmisCihazIpSeti(cihazKayitlari[1]);
-        var eklenen  = yeni.Except(eski).OrderBy(IpSiralamaAnahtari).ThenBy(x => x).ToList();
-        var kaybolan = eski.Except(yeni).OrderBy(IpSiralamaAnahtari).ThenBy(x => x).ToList();
+        var yeni = GecmisCihazHaritasi(cihazKayitlari[0]);
+        var eski = GecmisCihazHaritasi(cihazKayitlari[1]);
+        var yeniIps = yeni.Keys.ToHashSet(StringComparer.Ordinal);
+        var eskiIps = eski.Keys.ToHashSet(StringComparer.Ordinal);
 
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"Cihaz Tara karşılaştırması");
-        sb.AppendLine($"Yeni : {cihazKayitlari[0].CreatedAt:yyyy-MM-dd HH:mm:ss} ({yeni.Count} cihaz)");
-        sb.AppendLine($"Eski : {cihazKayitlari[1].CreatedAt:yyyy-MM-dd HH:mm:ss} ({eski.Count} cihaz)");
+        var eklenen = yeniIps.Except(eskiIps).OrderBy(IpSiralamaAnahtari).ThenBy(x => x).ToList();
+        var kaybolan = eskiIps.Except(yeniIps).OrderBy(IpSiralamaAnahtari).ThenBy(x => x).ToList();
+
+        var ortak = yeniIps.Intersect(eskiIps).OrderBy(IpSiralamaAnahtari).ThenBy(x => x).ToList();
+        var portDegisen = new List<string>();
+        var macDegisen = new List<string>();
+        var vendorModelDegisen = new List<string>();
+        var adDegisen = new List<string>();
+        var yeniServis = new List<string>();
+
+        foreach (var ip in ortak)
+        {
+            var y = yeni[ip];
+            var eskiDetay = eski[ip];
+
+            if (!string.Equals(NormalizeList(y.Portlar), NormalizeList(eskiDetay.Portlar), StringComparison.OrdinalIgnoreCase))
+                portDegisen.Add(ip);
+            if (!string.Equals(y.Mac, eskiDetay.Mac, StringComparison.OrdinalIgnoreCase))
+                macDegisen.Add(ip);
+            if (!string.Equals($"{y.Uretici}|{y.Marka}|{y.Model}", $"{eskiDetay.Uretici}|{eskiDetay.Marka}|{eskiDetay.Model}", StringComparison.OrdinalIgnoreCase))
+                vendorModelDegisen.Add(ip);
+            if (!string.Equals(y.Ad, eskiDetay.Ad, StringComparison.OrdinalIgnoreCase))
+                adDegisen.Add(ip);
+            if (ServisArtti(eskiDetay.Servis, y.Servis))
+                yeniServis.Add(ip);
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Cihaz Tara karsilastirmasi");
+        sb.AppendLine($"Yeni : {cihazKayitlari[0].CreatedAt:yyyy-MM-dd HH:mm:ss} ({yeniIps.Count} cihaz)");
+        sb.AppendLine($"Eski : {cihazKayitlari[1].CreatedAt:yyyy-MM-dd HH:mm:ss} ({eskiIps.Count} cihaz)");
         sb.AppendLine();
         sb.AppendLine($"Yeni gelen ({eklenen.Count}): {(eklenen.Count == 0 ? "-" : string.Join(", ", eklenen))}");
         sb.AppendLine($"Kaybolan ({kaybolan.Count}): {(kaybolan.Count == 0 ? "-" : string.Join(", ", kaybolan))}");
+        sb.AppendLine($"Port degisen ({portDegisen.Count}): {(portDegisen.Count == 0 ? "-" : string.Join(", ", portDegisen))}");
+        sb.AppendLine($"MAC degisen ({macDegisen.Count}): {(macDegisen.Count == 0 ? "-" : string.Join(", ", macDegisen))}");
+        sb.AppendLine($"Vendor/Model degisen ({vendorModelDegisen.Count}): {(vendorModelDegisen.Count == 0 ? "-" : string.Join(", ", vendorModelDegisen))}");
+        sb.AppendLine($"Cihaz adi degisen ({adDegisen.Count}): {(adDegisen.Count == 0 ? "-" : string.Join(", ", adDegisen))}");
+        sb.AppendLine($"Yeni servis bulunan ({yeniServis.Count}): {(yeniServis.Count == 0 ? "-" : string.Join(", ", yeniServis))}");
+
         MesajEkle("sonuc", sb.ToString().TrimEnd());
         MainTabControl.SelectedIndex = TabChatbot;
     }
 
-    private static HashSet<string> GecmisCihazIpSeti(HistoryRecord kayit)
+    private sealed class GecmisCihazDetay
+    {
+        public string Ip { get; init; } = "";
+        public string Ad { get; init; } = "";
+        public string Portlar { get; init; } = "";
+        public string Mac { get; init; } = "";
+        public string Uretici { get; init; } = "";
+        public string Marka { get; init; } = "";
+        public string Model { get; init; } = "";
+        public string Servis { get; init; } = "";
+    }
+
+    private static Dictionary<string, GecmisCihazDetay> GecmisCihazHaritasi(HistoryRecord kayit)
     {
         if (!kayit.Metadata.TryGetValue("CihazlarJson", out var json) || string.IsNullOrWhiteSpace(json))
-            return new HashSet<string>(StringComparer.Ordinal);
+            return new Dictionary<string, GecmisCihazDetay>(StringComparer.Ordinal);
 
         try
         {
             using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.GetProperty("Cihazlar").EnumerateArray()
-                .Select(e => e.TryGetProperty("Ip", out var ip) ? ip.GetString() : null)
-                .Where(ip => !string.IsNullOrWhiteSpace(ip))
-                .ToHashSet(StringComparer.Ordinal)!;
+            var map = new Dictionary<string, GecmisCihazDetay>(StringComparer.Ordinal);
+            foreach (var e in doc.RootElement.GetProperty("Cihazlar").EnumerateArray())
+            {
+                var ip = PropStr(e, "Ip");
+                if (string.IsNullOrWhiteSpace(ip)) continue;
+                map[ip] = new GecmisCihazDetay
+                {
+                    Ip = ip,
+                    Ad = PropStr(e, "Ad"),
+                    Portlar = PropStr(e, "Portlar"),
+                    Mac = PropStr(e, "Mac"),
+                    Uretici = PropStr(e, "Uretici"),
+                    Marka = PropStr(e, "Marka"),
+                    Model = PropStr(e, "Model"),
+                    Servis = PropStr(e, "Servis"),
+                };
+            }
+            return map;
         }
         catch
         {
-            return new HashSet<string>(StringComparer.Ordinal);
+            return new Dictionary<string, GecmisCihazDetay>(StringComparer.Ordinal);
         }
     }
+
+    private static string PropStr(JsonElement element, string name)
+    {
+        if (!element.TryGetProperty(name, out var p)) return "";
+        return p.ValueKind == JsonValueKind.String ? (p.GetString() ?? "") : p.ToString();
+    }
+
+    private static string NormalizeList(string input)
+        => string.Join(",", (input ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.Trim())
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
+
+    private static bool ServisArtti(string eski, string yeni)
+    {
+        var eskiSet = SplitServis(eski);
+        var yeniSet = SplitServis(yeni);
+        return yeniSet.Any(x => !eskiSet.Contains(x));
+    }
+
+    private static HashSet<string> SplitServis(string value)
+        => value
+            .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.Trim())
+            .Where(x => x.Length > 0)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 }

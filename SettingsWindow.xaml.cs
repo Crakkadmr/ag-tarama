@@ -21,27 +21,30 @@ public partial class SettingsWindow : Window
         PingTimeoutBox.Text = Ayarlar.PingTimeoutMs.ToString();
         ConcurrencyBox.Text = Ayarlar.PortTaramaConcurrency.ToString();
         PortTimeoutBox.Text = Ayarlar.PortTaramaTimeoutMs.ToString();
+        WlanRefreshBox.Text = Ayarlar.WlanAutoRefreshSeconds.ToString();
         SesAcikBox.IsChecked   = Ayarlar.SesAcik;
         ToastAcikBox.IsChecked = Ayarlar.ToastAcik;
     }
 
     private void KaydetBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (!int.TryParse(HedefMbBox.Text,     out int hedefMb)   || hedefMb   < 1  || hedefMb   > 2048) { Hata("Hedef MB: 1–2048 arasında bir sayı girin."); return; }
-        if (!int.TryParse(TestSuresiBox.Text,  out int testSn)    || testSn    < 1  || testSn    > 30)   { Hata("Test süresi: 1–30 saniye arasında girin."); return; }
-        if (!int.TryParse(PingTimeoutBox.Text, out int pingMs)     || pingMs    < 100 || pingMs   > 10000) { Hata("Ping timeout: 100–10000 ms arasında girin."); return; }
-        if (!int.TryParse(ConcurrencyBox.Text, out int conc)       || conc      < 1  || conc      > 500)  { Hata("Eş zamanlı limit: 1–500 arasında girin."); return; }
-        if (!int.TryParse(PortTimeoutBox.Text, out int portMs)     || portMs    < 100 || portMs   > 10000) { Hata("Port timeout: 100–10000 ms arasında girin."); return; }
+        if (!int.TryParse(HedefMbBox.Text, out int hedefMb) || hedefMb < 1 || hedefMb > 2048) { Hata("Hedef MB: 1-2048 arasinda bir sayi girin."); return; }
+        if (!int.TryParse(TestSuresiBox.Text, out int testSn) || testSn < 1 || testSn > 30) { Hata("Test suresi: 1-30 saniye arasinda girin."); return; }
+        if (!int.TryParse(PingTimeoutBox.Text, out int pingMs) || pingMs < 100 || pingMs > 10000) { Hata("Ping timeout: 100-10000 ms arasinda girin."); return; }
+        if (!int.TryParse(ConcurrencyBox.Text, out int conc) || conc < 1 || conc > 500) { Hata("Es zamanli limit: 1-500 arasinda girin."); return; }
+        if (!int.TryParse(PortTimeoutBox.Text, out int portMs) || portMs < 100 || portMs > 10000) { Hata("Port timeout: 100-10000 ms arasinda girin."); return; }
+        if (!int.TryParse(WlanRefreshBox.Text, out int wlanSn) || wlanSn < 5 || wlanSn > 300) { Hata("Wi-Fi yenileme: 5-300 saniye arasinda girin."); return; }
 
         Ayarlar = new AppSettings
         {
-            HedefMB               = hedefMb,
-            TestSuresiSn          = testSn,
-            PingTimeoutMs         = pingMs,
+            HedefMB = hedefMb,
+            TestSuresiSn = testSn,
+            PingTimeoutMs = pingMs,
             PortTaramaConcurrency = conc,
-            PortTaramaTimeoutMs   = portMs,
-            SesAcik               = SesAcikBox.IsChecked == true,
-            ToastAcik             = ToastAcikBox.IsChecked == true,
+            PortTaramaTimeoutMs = portMs,
+            WlanAutoRefreshSeconds = wlanSn,
+            SesAcik = SesAcikBox.IsChecked == true,
+            ToastAcik = ToastAcikBox.IsChecked == true,
         };
 
         SettingsService.Kaydet(Ayarlar);
@@ -56,5 +59,5 @@ public partial class SettingsWindow : Window
     }
 
     private void Hata(string mesaj)
-        => MessageBox.Show(mesaj, "Geçersiz Değer", MessageBoxButton.OK, MessageBoxImage.Warning);
+        => MessageBox.Show(mesaj, "Gecersiz Deger", MessageBoxButton.OK, MessageBoxImage.Warning);
 }

@@ -6,10 +6,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.2.0</Version>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
+    <FileVersion>0.2.0.0</FileVersion>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!-- app.ico: exe ikonu (ApplicationIcon) + WPF Resource (Window.Icon) -->
+  <ItemGroup>
+    <Resource Include="app.ico" />
+  </ItemGroup>
 
   <!-- tools/ ve Req/ klasörlerini output dizinine kopyala -->
   <ItemGroup>
@@ -20,5 +26,33 @@
       <Link>Req\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </None>
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="9.0.5" />
+    <PackageReference Include="QuestPDF" Version="2024.12.*" />
+    <PackageReference Include="ClosedXML" Version="0.102.*" />
+  </ItemGroup>
+
+  <!-- Obfuscar: yalnızca Release build'de çalıştır -->
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <PackageReference Include="Obfuscar" Version="2.2.38">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <Target Name="VerifyBundledToolHashes" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <Message Text="=== Bundled tool hash verification ===" Importance="high" />
+    <Exec
+      Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tools\security\verify-bundled-hashes.ps1&quot; -ProjectRoot &quot;$(MSBuildProjectDirectory)&quot; -AllowListPath &quot;$(MSBuildProjectDirectory)\tools\security\hashes.allowlist.sha256&quot;" />
+  </Target>
+
+  <Target Name="ObfuscarPostBuild" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <Message Text="=== Obfuscar başlatılıyor ===" Importance="high" />
+    <Exec
+      Command="dotnet obfuscar.console &quot;$(MSBuildProjectDirectory)\obfuscar.xml&quot; /p:OutDir=&quot;$(PublishDir)&quot;"
+      WorkingDirectory="$(MSBuildProjectDirectory)"
+      ContinueOnError="false" />
+  </Target>
 
 </Project>

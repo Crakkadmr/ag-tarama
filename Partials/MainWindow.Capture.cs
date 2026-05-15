@@ -82,7 +82,8 @@ public partial class MainWindow
         _sonPcap      = pcapDosya;
 
         TaramaDurumunuAyarla(true);
-        _taramaCts = new CancellationTokenSource();
+        // MasterCts'e bağlı — LisansIptalEt() çağrıldığında yakalama da iptal edilir
+        _taramaCts = CancellationTokenSource.CreateLinkedTokenSource(MasterCts.Token);
 
         var (kart, kartGuncelle, kartTamamla, kartDurdur) = YakalamaKartiOlustur(dosyaAdi);
         ChatPanel.Children.Add(kart);

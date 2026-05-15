@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -19,6 +19,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using ClosedXML.Excel;
 using AgTarama.Services;
 
 namespace AgTarama;
@@ -60,6 +61,20 @@ public partial class MainWindow
         public int       PingTtl    { get; set; }
         public string    MdnsMarka  { get; set; } = "";
         public string    MdnsTur    { get; set; } = "";
+        // Yeni: vendor-specific discovery sonuçları
+        public string?   UbntPlatform { get; set; }
+        public string?   UbntFirmware { get; set; }
+        public string?   UbntHostname { get; set; }
+        public string?   MikroTikBoard    { get; set; }
+        public string?   MikroTikVersion  { get; set; }
+        public string?   MikroTikIdentity { get; set; }
+        public string?   SnmpSysDescr     { get; set; }
+        public string?   SnmpSysName      { get; set; }
+        public string?   HttpFpMarka      { get; set; }
+        public string?   HttpFpTur        { get; set; }
+        public string?   HttpFpModel      { get; set; }
+        public string?   WsdTipi          { get; set; }
+        public HashSet<string> KesifKaynaklari { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     private sealed class CihazKimlik
@@ -150,24 +165,96 @@ public partial class MainWindow
         ("brother",          "Brother",      "Yazıcı"),
         ("xerox",            "Xerox",        "Yazıcı"),
         ("kyocera",          "Kyocera",      "Yazıcı"),
+        // Ek NAS / sunucu
+        ("truenas",          "TrueNAS",      "NAS"),
+        ("freenas",           "FreeNAS",      "NAS"),
+        ("unraid",           "Unraid",       "NAS"),
+        ("proxmox",          "Proxmox",      "Sunucu"),
+        ("homeassistant",    "Home Assistant","Akıllı Cihaz"),
+        ("home-assistant",   "Home Assistant","Akıllı Cihaz"),
+        // Ek güvenlik duvarı / router
+        ("opnsense",         "OPNsense",     "Güvenlik Duvarı"),
+        ("meraki",           "Meraki",       "Switch/AP"),
+        ("omada",            "TP-Link Omada","Switch/AP"),
+        ("eero",             "Eero",         "Router/AP"),
+        ("deco",             "TP-Link Deco", "Router/AP"),
+        ("orbi",             "Netgear Orbi", "Router/AP"),
+        ("velop",            "Linksys Velop","Router/AP"),
+        ("linksys",          "Linksys",      "Router/AP"),
+        // Ek IoT / akıllı cihaz
+        ("tasmota",          "Tasmota",      "Akıllı Cihaz"),
+        ("shelly",           "Shelly",       "Akıllı Cihaz"),
+        ("tuya",             "Tuya",         "Akıllı Cihaz"),
+        ("espressif",        "ESP",          "Akıllı Cihaz"),
+        ("esp-",             "ESP",          "Akıllı Cihaz"),
+        ("nest",             "Google Nest",  "Akıllı Cihaz"),
+        ("ring",             "Ring",         "Akıllı Cihaz"),
+        ("wyze",             "Wyze",         "Kamera"),
+        ("ezviz",            "EZVIZ",        "Kamera"),
+        ("tp-link kasa",     "TP-Link Kasa", "Akıllı Cihaz"),
+        ("philips hue",      "Philips Hue",  "Akıllı Cihaz"),
+        ("roborock",         "Roborock",     "Akıllı Cihaz"),
+        ("dyson",            "Dyson",        "Akıllı Cihaz"),
+        // Ek akıllı TV
+        ("lg webos",         "LG",           "Akıllı TV"),
+        ("webos",            "LG",           "Akıllı TV"),
+        ("samsung tizen",    "Samsung",      "Akıllı TV"),
+        ("tizen",            "Samsung",      "Akıllı TV"),
+        ("vizio",            "Vizio",        "Akıllı TV"),
+        ("tcl ",             "TCL",          "Akıllı TV"),
+        ("chromecast",       "Google",       "Akıllı TV"),
+        // Sunucu yazılımları
+        ("nginx",            "",             "Sunucu"),
+        ("apache",           "",             "Sunucu"),
+        ("ubuntu",           "Ubuntu",       "Sunucu"),
+        ("debian",           "Debian",       "Sunucu"),
+        ("centos",           "CentOS",       "Sunucu"),
+        ("raspberry",        "Raspberry Pi", "Linux IoT"),
+        ("raspbian",         "Raspberry Pi", "Linux IoT"),
+        // Ek Yazıcı
+        ("ricoh",            "Ricoh",        "Yazıcı"),
+        ("oki",              "OKI",          "Yazıcı"),
+        ("lexmark",          "Lexmark",      "Yazıcı"),
+        ("sharp",            "Sharp",        "Yazıcı"),
+        ("toshiba tec",      "Toshiba",      "Yazıcı"),
     };
 
     private static CihazKimlik KimlikBelirle(KameraBilgi b)
     {
         var k      = new CihazKimlik();
-        var birles = $"{b.SunucuBasligi} {b.SayfaBasligi} {b.OnvifAdi} {b.OnvifHardware} {b.SsdpFriendlyName} {b.SsdpManufacturer} {b.SsdpModelName} {b.SsdpSunucu} {b.Uretici} {b.AdvancedScannerAdi}".ToLowerInvariant();
+        var birles = $"{b.SunucuBasligi} {b.SayfaBasligi} {b.OnvifAdi} {b.OnvifHardware} {b.SsdpFriendlyName} {b.SsdpManufacturer} {b.SsdpModelName} {b.SsdpSunucu} {b.Uretici} {b.AdvancedScannerAdi} {b.SnmpSysDescr} {b.SnmpSysName} {b.UbntPlatform} {b.UbntHostname} {b.MikroTikBoard} {b.MikroTikIdentity} {b.HttpFpMarka} {b.HttpFpModel}".ToLowerInvariant();
         var kayitCihazi    = KayitCihaziIpuclariVar(birles, b.AcikPortlar);
-        var yazici         = YaziciIpuclariVar(birles, b.AcikPortlar);
+        var yazici         = YaziciIpuclariVar(birles, b.AcikPortlar) ||
+                             b.WsdTipi == "Yazıcı" ||
+                             (b.SnmpSysDescr?.Contains("printer", StringComparison.OrdinalIgnoreCase) == true) ||
+                             (b.SnmpSysDescr?.Contains("laserjet", StringComparison.OrdinalIgnoreCase) == true);
         var bilgisayarIpuclari =
             !string.IsNullOrWhiteSpace(b.NetbiosCihazAdi) ||
             b.AcikPortlar.Contains(3389) ||
             ((b.AcikPortlar.Contains(139) || b.AcikPortlar.Contains(445)) && CihazAdiBilgisayarGibi(b));
 
-        // mDNS en güvenilir kaynak — önce uygula
-        if (!string.IsNullOrEmpty(b.MdnsTur))
+        // Vendor-specific yüksek güven kaynakları
+        if (!string.IsNullOrWhiteSpace(b.UbntPlatform) || !string.IsNullOrWhiteSpace(b.UbntHostname))
+        {
+            k.Marka = "Ubiquiti";
+            k.Tur = (b.UbntPlatform ?? "").Contains("ER", StringComparison.OrdinalIgnoreCase) ? "Router/AP" : "Erişim Noktası";
+        }
+        if (!string.IsNullOrWhiteSpace(b.MikroTikBoard) || !string.IsNullOrWhiteSpace(b.MikroTikIdentity))
+        {
+            k.Marka = "MikroTik";
+            k.Tur = "Router/AP";
+        }
+        if (!string.IsNullOrWhiteSpace(b.HttpFpMarka))
+        {
+            k.Marka = b.HttpFpMarka;
+            if (!string.IsNullOrWhiteSpace(b.HttpFpTur)) k.Tur = b.HttpFpTur;
+        }
+
+        // mDNS güvenilir kaynak — Ubiquiti/MikroTik/HTTP-FP yoksa uygula
+        if (!string.IsNullOrEmpty(b.MdnsTur) && k.Tur == "Cihaz")
         {
             k.Tur = b.MdnsTur;
-            if (!string.IsNullOrEmpty(b.MdnsMarka)) k.Marka = b.MdnsMarka;
+            if (!string.IsNullOrEmpty(b.MdnsMarka) && k.Marka == "Bilinmiyor") k.Marka = b.MdnsMarka;
         }
 
         if (yazici)
@@ -222,17 +309,28 @@ public partial class MainWindow
             else if (birles.Contains("uniview")) k.Marka = "Uniview";
         }
 
-        if (k.Marka == "Bilinmiyor")
+        if (k.Marka == "Bilinmiyor" && k.Tur == "Cihaz")
         {
             if (b.AcikPortlar.Contains(34567))                                        { k.Marka = "XMeye";     k.Tur = "NVR/DVR"; }
             else if (b.AcikPortlar.Contains(9000) && b.AcikPortlar.Contains(554))    {                         k.Tur = "NVR/DVR"; }
             else if (b.AcikPortlar.Contains(37777))                                   { k.Marka = "Dahua";     k.Tur = kayitCihazi ? "NVR/DVR" : "Kamera"; }
             else if (b.AcikPortlar.Contains(8000) && b.AcikPortlar.Contains(554))    { k.Marka = "Hikvision"; k.Tur = kayitCihazi ? "NVR/DVR" : "Kamera"; }
             else if (b.AcikPortlar.Contains(554))                                     {                         k.Tur = "Kamera"; }
-            else if (!string.IsNullOrWhiteSpace(b.NetbiosCihazAdi))                  { k.Marka = "NetBIOS";   k.Tur = "Bilgisayar"; }
+            else if (!string.IsNullOrWhiteSpace(b.NetbiosCihazAdi) && !b.AcikPortlar.Contains(3389) && !b.AcikPortlar.Contains(445))
+                                                                                      { k.Marka = "NetBIOS";   k.Tur = "Bilgisayar"; }
+            else if (!string.IsNullOrWhiteSpace(b.NetbiosCihazAdi))                   { k.Marka = "NetBIOS";   k.Tur = "Bilgisayar"; }
+            // SSH-only + Linux TTL → Linux IoT/Sunucu (Raspberry Pi vb.)
+            else if (b.AcikPortlar.Contains(22) && b.AcikPortlar.Count <= 2 && b.PingTtl is >= 60 and <= 70 &&
+                     string.IsNullOrWhiteSpace(b.NetbiosCihazAdi))
+                                                                                      {                         k.Tur = "Linux IoT"; }
             else if (!string.IsNullOrWhiteSpace(b.DnsAdi) || !string.IsNullOrWhiteSpace(b.PingAdi)) {          k.Tur = "Bilgisayar"; }
             else if (b.AcikPortlar.Contains(445) || b.AcikPortlar.Contains(3389))    {                         k.Tur = "Bilgisayar"; }
+            else if (b.AcikPortlar.Contains(23) && (b.AcikPortlar.Contains(53) || b.AcikPortlar.Contains(67)))
+                                                                                      {                         k.Tur = "Router"; }
             else if (b.AcikPortlar.Contains(23))                                      {                         k.Tur = "Router/Switch"; }
+            // Sadece web portu açık + küçük cihaz IP olabilir
+            else if ((b.AcikPortlar.Contains(80) || b.AcikPortlar.Contains(443)) && b.AcikPortlar.Count <= 2)
+                                                                                      {                         k.Tur = "Akıllı Cihaz"; }
         }
 
         if (k.Tur == "Cihaz" && b.PingYanit && b.PingTtl > 0)
@@ -286,10 +384,12 @@ public partial class MainWindow
             "Kamera"           => "◎",
             "NVR/DVR"          => "▣",
             "Bilgisayar"       => "▢",
+            "Linux IoT"        => "▣",
             "NAS"              => "▦",
             "Sunucu"           => "▤",
             "Güvenlik Duvarı"  => "⊞",
             "Erişim Noktası"   => "⊛",
+            "Router"           => "⊛",
             "Router/AP"        => "⊛",
             "Router/Switch"    => "⊛",
             "Switch/AP"        => "◫",
@@ -297,18 +397,47 @@ public partial class MainWindow
             "Telefon"          => "⊡",
             "Tablet"           => "▭",
             "Yazıcı"           => "▤",
+            "Tarayıcı"         => "▤",
             "Akıllı TV"        => "▣",
             "Apple TV"         => "▣",
+            "Akıllı Cihaz"     => "◈",
+            "Hoparlör"         => "◐",
+            "Müzik Cihazı"     => "◐",
             _                  => "◈",
         };
 
         k.Model = IlkDolu(
+            b.HttpFpModel,
+            b.UbntPlatform,
+            b.MikroTikBoard,
             b.SsdpModelName,
             b.SsdpModelNumber,
             b.OnvifHardware,
             AnlamliSayfaBasligi(b.SayfaBasligi));
 
         return k;
+    }
+
+    /// <summary>Tanıma güvenilirliğini 0-100 arası bir skora dönüştürür.</summary>
+    private static int GuvenSkoru(KameraBilgi b, CihazKimlik k)
+    {
+        int skor = 0;
+        // Yüksek güvenli vendor-specific kaynaklar
+        if (!string.IsNullOrWhiteSpace(b.UbntPlatform) || !string.IsNullOrWhiteSpace(b.UbntHostname)) skor += 35;
+        if (!string.IsNullOrWhiteSpace(b.MikroTikBoard) || !string.IsNullOrWhiteSpace(b.MikroTikIdentity)) skor += 35;
+        if (!string.IsNullOrWhiteSpace(b.HttpFpMarka)) skor += 30;
+        if (!string.IsNullOrWhiteSpace(b.SnmpSysDescr)) skor += 25;
+        if (b.OnvifBulundu) skor += 20;
+        if (!string.IsNullOrEmpty(b.MdnsTur)) skor += 20;
+        if (!string.IsNullOrWhiteSpace(b.WsdTipi)) skor += 15;
+        // Orta güvenli
+        if (b.SsdpBulundu) skor += 15;
+        if (!string.IsNullOrWhiteSpace(b.NetbiosCihazAdi)) skor += 12;
+        if (!string.IsNullOrWhiteSpace(b.MacAdresi) && !string.IsNullOrWhiteSpace(b.Uretici)) skor += 10;
+        if (b.AcikPortlar.Count > 0) skor += Math.Min(10, b.AcikPortlar.Count * 2);
+        // Yalnızca tür/marka bilgisi varsa baz puan
+        if (k.Marka != "Bilinmiyor" && skor == 0) skor += 5;
+        return Math.Min(100, skor);
     }
 
     private static bool CihazAdiBilgisayarGibi(KameraBilgi b)
@@ -385,21 +514,123 @@ public partial class MainWindow
         return string.IsNullOrWhiteSpace(temiz) ? null : temiz;
     }
 
-    private static string? YerelSubnetiBul()
+    private sealed class TaramaSubneti
     {
+        public string Prefix { get; init; } = "";
+        public string Cidr => $"{Prefix}.0/24";
+    }
+
+    private static List<string> YerelSubnetleriBul()
+    {
+        var sonuc = new HashSet<string>(StringComparer.Ordinal);
         foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
         {
             if (ni.OperationalStatus != OperationalStatus.Up) continue;
-            if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+            if (ni.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel or NetworkInterfaceType.Ppp) continue;
+            if (SanalAdaptorMu(ni)) continue;
+
             foreach (var uni in ni.GetIPProperties().UnicastAddresses)
             {
                 if (uni.Address.AddressFamily != AddressFamily.InterNetwork) continue;
                 var b = uni.Address.GetAddressBytes();
                 if (b[0] == 192 || b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31))
-                    return $"{b[0]}.{b[1]}.{b[2]}";
+                    sonuc.Add($"{b[0]}.{b[1]}.{b[2]}");
             }
         }
-        return null;
+        return sonuc.OrderBy(x => x, StringComparer.Ordinal).ToList();
+    }
+
+    private sealed record NicSubneti(string Prefix, string NicAdi, string Tip, long Hiz);
+
+    private static List<NicSubneti> YerelNicSubnetleriniBul()
+    {
+        var sonuc = new Dictionary<string, NicSubneti>(StringComparer.Ordinal);
+        foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (ni.OperationalStatus != OperationalStatus.Up) continue;
+            if (ni.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel or NetworkInterfaceType.Ppp) continue;
+            if (SanalAdaptorMu(ni)) continue;
+
+            foreach (var uni in ni.GetIPProperties().UnicastAddresses)
+            {
+                if (uni.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                var b = uni.Address.GetAddressBytes();
+                if (!(b[0] == 192 || b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31))) continue;
+                var prefix = $"{b[0]}.{b[1]}.{b[2]}";
+                if (sonuc.ContainsKey(prefix)) continue;
+                var tip = ni.NetworkInterfaceType switch
+                {
+                    NetworkInterfaceType.Wireless80211 => "Wi-Fi",
+                    NetworkInterfaceType.Ethernet      => "Ethernet",
+                    NetworkInterfaceType.GigabitEthernet => "Ethernet",
+                    _ => ni.NetworkInterfaceType.ToString(),
+                };
+                sonuc[prefix] = new NicSubneti(prefix, ni.Name, tip, ni.Speed);
+            }
+        }
+        return sonuc.Values.OrderBy(x => x.Prefix, StringComparer.Ordinal).ToList();
+    }
+
+    private static string? YerelSubnetiBul()
+        => YerelSubnetleriBul().FirstOrDefault();
+
+    private static bool SanalAdaptorMu(NetworkInterface ni)
+    {
+        var ad = $"{ni.Name} {ni.Description}".ToLowerInvariant();
+        return ad.Contains("virtual")
+            || ad.Contains("vmware")
+            || ad.Contains("hyper-v")
+            || ad.Contains("vbox")
+            || ad.Contains("vpn")
+            || ad.Contains("wireguard")
+            || ad.Contains("loopback")
+            || ad.Contains("tunnel")
+            || ad.Contains("tap")
+            || ad.Contains("miniport");
+    }
+
+    private static List<TaramaSubneti> SubnetGirdisiniCoz(string giris)
+    {
+        var list = new List<TaramaSubneti>();
+        var tekiller = new HashSet<string>(StringComparer.Ordinal);
+        var parcalar = giris.Split(new[] { ',', ';', '\n', '\r', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var parca in parcalar)
+        {
+            var token = parca.Trim();
+            string? prefix = null;
+
+            var cidr = Regex.Match(token, @"^(?<a>\d{1,3})\.(?<b>\d{1,3})\.(?<c>\d{1,3})\.(?<d>\d{1,3})/(?<m>\d{1,2})$");
+            if (cidr.Success)
+            {
+                var mask = int.Parse(cidr.Groups["m"].Value);
+                if (mask < 16 || mask > 30) continue;
+                prefix = $"{cidr.Groups["a"].Value}.{cidr.Groups["b"].Value}.{cidr.Groups["c"].Value}";
+            }
+            else
+            {
+                var p3 = Regex.Match(token, @"^(?<a>\d{1,3})\.(?<b>\d{1,3})\.(?<c>\d{1,3})$");
+                if (p3.Success)
+                    prefix = $"{p3.Groups["a"].Value}.{p3.Groups["b"].Value}.{p3.Groups["c"].Value}";
+                else
+                {
+                    var p4 = Regex.Match(token, @"^(?<a>\d{1,3})\.(?<b>\d{1,3})\.(?<c>\d{1,3})\.(?<d>\d{1,3})$");
+                    if (p4.Success)
+                        prefix = $"{p4.Groups["a"].Value}.{p4.Groups["b"].Value}.{p4.Groups["c"].Value}";
+                }
+            }
+
+            if (prefix is null) continue;
+
+            var oktetler = prefix.Split('.');
+            if (oktetler.Length != 3) continue;
+            if (!oktetler.All(x => int.TryParse(x, out var n) && n is >= 0 and <= 255)) continue;
+
+            if (tekiller.Add(prefix))
+                list.Add(new TaramaSubneti { Prefix = prefix });
+        }
+
+        return list;
     }
 
     private readonly ObservableCollection<KameraSatir> _kameraSatirlari = new();
@@ -407,11 +638,123 @@ public partial class MainWindow
     private readonly Dictionary<string, KameraBilgi>   _kameraBilgileri = new(StringComparer.Ordinal);
     private ICollectionView? _kameraSatirView;
 
+    private bool _subnetBoxChipSenkronu;
+
     private void BtnKamera_Click(object sender, RoutedEventArgs e)
     {
         MainTabControl.SelectedIndex = TabCihazTara;
-        if (string.IsNullOrEmpty(KameraSubnetBox.Text))
-            KameraSubnetBox.Text = YerelSubnetiBul() ?? "";
+        if (KameraSubnetChips.Children.Count == 0)
+            KameraNicChipleriniYenile(seciliVarsayilan: true);
+    }
+
+    private void KameraNicYenileBtn_Click(object sender, RoutedEventArgs e)
+        => KameraNicChipleriniYenile(seciliVarsayilan: false);
+
+    public void KameraNicChipleriniYenile(bool seciliVarsayilan)
+    {
+        var mevcutSecili = KameraSubnetChips.Children
+            .OfType<System.Windows.Controls.Primitives.ToggleButton>()
+            .Where(t => t.IsChecked == true)
+            .Select(t => t.Tag as string)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToHashSet(StringComparer.Ordinal);
+
+        KameraSubnetChips.Children.Clear();
+
+        var nicler = YerelNicSubnetleriniBul();
+        if (nicler.Count == 0)
+        {
+            var bos = new TextBlock
+            {
+                Text = "Aktif ağ arayüzü bulunamadı",
+                Foreground = new SolidColorBrush(Color.FromRgb(0x8B, 0x94, 0x9E)),
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
+                Margin = new Thickness(2, 6, 0, 0),
+            };
+            KameraSubnetChips.Children.Add(bos);
+            return;
+        }
+
+        for (int i = 0; i < nicler.Count; i++)
+        {
+            var nic = nicler[i];
+            var chip = KameraChipOlustur(nic);
+            bool secili = mevcutSecili.Contains(nic.Prefix) ||
+                          (mevcutSecili.Count == 0 && seciliVarsayilan && i == 0);
+            chip.IsChecked = secili;
+            KameraSubnetChips.Children.Add(chip);
+        }
+
+        KameraChipleriSenkronizeEt();
+    }
+
+    private System.Windows.Controls.Primitives.ToggleButton KameraChipOlustur(NicSubneti nic)
+    {
+        var icerik = new StackPanel { Orientation = Orientation.Horizontal };
+        icerik.Children.Add(new TextBlock
+        {
+            Text = $"{nic.Prefix}.0/24",
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        icerik.Children.Add(new TextBlock
+        {
+            Text = $"  ({nic.Tip})",
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.FromRgb(0x8B, 0x94, 0x9E)),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+
+        var chip = new System.Windows.Controls.Primitives.ToggleButton
+        {
+            Tag = nic.Prefix,
+            Content = icerik,
+            Padding = new Thickness(10, 4, 10, 4),
+            Margin = new Thickness(0, 0, 6, 6),
+            BorderThickness = new Thickness(1),
+            Background = new SolidColorBrush(Color.FromRgb(0x1F, 0x29, 0x33)),
+            Foreground = new SolidColorBrush(Color.FromRgb(0xE6, 0xED, 0xF3)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x30, 0x36, 0x3D)),
+            ToolTip = $"{nic.NicAdi}\nTür: {nic.Tip}" +
+                      (nic.Hiz > 0 ? $"\nHız: {nic.Hiz / 1_000_000} Mbps" : ""),
+            FocusVisualStyle = null,
+            Cursor = Cursors.Hand,
+        };
+        chip.Checked += KameraChipDegisti;
+        chip.Unchecked += KameraChipDegisti;
+        return chip;
+    }
+
+    private void KameraChipDegisti(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Primitives.ToggleButton tb)
+        {
+            tb.Background = tb.IsChecked == true
+                ? new SolidColorBrush(Color.FromRgb(0x0F, 0x37, 0x6D))
+                : new SolidColorBrush(Color.FromRgb(0x1F, 0x29, 0x33));
+            tb.BorderBrush = tb.IsChecked == true
+                ? new SolidColorBrush(Color.FromRgb(0x2F, 0x81, 0xF7))
+                : new SolidColorBrush(Color.FromRgb(0x30, 0x36, 0x3D));
+        }
+        KameraChipleriSenkronizeEt();
+    }
+
+    private void KameraChipleriSenkronizeEt()
+    {
+        var prefixler = KameraSubnetChips.Children
+            .OfType<System.Windows.Controls.Primitives.ToggleButton>()
+            .Where(t => t.IsChecked == true)
+            .Select(t => t.Tag as string ?? "")
+            .Where(s => s.Length > 0)
+            .ToList();
+        if (prefixler.Count == 0) return;
+        _subnetBoxChipSenkronu = true;
+        try { KameraSubnetBox.Text = string.Join(",", prefixler); }
+        finally { _subnetBoxChipSenkronu = false; }
     }
 
     private void KameraPanelKapat_Click(object sender, RoutedEventArgs e)
@@ -421,8 +764,20 @@ public partial class MainWindow
     }
 
     private void KameraSubnetBox_TextChanged(object sender, TextChangedEventArgs e)
-        => KameraSubnetPlaceholder.Visibility = string.IsNullOrEmpty(KameraSubnetBox.Text)
+    {
+        KameraSubnetPlaceholder.Visibility = string.IsNullOrEmpty(KameraSubnetBox.Text)
             ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_subnetBoxChipSenkronu) return;
+
+        // Kullanıcı manuel yazarken metnine uymayan chip'leri kaldır
+        var metin = KameraSubnetBox.Text ?? "";
+        foreach (var tb in KameraSubnetChips.Children.OfType<System.Windows.Controls.Primitives.ToggleButton>())
+        {
+            if (tb.IsChecked == true && tb.Tag is string p && !metin.Contains(p, StringComparison.Ordinal))
+                tb.IsChecked = false;
+        }
+    }
 
     private void KameraKolonFiltre_TextChanged(object sender, TextChangedEventArgs e)
     {
@@ -466,6 +821,116 @@ public partial class MainWindow
     {
         if (SeciliKameraSatiri() is { } satir)
             KameraWebArayuzunuAc(satir);
+    }
+
+    private void KameraMenuYenidenTara_Click(object sender, RoutedEventArgs e)
+    {
+        if (SeciliKameraSatiri() is not { } satir) return;
+        _ = TekIpTaraAsync(satir.Ip);
+    }
+
+    private async Task TekIpTaraAsync(string ip)
+    {
+        if (_kameraCts is { IsCancellationRequested: false })
+        {
+            ToastGoster("Devam eden tarama sırasında tekil tarama yapılamaz", hata: true);
+            return;
+        }
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(MasterCts.Token);
+        var token = cts.Token;
+
+        var bilgi = _kameraBilgileri.TryGetValue(ip, out var mevcut)
+            ? mevcut
+            : new KameraBilgi { Ip = ip };
+
+        KameraIlerlemeText.Text = $"{ip} yeniden taranıyor…";
+
+        try
+        {
+            var acik = new List<int>();
+            foreach (var port in KameraPorts)
+            {
+                try
+                {
+                    using var linked = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    linked.CancelAfter(800);
+                    using var tcp = new TcpClient();
+                    await tcp.ConnectAsync(ip, port, linked.Token);
+                    acik.Add(port);
+                }
+                catch { }
+            }
+
+            lock (bilgi.AcikPortlar)
+            {
+                bilgi.AcikPortlar.Clear();
+                bilgi.AcikPortlar.AddRange(acik);
+            }
+
+            if (acik.Contains(554))
+                bilgi.RtspDurum = await RtspHizliKontrol(ip, 554, token);
+
+            await ServisDetaylariniGuncelleAsync(ip, bilgi, acik, token);
+
+            foreach (var hp in new[] { 80, 8080, 8443, 443, 9000 })
+            {
+                if (!acik.Contains(hp)) continue;
+                var (sunucu, baslik) = await HttpBannerOku(ip, hp, token);
+                bilgi.SunucuBasligi = sunucu;
+                bilgi.SayfaBasligi = baslik;
+                break;
+            }
+
+            // Tek-IP'de de derin tara probe'larını çalıştır
+            var httpFpPort = new[] { 80, 8080, 443, 8443 }.FirstOrDefault(p => acik.Contains(p));
+            if (httpFpPort != 0)
+            {
+                var fp = await HttpFingerprintService.ProbeAsync(ip, httpFpPort, token);
+                if (fp is not null)
+                {
+                    bilgi.HttpFpMarka = fp.Marka;
+                    bilgi.HttpFpTur = fp.Tur;
+                    bilgi.HttpFpModel = fp.Model;
+                    bilgi.KesifKaynaklari.Add("HTTP-FP");
+                }
+            }
+            var snmpDescr = await SnmpFingerprintService.SysDescrAsync(ip, token);
+            if (!string.IsNullOrWhiteSpace(snmpDescr))
+            {
+                bilgi.SnmpSysDescr = snmpDescr;
+                bilgi.KesifKaynaklari.Add("SNMP");
+            }
+
+            var netbiosSem = new SemaphoreSlim(1);
+            var denenenler = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+            var loglar     = new ConcurrentBag<string>();
+            await NetbiosBilgileriniGuncelleAsync(ip, bilgi, denenenler, loglar, netbiosSem, token);
+
+            try
+            {
+                using var ping = new System.Net.NetworkInformation.Ping();
+                var reply = await ping.SendPingAsync(ip, 1000);
+                if (reply.Status == System.Net.NetworkInformation.IPStatus.Success)
+                {
+                    bilgi.PingYanit = true;
+                    bilgi.PingMs    = (int)reply.RoundtripTime;
+                    bilgi.PingTtl   = reply.Options?.Ttl ?? 0;
+                }
+            }
+            catch { }
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                KameraKartEkleVeyaGuncelle(bilgi);
+                KameraIlerlemeText.Text = $"{ip} yeniden tarandı";
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            KameraIlerlemeText.Text = $"Hata: {ex.Message}";
+        }
     }
 
     private void KameraMenuPing_Click(object sender, RoutedEventArgs e)
@@ -555,7 +1020,7 @@ public partial class MainWindow
 
         var (filter, ext) = format switch
         {
-            KameraExportFormat.Excel => ("Excel Raporu (*.xls)|*.xls", "xls"),
+            KameraExportFormat.Excel => ("Excel Dosyası (*.xlsx)|*.xlsx", "xlsx"),
             KameraExportFormat.Pdf   => ("PDF Raporu (*.pdf)|*.pdf", "pdf"),
             KameraExportFormat.Txt   => ("Metin Raporu (*.txt)|*.txt", "txt"),
             KameraExportFormat.Csv   => ("CSV Dosyası (*.csv)|*.csv", "csv"),
@@ -578,10 +1043,10 @@ public partial class MainWindow
             switch (format)
             {
                 case KameraExportFormat.Excel:
-                    File.WriteAllText(dlg.FileName, KameraExcelHtmlOlustur(satirlar), new UTF8Encoding(true));
+                    File.WriteAllBytes(dlg.FileName, KameraExcelXlsxOlustur(satirlar));
                     break;
                 case KameraExportFormat.Pdf:
-                    File.WriteAllBytes(dlg.FileName, KameraPdfOlustur(satirlar));
+                    File.WriteAllBytes(dlg.FileName, KameraPdfQuestOlustur(satirlar));
                     break;
                 case KameraExportFormat.Txt:
                     File.WriteAllText(dlg.FileName, KameraTxtOlustur(satirlar), new UTF8Encoding(true));
@@ -636,7 +1101,7 @@ public partial class MainWindow
     }
 
     private static readonly string[] KameraExportBasliklari =
-        { "IP", "Ad", "Tür", "Marka", "Model", "Ping", "Portlar", "Keşif", "MAC", "Üretici", "Servis" };
+        { "IP", "Ad", "Tur", "Marka", "Model", "Ping", "Portlar", "Kesif", "MAC", "Uretici", "Servis" };
 
     private static string KameraCsvOlustur(List<KameraSatir> satirlar)
     {
@@ -696,125 +1161,45 @@ public partial class MainWindow
         return sb.ToString();
     }
 
-    private static string KameraExcelHtmlOlustur(List<KameraSatir> satirlar)
+    private static byte[] KameraExcelXlsxOlustur(List<KameraSatir> satirlar)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>");
-        sb.AppendLine("body{font-family:Segoe UI,Arial,sans-serif;background:#0D1117;color:#C9D1D9;margin:24px}");
-        sb.AppendLine("h1{color:#58A6FF;margin:0 0 6px;font-size:24px}.meta{color:#8B949E;margin:0 0 18px}");
-        sb.AppendLine("table{border-collapse:collapse;width:100%;background:#0D1117}th{background:#0D3B66;color:#E6EDF3;text-align:left;padding:9px;border:1px solid #243147}");
-        sb.AppendLine("td{padding:8px;border:1px solid #243147;vertical-align:top}tr:nth-child(even){background:#101722}.type{font-weight:600;color:#3FB950}");
-        sb.AppendLine("</style></head><body>");
-        sb.AppendLine("<h1>Network Sniffer - Cihaz Tara Raporu</h1>");
-        sb.AppendLine($"<div class=\"meta\">Tarih: {DateTime.Now:yyyy-MM-dd HH:mm:ss} &nbsp;|&nbsp; Cihaz: {satirlar.Count}</div>");
-        sb.AppendLine("<table><thead><tr>");
-        foreach (var baslik in KameraExportBasliklari)
-            sb.Append("<th>").Append(WebUtility.HtmlEncode(baslik)).AppendLine("</th>");
-        sb.AppendLine("</tr></thead><tbody>");
-        foreach (var row in KameraExportSatirlari(satirlar))
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Cihaz Tara");
+
+        for (int i = 0; i < KameraExportBasliklari.Length; i++)
+            ws.Cell(1, i + 1).Value = KameraExportBasliklari[i];
+
+        var headerRange = ws.Range(1, 1, 1, KameraExportBasliklari.Length);
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#0D3B66");
+        headerRange.Style.Font.Bold            = true;
+        headerRange.Style.Font.FontColor       = XLColor.White;
+        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+        int row = 2;
+        foreach (var s in satirlar)
         {
-            sb.AppendLine("<tr>");
-            for (int i = 0; i < row.Length; i++)
-            {
-                var cls = i == 2 ? " class=\"type\"" : "";
-                sb.Append("<td").Append(cls).Append(">").Append(WebUtility.HtmlEncode(row[i])).AppendLine("</td>");
-            }
-            sb.AppendLine("</tr>");
-        }
-        sb.AppendLine("</tbody></table></body></html>");
-        return sb.ToString();
-    }
-
-    private static byte[] KameraPdfOlustur(List<KameraSatir> satirlar)
-    {
-        var sayfalar = new List<string>();
-        const int sayfaBasina = 18;
-        for (int i = 0; i < satirlar.Count; i += sayfaBasina)
-            sayfalar.Add(KameraPdfSayfaIcerigi(satirlar.Skip(i).Take(sayfaBasina).ToList(),
-                (i / sayfaBasina) + 1, (satirlar.Count + sayfaBasina - 1) / sayfaBasina, satirlar.Count));
-
-        var objects = new List<byte[]>();
-        objects.Add(Encoding.ASCII.GetBytes("<< /Type /Catalog /Pages 2 0 R >>"));
-        objects.Add(Array.Empty<byte>());
-        objects.Add(Encoding.ASCII.GetBytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"));
-
-        var pageObjectNumbers = new List<int>();
-        foreach (var content in sayfalar)
-        {
-            var streamBytes = Encoding.ASCII.GetBytes(content);
-            var contentObj  = objects.Count + 1;
-            objects.Add(Encoding.ASCII.GetBytes($"<< /Length {streamBytes.Length} >>\nstream\n{content}\nendstream"));
-            var pageObj = objects.Count + 1;
-            pageObjectNumbers.Add(pageObj);
-            objects.Add(Encoding.ASCII.GetBytes($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents {contentObj} 0 R >>"));
+            var vals = new[] { s.Ip, s.Ad, s.Tur, s.Marka, s.Model, s.Ping, s.Portlar, s.Kesif, s.Mac, s.Uretici, s.Servis };
+            for (int i = 0; i < vals.Length; i++)
+                ws.Cell(row, i + 1).Value = vals[i];
+            if (row % 2 == 0)
+                ws.Range(row, 1, row, KameraExportBasliklari.Length)
+                  .Style.Fill.BackgroundColor = XLColor.FromHtml("#101722");
+            row++;
         }
 
-        objects[1] = Encoding.ASCII.GetBytes($"<< /Type /Pages /Count {pageObjectNumbers.Count} /Kids [{string.Join(" ", pageObjectNumbers.Select(n => $"{n} 0 R"))}] >>");
+        ws.Columns().AdjustToContents();
 
-        using var ms     = new MemoryStream();
-        var header       = Encoding.ASCII.GetBytes("%PDF-1.4\n");
-        ms.Write(header, 0, header.Length);
-        var offsets = new List<long> { 0 };
-        for (int i = 0; i < objects.Count; i++)
-        {
-            offsets.Add(ms.Position);
-            var objHeader = Encoding.ASCII.GetBytes($"{i + 1} 0 obj\n");
-            ms.Write(objHeader, 0, objHeader.Length);
-            ms.Write(objects[i], 0, objects[i].Length);
-            var objFooter = Encoding.ASCII.GetBytes("\nendobj\n");
-            ms.Write(objFooter, 0, objFooter.Length);
-        }
-        var xref       = ms.Position;
-        var xrefHeader = Encoding.ASCII.GetBytes($"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n");
-        ms.Write(xrefHeader, 0, xrefHeader.Length);
-        foreach (var offset in offsets.Skip(1))
-        {
-            var line = Encoding.ASCII.GetBytes($"{offset:0000000000} 00000 n \n");
-            ms.Write(line, 0, line.Length);
-        }
-        var trailer = Encoding.ASCII.GetBytes($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF");
-        ms.Write(trailer, 0, trailer.Length);
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
         return ms.ToArray();
     }
 
-    private static string KameraPdfSayfaIcerigi(List<KameraSatir> satirlar, int sayfa, int toplamSayfa, int toplamCihaz)
+    private static byte[] KameraPdfQuestOlustur(List<KameraSatir> satirlar)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("0.05 0.07 0.09 rg 0 0 595 842 re f");
-        sb.AppendLine("0.05 0.23 0.40 rg 30 790 535 28 re f");
-        sb.AppendLine("BT /F1 18 Tf 1 1 1 rg 42 808 Td (Network Sniffer - Cihaz Tara Raporu) Tj ET");
-        sb.AppendLine($"BT /F1 9 Tf 0.75 0.80 0.86 rg 42 776 Td ({PdfMetin($"Tarih: {DateTime.Now:yyyy-MM-dd HH:mm:ss}  |  Cihaz: {toplamCihaz}  |  Sayfa: {sayfa}/{toplamSayfa}")}) Tj ET");
-        var y = 742;
-        foreach (var s in satirlar)
-        {
-            sb.AppendLine("0.06 0.09 0.13 rg 30 " + (y - 4) + " 535 34 re f");
-            sb.AppendLine($"BT /F1 10 Tf 0.36 0.65 1 rg 42 {y + 14} Td ({PdfMetin(s.Ip)}) Tj ET");
-            sb.AppendLine($"BT /F1 10 Tf 0.23 0.72 0.31 rg 122 {y + 14} Td ({PdfMetin(MetniKirp(s.Tur, 18))}) Tj ET");
-            sb.AppendLine($"BT /F1 10 Tf 0.90 0.93 0.96 rg 230 {y + 14} Td ({PdfMetin(MetniKirp(IlkDolu(s.Marka, s.Uretici) ?? "", 34))}) Tj ET");
-            sb.AppendLine($"BT /F1 8 Tf 0.72 0.76 0.82 rg 42 {y} Td ({PdfMetin(MetniKirp($"{s.Ad} {s.Model}", 80))}) Tj ET");
-            sb.AppendLine($"BT /F1 8 Tf 0.72 0.76 0.82 rg 42 {y - 12} Td ({PdfMetin(MetniKirp($"Port: {s.Portlar}  MAC: {s.Mac}  Servis: {s.Servis}", 110))}) Tj ET");
-            y -= 40;
-        }
-        return sb.ToString();
-    }
-
-    private static string PdfMetin(string metin)
-        => PdfAscii(metin).Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)");
-
-    private static string PdfAscii(string metin)
-    {
-        var sb = new StringBuilder(metin.Length);
-        foreach (var ch in metin)
-        {
-            sb.Append(ch switch
-            {
-                'ı' => 'i', 'İ' => 'I', 'ğ' => 'g', 'Ğ' => 'G', 'ü' => 'u', 'Ü' => 'U',
-                'ş' => 's', 'Ş' => 'S', 'ö' => 'o', 'Ö' => 'O', 'ç' => 'c', 'Ç' => 'C',
-                >= ' ' and <= '~' => ch,
-                _ => '?'
-            });
-        }
-        return sb.ToString();
+        var rows = satirlar.Select(s => new DeviceScanRow(
+            s.Ip, s.Ad, s.Tur, s.Marka, s.Model,
+            s.Ping, s.Portlar, s.Kesif, s.Mac, s.Uretici, s.Servis)).ToList();
+        return PdfReportService.GenerateDeviceScanReport(rows, new ReportMetadata());
     }
 
     private static string MetniKirp(string? metin, int uzunluk)
@@ -844,6 +1229,7 @@ public partial class MainWindow
             bilgi.NetbiosGrupAdi  = netbios.GrupAdi;
             bilgi.DnsAdi          = netbios.DnsAdi;
             bilgi.PingAdi         = netbios.PingAdi;
+            bilgi.KesifKaynaklari.Add("NetBIOS");
             var ozet = string.Join(" / ", new[] { CihazAdiSec(bilgi), netbios.GrupAdi }.Where(x => !string.IsNullOrWhiteSpace(x)));
             logSatirlari.Add($"{ip} NetBIOS: {ozet}");
             await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
@@ -885,18 +1271,30 @@ public partial class MainWindow
 
     private static readonly (string Servis, string Marka, string Tur)[] MdnsServisler =
     {
-        ("_apple-mobdev2._tcp.local", "Apple",   "Telefon"),
-        ("_apple-mobdev._tcp.local",  "Apple",   "Telefon"),
-        ("_airplay._tcp.local",       "Apple",   "Apple TV"),
-        ("_raop._tcp.local",          "Apple",   "Apple TV"),
-        ("_home-sharing._tcp.local",  "Apple",   "Bilgisayar"),
-        ("_googlecast._tcp.local",    "Google",  "Akıllı TV"),
-        ("_ipp._tcp.local",           "",        "Yazıcı"),
-        ("_printer._tcp.local",       "",        "Yazıcı"),
-        ("_pdl-datastream._tcp.local","",        "Yazıcı"),
-        ("_smb._tcp.local",           "",        "Bilgisayar"),
-        ("_workstation._tcp.local",   "",        "Bilgisayar"),
-        ("_ssh._tcp.local",           "",        "Bilgisayar"),
+        ("_apple-mobdev2._tcp.local",   "Apple",   "Telefon"),
+        ("_apple-mobdev._tcp.local",    "Apple",   "Telefon"),
+        ("_airplay._tcp.local",         "Apple",   "Apple TV"),
+        ("_raop._tcp.local",            "Apple",   "Apple TV"),
+        ("_home-sharing._tcp.local",    "Apple",   "Bilgisayar"),
+        ("_companion-link._tcp.local",  "Apple",   "Bilgisayar"),
+        ("_hap._tcp.local",             "Apple",   "Akıllı Cihaz"),     // HomeKit
+        ("_googlecast._tcp.local",      "Google",  "Akıllı TV"),
+        ("_androidtvremote._tcp.local", "Google",  "Akıllı TV"),
+        ("_hue._tcp.local",             "Philips", "Akıllı Cihaz"),     // Hue Bridge
+        ("_sonos._tcp.local",           "Sonos",   "Hoparlör"),
+        ("_spotify-connect._tcp.local", "",        "Müzik Cihazı"),
+        ("_amzn-wplay._tcp.local",      "Amazon",  "Akıllı TV"),
+        ("_axis-video._tcp.local",      "Axis",    "Kamera"),
+        ("_ipp._tcp.local",             "",        "Yazıcı"),
+        ("_ipps._tcp.local",            "",        "Yazıcı"),
+        ("_printer._tcp.local",         "",        "Yazıcı"),
+        ("_pdl-datastream._tcp.local",  "",        "Yazıcı"),
+        ("_smb._tcp.local",             "",        "Bilgisayar"),
+        ("_workstation._tcp.local",     "",        "Bilgisayar"),
+        ("_ssh._tcp.local",             "",        "Bilgisayar"),
+        ("_http._tcp.local",            "",        "Cihaz"),
+        ("_https._tcp.local",           "",        "Cihaz"),
+        ("_device-info._tcp.local",     "",        "Cihaz"),
     };
 
     private async Task MdnsSweepAsync(
@@ -951,6 +1349,7 @@ public partial class MainWindow
                     {
                         bilgi.MdnsTur   = tur;
                         bilgi.MdnsMarka = marka;
+                        bilgi.KesifKaynaklari.Add("mDNS");
                         logSatirlari.Add($"mDNS: {kaynakIp} → {tur} ({marka})");
                         await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
                     }
@@ -994,52 +1393,115 @@ public partial class MainWindow
 
     private async Task KameraTaramaBaslat()
     {
-        var subnet = KameraSubnetBox.Text.Trim();
-        if (string.IsNullOrEmpty(subnet))
+        var giris = KameraSubnetBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(giris))
         {
-            subnet = YerelSubnetiBul() ?? "";
-            KameraSubnetBox.Text = subnet;
+            var otomatik = YerelSubnetleriBul();
+            giris = string.Join(",", otomatik);
+            KameraSubnetBox.Text = giris;
+        }
+
+        var subnetler = SubnetGirdisiniCoz(giris);
+        if (subnetler.Count == 0)
+        {
+            KameraKutucugaYaz("Gecerli subnet/CIDR bulunamadi. Ornek: 192.168.1 veya 192.168.1.0/24", "#F85149");
+            return;
         }
 
         _kameraSatirlari.Clear();
         _kameraSatirlar.Clear();
         _kameraBilgileri.Clear();
-        KameraFiltreSayacText.Text        = "0 cihaz";
-        KameraResultBorder.Visibility     = Visibility.Visible;
-        KameraIlerlemeText.Visibility     = Visibility.Visible;
-        KameraBaslatBtn.IsEnabled         = false;
-        KameraDurdurBtn.Visibility        = Visibility.Visible;
-        KameraIlerlemeText.Text           = "Başlatılıyor...";
+        KameraFiltreSayacText.Text = "0 cihaz";
+        KameraResultBorder.Visibility = Visibility.Visible;
+        KameraIlerlemeText.Visibility = Visibility.Visible;
+        KameraBaslatBtn.IsEnabled = false;
+        KameraDurdurBtn.Visibility = Visibility.Visible;
+        KameraIlerlemeText.Text = "Baslatiliyor...";
 
-        if (string.IsNullOrEmpty(subnet))
-        {
-            KameraKutucugaYaz("✖ Subnet tespit edilemedi — manuel girin (örn: 192.168.1)", "#F85149");
-            KameraBaslatBtn.IsEnabled  = true;
-            KameraDurdurBtn.Visibility = Visibility.Collapsed;
-            return;
-        }
+        bool derinTara = KameraDerinTaraCheck?.IsChecked == true;
 
         _kameraCts?.Cancel();
-        _kameraCts = new CancellationTokenSource();
-        var token  = _kameraCts.Token;
+        _kameraCts = CancellationTokenSource.CreateLinkedTokenSource(MasterCts.Token);
+        var token = _kameraCts.Token;
 
-        var bulunanlar        = new ConcurrentDictionary<string, KameraBilgi>(StringComparer.Ordinal);
+        var bulunanlar = new ConcurrentDictionary<string, KameraBilgi>(StringComparer.Ordinal);
         var netbiosDenenenler = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-        var logSatirlari      = new ConcurrentBag<string>();
-        using var netbiosSem  = new SemaphoreSlim(16);
-        int taranan           = 0;
+        var logSatirlari = new ConcurrentBag<string>();
+        using var netbiosSem = new SemaphoreSlim(16);
+        int taranan = 0;
+        int toplamHost = subnetler.Count * 254;
 
-        KameraKutucugaYaz($"Subnet  : {subnet}.1 – {subnet}.254", "#8B949E");
-        KameraKutucugaYaz($"Portlar : {string.Join(", ", KameraPorts)}", "#484F58");
-        KameraKutucugaYaz($"Kaynak  : ICMP + TCP port + DNS + NetBIOS + ONVIF + SSDP + ARP + Advanced IP Scanner", "#484F58");
+        KameraKutucugaYaz($"Hedef: {string.Join(", ", subnetler.Select(x => x.Cidr))}", "#8B949E");
+        KameraKutucugaYaz($"Portlar: {string.Join(", ", KameraPorts)}", "#484F58");
+        KameraKutucugaYaz(derinTara
+            ? "Kaynak: ICMP + TCP port + DNS + NetBIOS + ONVIF + WSD + SSDP + mDNS + ARP + IPScanner + Ubiquiti + MikroTik + SNMP + HTTP-FP"
+            : "Kaynak: ICMP + TCP port + DNS + NetBIOS + ONVIF + WSD + SSDP + mDNS + ARP + IPScanner", "#484F58");
+        if (derinTara) KameraKutucugaYaz("Derin tara aktif — ek protokoller çalışıyor", "#3FB950");
         KameraKutucugaYaz("─────────────────────────", "#30363D");
 
         try
         {
-            // ── Port taraması (paralel, tüm subnet) ──────────────────
+            foreach (var subnet in subnetler)
+            {
+                token.ThrowIfCancellationRequested();
+                KameraKutucugaYaz($"Taranan subnet: {subnet.Cidr}", "#8B949E");
+                await TaramaYurutAsync(subnet.Prefix);
+            }
+
+            await ArpBilgileriniTopluGuncelleAsync(bulunanlar, logSatirlari, token);
+
+            var sonuc = token.IsCancellationRequested
+                ? $"Durduruldu - {bulunanlar.Count} cihaz bulundu"
+                : $"Tamamlandi - {bulunanlar.Count} cihaz bulundu";
+            KameraKutucugaYaz("─────────────────────────", "#30363D");
+            KameraKutucugaYaz(sonuc, bulunanlar.Count > 0 ? "#3FB950" : "#D29922");
+            KameraIlerlemeText.Text = sonuc;
+            if (!token.IsCancellationRequested)
+                ToastGoster($"Cihaz Tara tamamlandı — {bulunanlar.Count} cihaz bulundu");
+
+            var loglar = logSatirlari.ToList();
+            var hedefCidr = string.Join(",", subnetler.Select(x => x.Cidr));
+            LogService.Kaydet("CİHAZ TARA", hedefCidr, loglar);
+
+            var cihazlar = bulunanlar.Values
+                .Select(KameraSatirOlustur)
+                .OrderBy(s => IpSiralamaAnahtari(s.Ip))
+                .ThenBy(s => s.Ip, StringComparer.Ordinal)
+                .ToList();
+
+            if (!_gecmisdenCalistiriliyor)
+            {
+                HistoryService.Kaydet("CİHAZ TARA", hedefCidr, sonuc, loglar,
+                    new Dictionary<string, string>
+                    {
+                        ["Subnet"] = string.Join(",", subnetler.Select(x => x.Prefix)),
+                        ["SubnetInput"] = string.Join(",", subnetler.Select(x => x.Cidr)),
+                        ["CihazSayisi"] = bulunanlar.Count.ToString(),
+                        ["CihazlarJson"] = KameraJsonOlustur(cihazlar),
+                    });
+                if (MainTabControl.SelectedIndex == TabGecmis) GecmisPanelGuncelle();
+            }
+            _gecmisdenCalistiriliyor = false;
+        }
+        catch (OperationCanceledException)
+        {
+            KameraIlerlemeText.Text = "Tarama durduruldu.";
+        }
+        catch (Exception ex)
+        {
+            KameraKutucugaYaz($"Hata: {ex.Message}", "#F85149");
+        }
+        finally
+        {
+            KameraBaslatBtn.IsEnabled = true;
+            KameraDurdurBtn.Visibility = Visibility.Collapsed;
+        }
+
+        async Task TaramaYurutAsync(string subnet)
+        {
             var portTask = Task.Run(async () =>
             {
-                var sem   = new SemaphoreSlim(80);
+                var sem = new SemaphoreSlim(80);
                 var tasks = Enumerable.Range(1, 254).Select(i =>
                 {
                     var ip = $"{subnet}.{i}";
@@ -1067,6 +1529,7 @@ public partial class MainWindow
                             {
                                 var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
                                 lock (bilgi.AcikPortlar) bilgi.AcikPortlar.AddRange(acik.Except(bilgi.AcikPortlar));
+                                bilgi.KesifKaynaklari.Add("Port");
                                 if (acik.Contains(554))
                                     bilgi.RtspDurum = await RtspHizliKontrol(ip, 554, token);
                                 await ServisDetaylariniGuncelleAsync(ip, bilgi, acik, token);
@@ -1074,9 +1537,25 @@ public partial class MainWindow
                                 {
                                     if (!acik.Contains(hp)) continue;
                                     var (sunucu, baslik) = await HttpBannerOku(ip, hp, token);
-                                    bilgi.SunucuBasligi  = sunucu;
-                                    bilgi.SayfaBasligi   = baslik;
+                                    bilgi.SunucuBasligi = sunucu;
+                                    bilgi.SayfaBasligi = baslik;
                                     break;
+                                }
+                                if (derinTara)
+                                {
+                                    var httpFpPort = new[] { 80, 8080, 443, 8443 }.FirstOrDefault(p => acik.Contains(p));
+                                    if (httpFpPort != 0)
+                                    {
+                                        var fp = await HttpFingerprintService.ProbeAsync(ip, httpFpPort, token);
+                                        if (fp is not null)
+                                        {
+                                            bilgi.HttpFpMarka = fp.Marka;
+                                            bilgi.HttpFpTur = fp.Tur;
+                                            bilgi.HttpFpModel = fp.Model;
+                                            bilgi.KesifKaynaklari.Add("HTTP-FP");
+                                            logSatirlari.Add($"{ip} HTTP-FP: {fp.Marka}/{fp.Tur} {fp.Model} ({fp.Kaynak})");
+                                        }
+                                    }
                                 }
                                 if (acik.Any(p => p is 139 or 445 or 3389))
                                     await NetbiosBilgileriniGuncelleAsync(ip, bilgi, netbiosDenenenler, logSatirlari, netbiosSem, token);
@@ -1089,52 +1568,85 @@ public partial class MainWindow
                             sem.Release();
                             int n = Interlocked.Increment(ref taranan);
                             if (n % 32 == 0)
-                                await Dispatcher.InvokeAsync(() => KameraIlerlemeText.Text = $"Cihaz tarama: {n}/254 kontrol edildi…");
+                                await Dispatcher.InvokeAsync(() => KameraIlerlemeText.Text = $"Cihaz tarama: {n}/{toplamHost} kontrol edildi...");
                         }
                     }, token);
                 });
                 await Task.WhenAll(tasks);
             }, token);
 
-            // ── ONVIF WS-Discovery (4 sn) ────────────────────────────
             var onvifTask = Task.Run(async () =>
             {
                 try
                 {
-                    string probe = $"<?xml version=\"1.0\" encoding=\"utf-8\"?><Envelope xmlns=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:tns=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\"><Header><wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</wsa:Action><wsa:MessageID>uuid:{Guid.NewGuid()}</wsa:MessageID><wsa:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</wsa:To></Header><Body><tns:Probe><tns:Types>dn:NetworkVideoTransmitter</tns:Types></tns:Probe></Body></Envelope>";
-                    var bytes = Encoding.UTF8.GetBytes(probe);
+                    string onvifProbe = $"<?xml version=\"1.0\" encoding=\"utf-8\"?><Envelope xmlns=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:tns=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\"><Header><wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</wsa:Action><wsa:MessageID>uuid:{Guid.NewGuid()}</wsa:MessageID><wsa:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</wsa:To></Header><Body><tns:Probe><tns:Types>dn:NetworkVideoTransmitter</tns:Types></tns:Probe></Body></Envelope>";
+                    // WSD Probe (Windows-discoverable: yazıcı/tarayıcı/PC). wsdp:Device — Devices Profile for Web Services.
+                    string wsdProbe = $"<?xml version=\"1.0\" encoding=\"utf-8\"?><soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\" xmlns:wsd=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" xmlns:wsdp=\"http://schemas.xmlsoap.org/ws/2006/02/devprof\"><soap:Header><wsa:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</wsa:To><wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</wsa:Action><wsa:MessageID>uuid:{Guid.NewGuid()}</wsa:MessageID></soap:Header><soap:Body><wsd:Probe><wsd:Types>wsdp:Device</wsd:Types></wsd:Probe></soap:Body></soap:Envelope>";
+
                     using var udp = new UdpClient();
                     udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                     udp.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
-                    await udp.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Parse("239.255.255.250"), 3702));
+                    var hedef = new IPEndPoint(IPAddress.Parse("239.255.255.250"), 3702);
+                    var onvifBytes = Encoding.UTF8.GetBytes(onvifProbe);
+                    var wsdBytes   = Encoding.UTF8.GetBytes(wsdProbe);
+                    await udp.SendAsync(onvifBytes, onvifBytes.Length, hedef);
+                    await udp.SendAsync(wsdBytes,   wsdBytes.Length,   hedef);
+
                     using var cts2 = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    cts2.CancelAfter(4000);
+                    cts2.CancelAfter(5000); // Hem ONVIF hem WSD yanıtları için biraz daha uzun
                     while (!cts2.Token.IsCancellationRequested)
                     {
-                        var res    = await udp.ReceiveAsync(cts2.Token);
-                        var xml    = Encoding.UTF8.GetString(res.Buffer);
+                        var res = await udp.ReceiveAsync(cts2.Token);
+                        var xml = Encoding.UTF8.GetString(res.Buffer);
                         if (!xml.Contains("ProbeMatch")) continue;
-                        var ip     = res.RemoteEndPoint.Address.ToString();
-                        var xM     = Regex.Match(xml, @"<[^>]*XAddrs[^>]*>([^<]+)</[^>]*XAddrs>");
-                        var scopes = Regex.Matches(xml, @"onvif://www\.onvif\.org/(\w+)/([^<\s""]+)");
-                        var bilgi  = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
-                        bilgi.OnvifBulundu   = true;
-                        bilgi.OnvifServisUrl = xM.Success ? xM.Groups[1].Value.Trim().Split(' ')[0] : null;
-                        var scopeDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                        foreach (Match m in scopes) scopeDict[m.Groups[1].Value] = Uri.UnescapeDataString(m.Groups[2].Value);
-                        if (scopeDict.TryGetValue("hardware", out var hw))  bilgi.OnvifHardware = TemizKimlikMetni(hw);
-                        if (scopeDict.TryGetValue("name",     out var nm))  bilgi.OnvifAdi      = TemizKimlikMetni(nm);
-                        if (scopeDict.TryGetValue("location", out var loc)) bilgi.OnvifKonum    = TemizKimlikMetni(loc);
-                        if (!string.IsNullOrWhiteSpace(bilgi.OnvifAdi) || !string.IsNullOrWhiteSpace(bilgi.OnvifHardware))
-                            logSatirlari.Add($"{ip} ONVIF: {bilgi.OnvifAdi} {bilgi.OnvifHardware}");
+                        var ip = res.RemoteEndPoint.Address.ToString();
+                        if (!ip.StartsWith(subnet + ".", StringComparison.Ordinal)) continue;
+
+                        var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
+                        bool onvif = xml.Contains("NetworkVideoTransmitter", StringComparison.OrdinalIgnoreCase) ||
+                                     xml.Contains("onvif://", StringComparison.OrdinalIgnoreCase);
+                        bool wsd = xml.Contains("wsdp:", StringComparison.OrdinalIgnoreCase) ||
+                                   xml.Contains("PrintDeviceType", StringComparison.OrdinalIgnoreCase) ||
+                                   xml.Contains("NetworkPrinter", StringComparison.OrdinalIgnoreCase) ||
+                                   xml.Contains("schemas.microsoft.com/windows/pnpx", StringComparison.OrdinalIgnoreCase);
+
+                        if (onvif)
+                        {
+                            var xM = Regex.Match(xml, @"<[^>]*XAddrs[^>]*>([^<]+)</[^>]*XAddrs>");
+                            var scopes = Regex.Matches(xml, @"onvif://www\.onvif\.org/(\w+)/([^<\s""]+)");
+                            bilgi.OnvifBulundu = true;
+                            bilgi.OnvifServisUrl = xM.Success ? xM.Groups[1].Value.Trim().Split(' ')[0] : null;
+                            var scopeDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                            foreach (Match m in scopes) scopeDict[m.Groups[1].Value] = Uri.UnescapeDataString(m.Groups[2].Value);
+                            if (scopeDict.TryGetValue("hardware", out var hw)) bilgi.OnvifHardware = TemizKimlikMetni(hw);
+                            if (scopeDict.TryGetValue("name", out var nm)) bilgi.OnvifAdi = TemizKimlikMetni(nm);
+                            if (scopeDict.TryGetValue("location", out var loc)) bilgi.OnvifKonum = TemizKimlikMetni(loc);
+                            bilgi.KesifKaynaklari.Add("ONVIF");
+                            if (!string.IsNullOrWhiteSpace(bilgi.OnvifAdi) || !string.IsNullOrWhiteSpace(bilgi.OnvifHardware))
+                                logSatirlari.Add($"{ip} ONVIF: {bilgi.OnvifAdi} {bilgi.OnvifHardware}");
+                        }
+                        if (wsd)
+                        {
+                            // WSD Types alanından cihaz türünü çıkar
+                            if (xml.Contains("PrintDeviceType", StringComparison.OrdinalIgnoreCase) ||
+                                xml.Contains("NetworkPrinter", StringComparison.OrdinalIgnoreCase))
+                                bilgi.WsdTipi = "Yazıcı";
+                            else if (xml.Contains("ScanDeviceType", StringComparison.OrdinalIgnoreCase))
+                                bilgi.WsdTipi = "Tarayıcı";
+                            else if (xml.Contains("Computer", StringComparison.OrdinalIgnoreCase))
+                                bilgi.WsdTipi = "Bilgisayar";
+                            else
+                                bilgi.WsdTipi = "WSD";
+                            bilgi.KesifKaynaklari.Add("WSD");
+                            logSatirlari.Add($"{ip} WSD: {bilgi.WsdTipi}");
+                        }
                         await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
                     }
                 }
                 catch (OperationCanceledException) { }
                 catch { }
-            });
+            }, token);
 
-            // ── SSDP / UPnP (3 sn) ──────────────────────────────────
             var ssdpTask = Task.Run(async () =>
             {
                 try
@@ -1147,22 +1659,24 @@ public partial class MainWindow
                     cts3.CancelAfter(3000);
                     while (!cts3.Token.IsCancellationRequested)
                     {
-                        var res  = await udp.ReceiveAsync(cts3.Token);
+                        var res = await udp.ReceiveAsync(cts3.Token);
                         var resp = Encoding.UTF8.GetString(res.Buffer);
-                        var ip   = res.RemoteEndPoint.Address.ToString();
-                        if (!ip.StartsWith(subnet + ".")) continue;
+                        var ip = res.RemoteEndPoint.Address.ToString();
+                        if (!ip.StartsWith(subnet + ".", StringComparison.Ordinal)) continue;
+
                         var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
                         bilgi.SsdpBulundu = true;
+                        bilgi.KesifKaynaklari.Add("SSDP");
                         var headers = HttpBasliklariniParse(resp);
-                        if (headers.TryGetValue("SERVER",   out var ssdpServer)) bilgi.SsdpSunucu  = TemizKimlikMetni(ssdpServer);
+                        if (headers.TryGetValue("SERVER", out var ssdpServer)) bilgi.SsdpSunucu = TemizKimlikMetni(ssdpServer);
                         if (headers.TryGetValue("LOCATION", out var location))
                         {
                             bilgi.SsdpLocation = location.Trim();
                             var ssdpDetay = await SsdpDetayOku(bilgi.SsdpLocation, token);
                             bilgi.SsdpFriendlyName = ssdpDetay.FriendlyName ?? bilgi.SsdpFriendlyName;
                             bilgi.SsdpManufacturer = ssdpDetay.Manufacturer ?? bilgi.SsdpManufacturer;
-                            bilgi.SsdpModelName    = ssdpDetay.ModelName    ?? bilgi.SsdpModelName;
-                            bilgi.SsdpModelNumber  = ssdpDetay.ModelNumber  ?? bilgi.SsdpModelNumber;
+                            bilgi.SsdpModelName = ssdpDetay.ModelName ?? bilgi.SsdpModelName;
+                            bilgi.SsdpModelNumber = ssdpDetay.ModelNumber ?? bilgi.SsdpModelNumber;
                         }
                         logSatirlari.Add($"{ip} UPnP/SSDP: {IlkDolu(bilgi.SsdpFriendlyName, bilgi.SsdpManufacturer, bilgi.SsdpModelName, bilgi.SsdpSunucu)}");
                         await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
@@ -1170,12 +1684,11 @@ public partial class MainWindow
                 }
                 catch (OperationCanceledException) { }
                 catch { }
-            });
+            }, token);
 
-            // ── Ping Sweep ───────────────────────────────────────────
             var pingSweepTask = Task.Run(async () =>
             {
-                var sem   = new SemaphoreSlim(64);
+                var sem = new SemaphoreSlim(64);
                 var tasks = Enumerable.Range(1, 254).Select(i =>
                 {
                     var ip = $"{subnet}.{i}";
@@ -1184,14 +1697,15 @@ public partial class MainWindow
                         await sem.WaitAsync(token);
                         try
                         {
-                            using var ping  = new System.Net.NetworkInformation.Ping();
-                            var reply       = await ping.SendPingAsync(ip, 1000);
+                            using var ping = new System.Net.NetworkInformation.Ping();
+                            var reply = await ping.SendPingAsync(ip, 1000);
                             if (reply.Status == System.Net.NetworkInformation.IPStatus.Success)
                             {
-                                var bilgi   = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
+                                var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
                                 bilgi.PingYanit = true;
-                                bilgi.PingMs    = (int)reply.RoundtripTime;
-                                bilgi.PingTtl   = reply.Options?.Ttl ?? 0;
+                                bilgi.PingMs = (int)reply.RoundtripTime;
+                                bilgi.PingTtl = reply.Options?.Ttl ?? 0;
+                                bilgi.KesifKaynaklari.Add("Ping");
                                 await NetbiosBilgileriniGuncelleAsync(ip, bilgi, netbiosDenenenler, logSatirlari, netbiosSem, token);
                                 await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
                             }
@@ -1205,44 +1719,96 @@ public partial class MainWindow
 
             var mdnsTask = Task.Run(() => MdnsSweepAsync(subnet, bulunanlar, logSatirlari, token), token);
             var advancedScannerTask = Task.Run(() => AdvancedScannerKayitlariniIsleAsync(subnet, bulunanlar, logSatirlari, token), token);
-            var netbiosSweepTask    = Task.Run(() => NetbiosSweepAsync(subnet, bulunanlar, logSatirlari, token), token);
+            var netbiosSweepTask = Task.Run(() => NetbiosSweepAsync(subnet, bulunanlar, logSatirlari, token), token);
 
-            await Task.WhenAll(portTask, onvifTask, ssdpTask, pingSweepTask, mdnsTask, advancedScannerTask, netbiosSweepTask);
-            await ArpBilgileriniTopluGuncelleAsync(bulunanlar, logSatirlari, token);
-
-            var sonuc = token.IsCancellationRequested
-                ? $"■ Durduruldu — {bulunanlar.Count} cihaz bulundu"
-                : $"✔ Tamamlandı — {bulunanlar.Count} cihaz bulundu";
-            KameraKutucugaYaz("─────────────────────────", "#30363D");
-            KameraKutucugaYaz(sonuc, bulunanlar.Count > 0 ? "#3FB950" : "#D29922");
-            KameraIlerlemeText.Text = sonuc;
-            var loglar  = logSatirlari.ToList();
-            LogService.Kaydet("CİHAZ TARA", $"{subnet}.0/24", loglar);
-            var cihazlar = bulunanlar.Values
-                .Select(KameraSatirOlustur)
-                .OrderBy(s => IpSiralamaAnahtari(s.Ip))
-                .ThenBy(s => s.Ip, StringComparer.Ordinal)
-                .ToList();
-            if (!_gecmisdenCalistiriliyor)
+            var ekTasks = new List<Task>();
+            if (derinTara)
             {
-                HistoryService.Kaydet("CİHAZ TARA", $"{subnet}.0/24", sonuc, loglar,
-                    new Dictionary<string, string>
-                    {
-                        ["Subnet"]      = subnet,
-                        ["CihazSayisi"] = bulunanlar.Count.ToString(),
-                        ["CihazlarJson"] = KameraJsonOlustur(cihazlar),
-                    });
-                if (MainTabControl.SelectedIndex == TabGecmis) GecmisPanelGuncelle();
+                ekTasks.Add(Task.Run(() => UbiquitiSweepAsync(subnet, bulunanlar, logSatirlari, token), token));
+                ekTasks.Add(Task.Run(() => MndpSweepAsync(subnet, bulunanlar, logSatirlari, token), token));
+                ekTasks.Add(Task.Run(() => SnmpSweepAsync(subnet, bulunanlar, logSatirlari, token), token));
             }
-            _gecmisdenCalistiriliyor = false;
+
+            await Task.WhenAll(new[] { portTask, onvifTask, ssdpTask, pingSweepTask, mdnsTask, advancedScannerTask, netbiosSweepTask }
+                .Concat(ekTasks));
         }
-        catch (OperationCanceledException) { KameraIlerlemeText.Text = "Tarama durduruldu."; }
-        catch (Exception ex)               { KameraKutucugaYaz($"✖ {ex.Message}", "#F85149"); }
-        finally
+    }
+
+    private async Task UbiquitiSweepAsync(string subnet, ConcurrentDictionary<string, KameraBilgi> bulunanlar,
+                                          ConcurrentBag<string> logSatirlari, CancellationToken token)
+    {
+        try
         {
-            KameraBaslatBtn.IsEnabled  = true;
-            KameraDurdurBtn.Visibility = Visibility.Collapsed;
+            var kayitlar = await UbiquitiDiscoveryService.TaraAsync(subnet, token).ConfigureAwait(false);
+            foreach (var k in kayitlar)
+            {
+                var bilgi = bulunanlar.GetOrAdd(k.Ip, new KameraBilgi { Ip = k.Ip });
+                if (k.Mac != null) bilgi.MacAdresi ??= k.Mac;
+                bilgi.UbntPlatform = k.Platform ?? k.ModelKodu;
+                bilgi.UbntFirmware = k.Firmware;
+                bilgi.UbntHostname = k.Hostname;
+                bilgi.Uretici ??= "Ubiquiti";
+                bilgi.KesifKaynaklari.Add("Ubiquiti");
+                logSatirlari.Add($"{k.Ip} Ubiquiti: {k.Platform ?? k.ModelKodu} ({k.Hostname})");
+                await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
+            }
         }
+        catch (Exception ex) { logSatirlari.Add($"Ubiquiti hata: {ex.Message}"); }
+    }
+
+    private async Task MndpSweepAsync(string subnet, ConcurrentDictionary<string, KameraBilgi> bulunanlar,
+                                      ConcurrentBag<string> logSatirlari, CancellationToken token)
+    {
+        try
+        {
+            var kayitlar = await MndpDiscoveryService.TaraAsync(subnet, token).ConfigureAwait(false);
+            foreach (var k in kayitlar)
+            {
+                var bilgi = bulunanlar.GetOrAdd(k.Ip, new KameraBilgi { Ip = k.Ip });
+                if (k.Mac != null) bilgi.MacAdresi ??= k.Mac;
+                bilgi.MikroTikBoard = k.Board;
+                bilgi.MikroTikVersion = k.Version;
+                bilgi.MikroTikIdentity = k.Identity;
+                bilgi.Uretici ??= "MikroTik";
+                bilgi.KesifKaynaklari.Add("MNDP");
+                logSatirlari.Add($"{k.Ip} MikroTik: {k.Board} v{k.Version} ({k.Identity})");
+                await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
+            }
+        }
+        catch (Exception ex) { logSatirlari.Add($"MNDP hata: {ex.Message}"); }
+    }
+
+    private async Task SnmpSweepAsync(string subnet, ConcurrentDictionary<string, KameraBilgi> bulunanlar,
+                                      ConcurrentBag<string> logSatirlari, CancellationToken token)
+    {
+        try
+        {
+            using var sem = new SemaphoreSlim(32);
+            var tasks = Enumerable.Range(1, 254).Select(i =>
+            {
+                var ip = $"{subnet}.{i}";
+                return Task.Run(async () =>
+                {
+                    await sem.WaitAsync(token);
+                    try
+                    {
+                        var sysDescr = await SnmpFingerprintService.SysDescrAsync(ip, token).ConfigureAwait(false);
+                        if (string.IsNullOrWhiteSpace(sysDescr)) return;
+                        var bilgi = bulunanlar.GetOrAdd(ip, new KameraBilgi { Ip = ip });
+                        bilgi.SnmpSysDescr = sysDescr;
+                        var sysName = await SnmpFingerprintService.SysNameAsync(ip, token).ConfigureAwait(false);
+                        if (!string.IsNullOrWhiteSpace(sysName)) bilgi.SnmpSysName = sysName;
+                        bilgi.KesifKaynaklari.Add("SNMP");
+                        logSatirlari.Add($"{ip} SNMP: {sysDescr}");
+                        await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
+                    }
+                    catch { }
+                    finally { sem.Release(); }
+                }, token);
+            });
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception ex) { logSatirlari.Add($"SNMP hata: {ex.Message}"); }
     }
 
     private static async Task<(string? Sunucu, string? Baslik)> HttpBannerOku(string ip, int port, CancellationToken token)
@@ -1260,6 +1826,9 @@ public partial class MainWindow
             var buf = new byte[4096];
             int n   = await stream.ReadAsync(buf, cts.Token);
             var resp = Encoding.UTF8.GetString(buf, 0, n);
+            if (!resp.StartsWith("HTTP/", StringComparison.Ordinal) ||
+                !resp.Split('\n')[0].Contains("200", StringComparison.Ordinal))
+                return (null, null);
             string? sunucu = null, baslik = null;
             foreach (var line in resp.Split('\n'))
             {
@@ -1407,10 +1976,16 @@ public partial class MainWindow
         var arp = await ArpTablosuOkuAsync(token);
         foreach (var (ip, bilgi) in bulunanlar)
         {
-            if (!arp.TryGetValue(ip, out var mac)) continue;
-            bilgi.MacAdresi = MacFormatla(mac);
-            bilgi.Uretici   = IlkDolu(bilgi.Uretici, UreticiAra(bilgi.MacAdresi));
-            logSatirlari.Add($"{ip} ARP: {bilgi.MacAdresi} {bilgi.Uretici}");
+            if (arp.TryGetValue(ip, out var mac))
+            {
+                bilgi.MacAdresi = MacFormatla(mac);
+                bilgi.KesifKaynaklari.Add("ARP");
+            }
+            // MAC bilgisi varsa, üreticiyi sırayla: önce mevcut, sonra OUI tablosu, sonra dahili fallback
+            if (!string.IsNullOrWhiteSpace(bilgi.MacAdresi))
+                bilgi.Uretici = IlkDolu(bilgi.Uretici, UreticiAra(bilgi.MacAdresi), OuiVendorLookup.Bul(bilgi.MacAdresi));
+            if (!string.IsNullOrWhiteSpace(bilgi.MacAdresi))
+                logSatirlari.Add($"{ip} ARP: {bilgi.MacAdresi} {bilgi.Uretici}");
             await Dispatcher.InvokeAsync(() => KameraKartEkleVeyaGuncelle(bilgi));
         }
     }
@@ -1514,9 +2089,13 @@ public partial class MainWindow
         lock (bilgi.ServisDetaylari)
             servisler = bilgi.ServisDetaylari.OrderBy(x => x.Key).Select(x => $"{x.Key}/{x.Value}").ToList();
 
-        var kesifler = new List<string>();
-        if (bilgi.OnvifBulundu) kesifler.Add("ONVIF");
-        if (bilgi.SsdpBulundu)  kesifler.Add("UPnP");
+        // Keşif kaynakları: önceden tutulan KesifKaynaklari + bayraklar
+        var kesifSet = new HashSet<string>(bilgi.KesifKaynaklari, StringComparer.OrdinalIgnoreCase);
+        if (bilgi.OnvifBulundu) kesifSet.Add("ONVIF");
+        if (bilgi.SsdpBulundu)  kesifSet.Add("UPnP");
+        var kesifler = kesifSet
+            .OrderBy(s => KesifSira(s))
+            .ToList();
 
         return new KameraSatir
         {
@@ -1533,14 +2112,35 @@ public partial class MainWindow
             Uretici = bilgi.Uretici ?? "",
             Servis  = string.Join(" | ", servisler.DefaultIfEmpty(IlkDolu(bilgi.AdvancedScannerServisler, bilgi.SunucuBasligi, bilgi.SayfaBasligi, bilgi.RtspDurum) ?? "")),
             WebUrl  = KameraWebUrlSec(bilgi),
+            Guven   = GuvenSkoru(bilgi, kim),
         };
     }
 
+    private static int KesifSira(string kaynak) => kaynak.ToUpperInvariant() switch
+    {
+        "UBIQUITI" => 0,
+        "MNDP"     => 1,
+        "ONVIF"    => 2,
+        "WSD"      => 3,
+        "UPNP"     => 4,
+        "SSDP"     => 4,
+        "MDNS"     => 5,
+        "SNMP"     => 6,
+        "HTTP-FP"  => 7,
+        "NETBIOS"  => 8,
+        "PORT"     => 9,
+        "PING"     => 10,
+        "ARP"      => 11,
+        _          => 99,
+    };
+
     private static string? KameraWebUrlSec(KameraBilgi bilgi)
     {
+        List<int> portlar;
+        lock (bilgi.AcikPortlar) portlar = [..bilgi.AcikPortlar];
         foreach (var (port, scheme) in new (int, string)[] { (80, "http"), (443, "https"), (8080, "http"), (8443, "https"), (9000, "http") })
         {
-            if (!bilgi.AcikPortlar.Contains(port)) continue;
+            if (!portlar.Contains(port)) continue;
             return port is 80 or 443 ? $"{scheme}://{bilgi.Ip}/" : $"{scheme}://{bilgi.Ip}:{port}/";
         }
         return null;
@@ -1558,8 +2158,14 @@ public partial class MainWindow
     {
         if (obj is not KameraSatir satir) return false;
         var tur = (KameraTurFiltreBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Hepsi";
-        if (!string.Equals(tur, "Hepsi", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(satir.Tur, tur, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(tur, "Bilinmiyor", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.Equals(satir.Tur, "Cihaz", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(satir.Tur))
+                return false;
+        }
+        else if (!string.Equals(tur, "Hepsi", StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(satir.Tur, tur, StringComparison.OrdinalIgnoreCase))
             return false;
         return Icerir(satir.Ip, KameraIpFiltreBox?.Text) &&
                Icerir($"{satir.Ad} {satir.Model}", KameraAdFiltreBox?.Text) &&
@@ -1592,6 +2198,7 @@ public partial class MainWindow
         private string  _uretici = "";
         private string  _servis  = "";
         private string? _webUrl;
+        private int     _guven   = 0;
 
         public string  Ip      { get => _ip;      set => Set(ref _ip,      value); }
         public string  Ad      { get => _ad;      set => Set(ref _ad,      value); }
@@ -1606,6 +2213,7 @@ public partial class MainWindow
         public string  Uretici { get => _uretici; set => Set(ref _uretici, value); }
         public string  Servis  { get => _servis;  set => Set(ref _servis,  value); }
         public string? WebUrl  { get => _webUrl;  set => Set(ref _webUrl,  value); }
+        public int     Guven   { get => _guven;   set => Set(ref _guven,   value); }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -1624,6 +2232,7 @@ public partial class MainWindow
             Uretici = diger.Uretici;
             Servis  = diger.Servis;
             WebUrl  = diger.WebUrl;
+            Guven   = diger.Guven;
         }
 
         private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)

@@ -1,20 +1,32 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 
 namespace AgTarama.Services;
 
-public record UpdateInfo(string Version, string DownloadUrl, string ReleaseNotes, long SizeBytes);
+public record UpdateInfo(
+    string Version,
+    string DownloadUrl,
+    string ReleaseNotes,
+    long SizeBytes,
+    string AssetName,
+    string Sha256);
 
 public static class UpdateService
 {
     private const string Owner = "Crakkadmr";
-    private const string Repo  = "ag-tarama";
+    private const string Repo = "ag-tarama";
+    private static readonly Regex ZipNamePattern =
+        new(@"^AgTarama-v?\d+\.\d+\.\d+(?:-win-x64)?\.zip$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
@@ -28,15 +40,14 @@ public static class UpdateService
             Http.DefaultRequestHeaders.UserAgent.Clear();
             Http.DefaultRequestHeaders.UserAgent.ParseAdd("AgTarama-Updater/1.0");
 
-            var url  = $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
+            var url = $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
             var json = await Http.GetStringAsync(url);
 
-            using var doc  = JsonDocument.Parse(json);
-            var root       = doc.RootElement;
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
 
-            var tag       = root.GetProperty("tag_name").GetString() ?? "";
+            var tag = root.GetProperty("tag_name").GetString() ?? "";
             var remoteVer = tag.TrimStart('v');
-
             if (!IsNewer(remoteVer, CurrentVersion)) return null;
 
             var notes = root.TryGetProperty("body", out var bodyProp)
@@ -45,28 +56,56 @@ public static class UpdateService
 
             if (!root.TryGetProperty("assets", out var assets)) return null;
 
-            foreach (var asset in assets.EnumerateArray())
-            {
-                var name = asset.GetProperty("name").GetString() ?? "";
-                if (!name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) continue;
+            var zipAsset = assets.EnumerateArray()
+                .Select(a => new
+                {
+                    Name = a.GetProperty("name").GetString() ?? "",
+                    Url = a.GetProperty("browser_download_url").GetString() ?? "",
+                    Size = a.TryGetProperty("size", out var sizeProp) ? sizeProp.GetInt64() : 0
+                })
+                .Where(a => ZipNamePattern.IsMatch(a.Name))
+                .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
 
-                var dlUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
-                var size  = asset.TryGetProperty("size", out var sizeProp) ? sizeProp.GetInt64() : 0;
+            if (zipAsset is null) return null;
 
-                return new UpdateInfo(remoteVer, dlUrl, notes.Trim(), size);
-            }
+            var shaCandidates = assets.EnumerateArray()
+                .Select(a => new
+                {
+                    Name = a.GetProperty("name").GetString() ?? "",
+                    Url = a.GetProperty("browser_download_url").GetString() ?? ""
+                })
+                .Where(a =>
+                    a.Name.Equals($"{zipAsset.Name}.sha256", StringComparison.OrdinalIgnoreCase) ||
+                    a.Name.Equals($"{zipAsset.Name}.sha256.txt", StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
-            return null;
+            if (shaCandidates.Count == 0) return null;
+
+            var shaText = await Http.GetStringAsync(shaCandidates[0].Url);
+            var sha256 = ParseSha256Text(shaText);
+            if (sha256 is null) return null;
+
+            return new UpdateInfo(
+                remoteVer,
+                zipAsset.Url,
+                notes.Trim(),
+                zipAsset.Size,
+                zipAsset.Name,
+                sha256);
         }
-        catch
+        catch (Exception ex)
         {
-            return null; // Ağ hatası — sessizce geç
+            LogService.Hata("UpdateService.CheckForUpdateAsync", ex);
+            return null;
         }
     }
 
     public static async Task DownloadAsync(
-        string url, string destPath,
-        IProgress<int> progress, CancellationToken ct)
+        string url,
+        string destPath,
+        IProgress<int> progress,
+        CancellationToken ct)
     {
         using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
@@ -77,9 +116,9 @@ public static class UpdateService
         await using var src = await response.Content.ReadAsStreamAsync(ct);
         await using var dst = File.Create(destPath);
 
-        var buffer     = new byte[81920];
+        var buffer = new byte[81920];
         long downloaded = 0;
-        int  read;
+        int read;
 
         while ((read = await src.ReadAsync(buffer, ct)) > 0)
         {
@@ -87,27 +126,49 @@ public static class UpdateService
             downloaded += read;
             if (total > 0) progress.Report((int)(downloaded * 100 / total));
         }
+
         progress.Report(100);
     }
 
-    // ZIP'i çıkart, PowerShell güncelleme betiği oluştur ve çalıştır, ardından uygulamayı kapat.
+    public static bool VerifyHash(string filePath, string expectedSha256)
+    {
+        if (!File.Exists(filePath)) return false;
+        if (string.IsNullOrWhiteSpace(expectedSha256)) return false;
+
+        var expected = NormalizeHex(expectedSha256);
+        if (expected.Length != 64) return false;
+
+        using var sha = SHA256.Create();
+        using var stream = File.OpenRead(filePath);
+        var actual = Convert.ToHexString(sha.ComputeHash(stream)).ToLowerInvariant();
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.ASCII.GetBytes(actual),
+            Encoding.ASCII.GetBytes(expected));
+    }
+
+    // Extracts ZIP, validates signed executable (optional thumbprint pin), then launches updater script.
     public static void ExtractAndRestart(string zipPath)
     {
-        var appDir    = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
-        var appExe    = Process.GetCurrentProcess().MainModule!.FileName;
+        var appDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
+        var appExe = Process.GetCurrentProcess().MainModule!.FileName;
+        var appExeName = Path.GetFileName(appExe);
         var updateDir = Path.Combine(Path.GetTempPath(), "AgTaramaUpdate");
         var extractTo = Path.Combine(updateDir, "extracted");
 
         if (Directory.Exists(extractTo)) Directory.Delete(extractTo, true);
         ZipFile.ExtractToDirectory(zipPath, extractTo);
 
-        // Zip içinde tek kök klasör varsa onu kaynak yap
         var entries = Directory.GetFileSystemEntries(extractTo);
-        var srcDir  = entries.Length == 1 && Directory.Exists(entries[0])
-            ? entries[0]
-            : extractTo;
+        var srcDir = entries.Length == 1 && Directory.Exists(entries[0]) ? entries[0] : extractTo;
 
-        string Q(string s) => s.Replace("'", "''"); // PowerShell string escape
+        var candidateExe = Path.Combine(srcDir, appExeName);
+        if (!File.Exists(candidateExe))
+            throw new InvalidDataException($"Update package does not contain {appExeName}.");
+
+        if (!VerifySignerThumbprint(candidateExe, out var signatureError))
+            throw new InvalidDataException(signatureError);
+
+        string Q(string s) => s.Replace("'", "''");
 
         var sb = new StringBuilder();
         sb.AppendLine("Start-Sleep -Seconds 2");
@@ -131,12 +192,38 @@ public static class UpdateService
 
         Process.Start(new ProcessStartInfo
         {
-            FileName  = "powershell.exe",
+            FileName = "powershell.exe",
             Arguments = $"-ExecutionPolicy Bypass -WindowStyle Hidden -File \"{scriptPath}\"",
             UseShellExecute = false
         });
 
         Application.Current.Shutdown();
+    }
+
+    private static bool VerifySignerThumbprint(string filePath, out string error)
+    {
+        error = "";
+        var expectedThumbprint = Environment.GetEnvironmentVariable("AGT_UPDATE_SIGNER_THUMBPRINT");
+        if (string.IsNullOrWhiteSpace(expectedThumbprint))
+            return true; // optional pinning
+
+        try
+        {
+#pragma warning disable SYSLIB0057
+            var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(filePath));
+#pragma warning restore SYSLIB0057
+            var actual = NormalizeHex(cert.Thumbprint ?? "");
+            var expected = NormalizeHex(expectedThumbprint);
+
+            if (actual == expected) return true;
+            error = "Signer thumbprint does not match configured update signer.";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            error = $"Signed executable verification failed: {ex.Message}";
+            return false;
+        }
     }
 
     private static bool IsNewer(string remote, string current)
@@ -145,4 +232,23 @@ public static class UpdateService
             return r > c;
         return false;
     }
+
+    private static string? ParseSha256Text(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+
+        foreach (var line in text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var token = line.Split([' ', '\t', '*'], StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(token)) continue;
+            var normalized = NormalizeHex(token);
+            if (normalized.Length == 64) return normalized;
+        }
+
+        return null;
+    }
+
+    private static string NormalizeHex(string value) =>
+        new string(value.Where(Uri.IsHexDigit).ToArray()).ToLowerInvariant();
 }

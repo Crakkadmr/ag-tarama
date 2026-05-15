@@ -41,9 +41,10 @@ internal sealed class CaptureService : IDisposable
         {
             try
             {
-                while (!_proc.StandardOutput.EndOfStream)
+                string? line;
+                while ((line = await _proc.StandardOutput.ReadLineAsync()) is not null)
                 {
-                    await _proc.StandardOutput.ReadLineAsync();
+                    _ = line;
                     Interlocked.Increment(ref _paketSayisi);
                 }
             }

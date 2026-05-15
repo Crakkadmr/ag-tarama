@@ -36,6 +36,16 @@ public partial class MainWindow : Window
     private bool _taramaDevamEdiyor = false;
     private CancellationTokenSource? _taramaCts;
 
+    // ─── Lisans iptal kontrolü ───────────────────────────────────────
+    public bool LisansIptal { get; private set; }
+    public CancellationTokenSource MasterCts { get; } = new();
+
+    public void LisansIptalEt()
+    {
+        LisansIptal = true;
+        MasterCts.Cancel();
+    }
+
     // ─── Sekme indeksleri ────────────────────────────────────────────
     private const int TabChatbot   = 0;
     private const int TabCihazTara = 1;
@@ -47,7 +57,8 @@ public partial class MainWindow : Window
     private const int TabFavoriler = 7;
     private const int TabBant      = 8;
     private const int TabGecmis    = 9;
-    private const int TabLisans    = 10;
+    private const int TabWlan      = 10;
+    private const int TabLisans    = 11;
 
     // ─── Ping paneli ─────────────────────────────────────────────────
     private CancellationTokenSource? _pingCts;
@@ -62,6 +73,10 @@ public partial class MainWindow : Window
     // ─── Bant Genişliği paneli ────────────────────────────────────────
     private System.Windows.Threading.DispatcherTimer? _bantTimer;
     private readonly Dictionary<string, (long RxBytes, long TxBytes, long Timestamp)> _bantOnceki = new();
+    private int _bantAralikSn = 300; // 5 dk default
+
+    // ─── Lisans banner (oturum başı gizle durumu) ─────────────────────
+    private bool _lisansBannerGizle = false;
 
     // ─── Toast ────────────────────────────────────────────────────────
     private System.Windows.Threading.DispatcherTimer? _toastTimer;
@@ -167,6 +182,9 @@ public partial class MainWindow : Window
         var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         VersionText.Text = ver is not null ? $"v{ver.Major}.{ver.Minor}.{ver.Build}" : "v0.1.0";
         MesajEkle("sistem", "Network Sniffer başlatıldı — made by demircan.");
+        WlanPanelBaslat();
+        KonsoleBaslat();
+        KameraNicChipleriniYenile(seciliVarsayilan: true);
         _ = BaslangicAsync();
     }
 

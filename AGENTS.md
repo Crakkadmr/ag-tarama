@@ -61,7 +61,72 @@ dotnet build -c Release        # Release build
 
 ---
 
-## 5. Dokumantasyon Guncelleme Politikasi
+## 5. GitHub Release Prosedürü
+
+Kullanici **"github release yap"** (veya benzeri: "release et", "yayınla") dediginde asagidaki adimlari **sirayla ve eksiksiz** uy­gu­la:
+
+### 5.1 Versiyon Arttirma
+
+1. `AgTarama.csproj` dosyasindaki `<Version>`, `<AssemblyVersion>`, `<FileVersion>` degerlerini **minor basamagi 0.1 arttirarak** guncelle.
+   - Ornek: `0.2.0` → `0.3.0`
+2. `AGENTS.md` §1 tablosundaki `Surum` satirini ve §7 basligini guncelle.
+3. Degisikligi commit et:
+   ```
+   chore: bump version to vX.Y.Z
+   ```
+
+### 5.2 Release Build
+
+```powershell
+cd "C:\Projects\AG TARAMA PROGRAMI\AgTarama"
+dotnet build -c Release
+```
+
+Build basarili olmazsa duraksayip kullaniciya hata mesajini ilet; devam etme.
+
+### 5.3 ZIP Olustur
+
+```powershell
+$ver = "X.Y.Z"   # yeni versiyon
+$src = "bin\Release\net10.0-windows"
+$zip = "bin\AgTarama-v$ver.zip"
+Compress-Archive -Path "$src\*" -DestinationPath $zip -CompressionLevel Optimal
+```
+
+### 5.4 SHA256 Dosyasi Olustur
+
+```powershell
+$hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+$shaFile = "bin\AgTarama-v$ver.zip.sha256"
+[System.IO.File]::WriteAllText($shaFile, "$hash  AgTarama-v$ver.zip", [System.Text.UTF8Encoding]::new($false))
+```
+
+> **Zorunlu:** UpdateService, SHA dosyasi olmayan release'lerde guncelleme bulamaz (`return null`).
+
+### 5.5 GitHub Release Olustur
+
+```bash
+gh release create "vX.Y.Z" "bin/AgTarama-vX.Y.Z.zip" "bin/AgTarama-vX.Y.Z.zip.sha256" \
+  --repo Crakkadmr/ag-tarama \
+  --title "vX.Y.Z — <kisa ozet>" \
+  --notes "<release notlari>" \
+  --latest
+```
+
+- `--latest` mutlaka ekle (UpdateService `/releases/latest` endpoint'ini kullanir).
+- Release notlarina en az "Kurulum" adimi ekle.
+
+### 5.6 Dogrulama
+
+```bash
+gh release view vX.Y.Z --repo Crakkadmr/ag-tarama --json assets --jq '.assets[].name'
+```
+
+Ciktida hem `.zip` hem `.zip.sha256` gozukmeliydi. Ikisi de varsa islemi kullaniciya bildir.
+
+---
+
+## 6. Dokumantasyon Guncelleme Politikasi
 
 **Markdown dosyalari (AGENTS.md, docs/*.md) her degisiklikte otomatik guncellenmez.**
 Sadece kullanici acikca `"md guncelle"` veya `"AGENTS.md'yi guncelle"` dediginde guncellenir.

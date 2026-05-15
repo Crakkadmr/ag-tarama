@@ -772,30 +772,53 @@
                                        Text="0 cihaz" Foreground="#58A6FF" FontFamily="Consolas"
                                        FontSize="12" FontWeight="Bold" VerticalAlignment="Center" Margin="14,0,0,0"/>
                         </Grid>
-                        <Grid Grid.Row="1" Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="112"/>
-                                <ColumnDefinition Width="46"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid Grid.Column="0">
-                                <TextBox x:Name="KameraSubnetBox" Style="{StaticResource PingInputBox}"
-                                         Padding="10,8,10,8" TextChanged="KameraSubnetBox_TextChanged"/>
-                                <TextBlock x:Name="KameraSubnetPlaceholder" Text="Subnet/CIDR: 192.168.1 veya 192.168.1.0/24"
-                                           FontFamily="Consolas" FontSize="12" Foreground="#484F58"
-                                           VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
+                        <StackPanel Grid.Row="1" Margin="0,0,0,12">
+                            <!-- NIC chip picker satırı -->
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxHeight="64">
+                                    <WrapPanel x:Name="KameraSubnetChips" Orientation="Horizontal"/>
+                                </ScrollViewer>
+                                <CheckBox x:Name="KameraDerinTaraCheck" Grid.Column="1" Content="Derin tara"
+                                          Foreground="#8B949E" FontFamily="Consolas" FontSize="11"
+                                          VerticalAlignment="Center" Margin="10,0,8,0"
+                                          ToolTip="Ubiquiti, MikroTik, SNMP ve WSD ek keşif protokollerini etkinleştirir. Daha yavaş ama daha kapsamlı."/>
+                                <Button x:Name="KameraNicYenileBtn" Grid.Column="2" Content="⟳"
+                                        Width="34" Height="30" FontSize="14"
+                                        Background="#1F2933" Foreground="#58A6FF" BorderBrush="#2F81F7" BorderThickness="1"
+                                        Click="KameraNicYenileBtn_Click"
+                                        ToolTip="Ağ arayüzlerini yeniden tara"/>
                             </Grid>
-                            <Button x:Name="KameraBaslatBtn" Grid.Column="2" Style="{StaticResource PrimaryButton}"
-                                    Height="38" HorizontalContentAlignment="Center" Click="KameraBaslatBtn_Click"
-                                    ToolTip="Girilen subnet/CIDR aralığını tarar ve cihaz envanterini günceller.">
-                                <TextBlock Text="◎  Tara  ⓘ" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
-                            </Button>
-                            <Button x:Name="KameraDurdurBtn" Grid.Column="3" Content="■"
-                                    Style="{StaticResource DangerButton}" Height="38"
-                                    HorizontalContentAlignment="Center"
-                                    Visibility="Collapsed" Click="KameraDurdurBtn_Click"/>
-                        </Grid>
+                            <!-- Manuel subnet input + Tara/Durdur -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="112"/>
+                                    <ColumnDefinition Width="46"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid Grid.Column="0">
+                                    <TextBox x:Name="KameraSubnetBox" Style="{StaticResource PingInputBox}"
+                                             Padding="10,8,10,8" TextChanged="KameraSubnetBox_TextChanged"/>
+                                    <TextBlock x:Name="KameraSubnetPlaceholder" Text="Subnet/CIDR: 192.168.1 veya 192.168.1.0/24"
+                                               FontFamily="Consolas" FontSize="12" Foreground="#484F58"
+                                               VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
+                                </Grid>
+                                <Button x:Name="KameraBaslatBtn" Grid.Column="2" Style="{StaticResource PrimaryButton}"
+                                        Height="38" HorizontalContentAlignment="Center" Click="KameraBaslatBtn_Click"
+                                        ToolTip="Girilen subnet/CIDR aralığını tarar ve cihaz envanterini günceller.">
+                                    <TextBlock Text="◎  Tara  ⓘ" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                                </Button>
+                                <Button x:Name="KameraDurdurBtn" Grid.Column="3" Content="■"
+                                        Style="{StaticResource DangerButton}" Height="38"
+                                        HorizontalContentAlignment="Center"
+                                        Visibility="Collapsed" Click="KameraDurdurBtn_Click"/>
+                            </Grid>
+                        </StackPanel>
                         <Grid Grid.Row="2" Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -829,15 +852,23 @@
                                        SelectedIndex="0" SelectionChanged="KameraTurFiltreDegisti" Padding="8,6"
                                        ToolTip="Tür sütununa göre filtreler (Kamera, NVR/DVR, Bilgisayar vb.).">
                                 <ComboBoxItem Content="Tüm türler" Tag="Hepsi"/>
+                                <ComboBoxItem Content="Bilinmiyor" Tag="Bilinmiyor"/>
                                 <ComboBoxItem Content="Kamera" Tag="Kamera"/>
                                 <ComboBoxItem Content="NVR/DVR" Tag="NVR/DVR"/>
                                 <ComboBoxItem Content="Bilgisayar" Tag="Bilgisayar"/>
+                                <ComboBoxItem Content="Linux IoT" Tag="Linux IoT"/>
                                 <ComboBoxItem Content="NAS" Tag="NAS"/>
                                 <ComboBoxItem Content="Sunucu" Tag="Sunucu"/>
                                 <ComboBoxItem Content="Router/Switch" Tag="Router/Switch"/>
-                                <ComboBoxItem Content="Güvenlik Duvarı" Tag="Güvenlik Duvarı"/>
+                                <ComboBoxItem Content="Router/AP" Tag="Router/AP"/>
                                 <ComboBoxItem Content="Erişim Noktası" Tag="Erişim Noktası"/>
+                                <ComboBoxItem Content="Switch" Tag="Switch"/>
+                                <ComboBoxItem Content="Güvenlik Duvarı" Tag="Güvenlik Duvarı"/>
                                 <ComboBoxItem Content="Yazıcı" Tag="Yazıcı"/>
+                                <ComboBoxItem Content="Akıllı TV" Tag="Akıllı TV"/>
+                                <ComboBoxItem Content="Akıllı Cihaz" Tag="Akıllı Cihaz"/>
+                                <ComboBoxItem Content="Telefon" Tag="Telefon"/>
+                                <ComboBoxItem Content="Hoparlör" Tag="Hoparlör"/>
                             </ComboBox>
                             <Grid Grid.Column="6">
                                 <TextBox x:Name="KameraMarkaFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7"
@@ -878,6 +909,7 @@
                                             <Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource FlatContextMenuItem}"/>
                                         </ContextMenu.Resources>
                                         <MenuItem Header="Web arayüzünü aç" Click="KameraMenuWeb_Click"/>
+                                        <MenuItem Header="Bu cihazı yeniden tara" Click="KameraMenuYenidenTara_Click"/>
                                         <Separator/>
                                         <MenuItem Header="Ping at" Click="KameraMenuPing_Click"/>
                                         <MenuItem Header="Port tara" Click="KameraMenuPort_Click"/>
@@ -930,9 +962,14 @@
                                             <TextBlock Text="Portlar ⓘ" ToolTip="Açık tespit edilen TCP portları."/>
                                         </DataGridTextColumn.Header>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Binding="{Binding Kesif}" SortMemberPath="Kesif" Width="90">
+                                    <DataGridTextColumn Binding="{Binding Kesif}" SortMemberPath="Kesif" Width="130">
                                         <DataGridTextColumn.Header>
-                                            <TextBlock Text="Keşif ⓘ" ToolTip="ONVIF/UPnP gibi keşif kaynakları."/>
+                                            <TextBlock Text="Keşif ⓘ" ToolTip="Cihazı tanımlayan keşif protokolleri (ONVIF, mDNS, SNMP vb.)."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Guven}" SortMemberPath="Guven" Width="60">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Güven ⓘ" ToolTip="Cihaz tanıma güven skoru (0-100). Birden çok kaynaktan doğrulanan cihazlar yüksek skor alır."/>
                                         </DataGridTextColumn.Header>
                                     </DataGridTextColumn>
                                     <DataGridTextColumn Binding="{Binding Mac}" SortMemberPath="Mac" Width="130">

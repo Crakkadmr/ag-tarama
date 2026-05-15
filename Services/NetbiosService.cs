@@ -1,7 +1,9 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -176,6 +178,8 @@ internal static class NetbiosService
                     RedirectStandardOutput = true,
                     RedirectStandardError  = true,
                     CreateNoWindow         = true,
+                    StandardOutputEncoding = Encoding.GetEncoding(
+                        CultureInfo.CurrentCulture.TextInfo.OEMCodePage),
                 },
                 EnableRaisingEvents = true,
             };

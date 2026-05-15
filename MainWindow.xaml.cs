@@ -184,6 +184,7 @@ public partial class MainWindow : Window
         MesajEkle("sistem", "Network Sniffer başlatıldı — made by demircan.");
         WlanPanelBaslat();
         KonsoleBaslat();
+        KameraNicChipleriniYenile(seciliVarsayilan: true);
         _ = BaslangicAsync();
     }
 

@@ -1,6 +1,7 @@
 # Services Katmanı Referansı
 
 Lisans/güvenlik servisleri için: [docs/licensing.md](licensing.md)
+NuGet bağımlılıkları: `QuestPDF 2024.12.*` (PDF), `ClosedXML 0.102.*` (XLSX)
 
 ---
 
@@ -141,3 +142,71 @@ class AppSettings {
     int TestSuresiSn { get; set; } = 2;
 }
 ```
+
+---
+
+## WlanService.cs
+
+`netsh wlan show networks mode=bssid` çıktısını parse eder.
+
+```csharp
+static Task<List<WlanSonuc>> ScanAsync(CancellationToken ct)
+static bool WifiAdaptorVarMi()
+// WlanSonuc: Ssid, Bssid, Auth, Encryption, Signal(%), Channel, RadioType, EvilTwin
+```
+
+- Evil-Twin tespiti: aynı SSID, birden fazla farklı BSSID → `EvilTwin = true`
+- `WifiAdaptorVarMi()`: `netsh wlan show interfaces` çıktısında "Name" satırı arar
+
+---
+
+## BandwidthHistoryService.cs (yeni — #10)
+
+In-memory dairesel buffer, bant genişliği zaman serisi.
+
+```csharp
+static void RecordTick(double totalRxBps, double totalTxBps)
+static (double[] Rx, double[] Tx) GetAggregate(int seconds)
+static (double PeakRx, double PeakTx, double AvgRx, double AvgTx,
+        long TotalRxMB, long TotalTxMB) Stats(int seconds)
+```
+
+- Kapasite: 3600 örnek (1 saat), dairesel `_head` işaretçi ile
+- `GetAggregate(sn)` → son `sn` saniyelik örnekleri kronolojik sırada döner
+
+---
+
+## CommandRouter.cs (yeni — #13)
+
+F12 konsol için komut yönlendirici; tüm servisleri tek API yüzeyi üzerinden çağırır.
+
+```csharp
+static void Register(string name, Func<string[], CancellationToken, Task<string>> handler)
+static Task<string> ExecuteAsync(string line, CancellationToken ct)
+static void PushHistory(string cmd)
+static List<string> GetHistory()
+static List<string> GetCommandNames()
+```
+
+- `ExecuteAsync` `&&` zincirini `Regex.Split` ile destekler
+- Kayıtlı komutlar: `help`, `clear`, `history`, `ping`, `dns`, `port`, `traceroute`, `arp`, `wol`, `scan`, `ssl`, `banner`, `web`, `smb`, `snmp`
+- `snmp` komutu dahili ASN.1 DER kodlama/çözümleme kullanır (NuGet yok); OID takma adları: sysName, sysDescr, sysUpTime, sysLocation, sysContact
+- `"\x00CLEAR"` dönüş değeri konsol çıktısını temizler
+- Geçmiş: son 50 komut, yineleme önlemeli
+
+---
+
+## PdfReportService.cs (yeni — #12)
+
+QuestPDF ile gerçek PDF raporu üretimi.
+
+```csharp
+static byte[] GenerateDeviceScanReport(IEnumerable<DeviceScanRow> rows, ReportMetadata meta)
+// DeviceScanRow: Ip, Ad, Tur, Marka, Model, Ping, Portlar, Kesif, Mac, Uretici, Servis
+// ReportMetadata: Operator, Project
+```
+
+- Statik constructor'da `QuestPDF.Settings.License = LicenseType.Community`
+- A4 Yatay, kenar boşlukları 18px (yatay) / 14px (dikey)
+- 11 sütunlu tablo, başlık arka planı `#0D3B66`, dönüşümlü satır renkleri `#0D1117`/`#101722`
+- Altbilgi: sayfa X/Y numarası

@@ -5,7 +5,7 @@
 ```
 AG TARAMA PROGRAMI/
 └── AgTarama/
-    ├── AgTarama.csproj               ← .NET 10 WPF proje dosyası (NuGet bağımlılığı yok)
+    ├── AgTarama.csproj               ← .NET 10 WPF; NuGet: QuestPDF 2024.12.*, ClosedXML 0.102.*
     ├── App.xaml / App.xaml.cs        ← Application giriş noktası (boş)
     ├── AssemblyInfo.cs               ← ThemeInfo
     ├── MainWindow.xaml               ← Network Sniffer UI tasarımı + stiller (~1254 satır)
@@ -13,11 +13,13 @@ AG TARAMA PROGRAMI/
     ├── Partials/                     ← C# partial class dosyaları (hepsi `public partial class MainWindow`)
     │   ├── MainWindow.Capture.cs     ← YakalamaBaslat/Durdur, YakalamaKartiOlustur, WiresharkIleAc (351 satır)
     │   ├── MainWindow.NetworkTools.cs← MesajEkle, Ping, PortTara, Traceroute, DNS, WoL, ARP, AgBilgi (835 satır)
-    │   ├── MainWindow.Bandwidth.cs   ← BantIzlemeBaslat, BantTimerTick, BantHizFormatla (112 satır)
+    │   ├── MainWindow.Bandwidth.cs   ← Bant grafiği, BandwidthHistoryService entegrasyonu, per-app trafik (347 satır)
+    │   ├── MainWindow.Console.cs     ← F12 komut konsolu, KonsoleToggle, ConsoleInput_KeyDown (yeni)
     │   ├── MainWindow.Favorites.cs   ← FavoriChipleriniYenile, FavorilerPanelGuncelle (133 satır)
     │   ├── MainWindow.History.cs     ← GecmisPanelGuncelle, Tekrar Çalıştır, Karşılaştır (235 satır)
     │   ├── MainWindow.UI.cs          ← BtnAyarlar, RaporKaydet, Toast, Bildirim (141 satır)
-    │   ├── MainWindow.License.cs     ← LisansPanelGuncelle, Yenile, Sıfırla (152 satır)
+    │   ├── MainWindow.License.cs     ← LisansPanelGuncelle, sticky banner, MachineId, NTP, Kopyala (204 satır)
+    │   ├── MainWindow.Wlan.cs        ← WlanPanelBaşlat, WlanTaramaBaslat, WlanSatir, Evil-Twin tespiti (~180 satır)
     │   └── MainWindow.DeviceScan.cs  ← KameraTaramaBaslat, tüm keşif protokolleri, export (1636 satır)
     ├── Paths.cs                      ← Tüm exe-relative yol sabitleri (static)
     ├── LogService.cs                 ← %APPDATA%\AgTarama\logs\YYYYMMDD.log
@@ -44,7 +46,7 @@ AG TARAMA PROGRAMI/
 ## Mimari
 
 **Tek pencere — MVVM yok.** UI wiring `MainWindow.xaml` + `MainWindow.xaml.cs` (+ `Partials/`) çiftinde.
-`MainWindow.xaml.cs` 8 partial dosyaya bölünmüştür; derleyici bunları tek sınıfta birleştirir.
+`MainWindow.xaml.cs` 10 partial dosyaya bölünmüştür; derleyici bunları tek sınıfta birleştirir.
 Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI container yok.
 
 **Mimari katmanlar:**
@@ -67,7 +69,7 @@ Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI contain
 | `mac_interval_tree.txt` | `tools\Ip_Scanner\` | MAC prefix → üretici veritabanı | Cihaz Tara içinde otomatik |
 | `sadptool.exe` | `tools\sadp\` | Hikvision SADP | Manuel |
 
-> **NuGet paketi yok.** `Lextm.SharpSnmpLib` kaldırıldı (SNMP özelliği silindi).
+> **NuGet:** `QuestPDF 2024.12.*` (PDF raporu) + `ClosedXML 0.102.*` (XLSX). `Lextm.SharpSnmpLib` kaldırıldı — SNMPv1 artık CommandRouter içinde manuel DER ile yapılıyor.
 
 ---
 

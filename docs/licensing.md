@@ -15,8 +15,13 @@ Supabase REST üzerinden cloud lisans doğrulama + AES önbellek + makine bağla
 
 **Temel akış:**
 ```csharp
-Task<LicenseInfo> DogrulaAsync(CancellationToken)
-// LicenseInfo: IsValid, Type, ExpiresAt, MachineId, DaysLeft
+Task<LicenseResult> ValidateAsync(string key)
+static LicenseResult? CheckCache()
+static void ClearCache()
+static string GetMachineId()
+static DateTime? GetLastValidationTime()   // önbellek CachePayload.CachedAt'ı döner; yok → null
+// LicenseResult: Status (Valid/Expired/Invalid), Message, Info (LicenseInfo?)
+// LicenseInfo: Key, Type, ExpiresAt, MachineId
 ```
 
 ### TrustedTimeService.cs (301 satır)
@@ -25,6 +30,7 @@ NTP + kalıcı floor (tg.dat, AES-CBC+HMAC) + saat manipülasyonu koruması.
 
 ```csharp
 static Task<TrustedTimeResult> VerifyClockAsync()
+static DateTime LastNtpTime { get; }   // son başarılı NTP sorgusunun UTC zamanı (MinValue = hiç sorgulanmadı)
 // NTP kaynakları: cloudflare / pool.ntp.org / time.google.com
 // tg.dat: AES-CBC+HMAC ile şifrelenmiş floor timestamp
 // IsClockRolledBack() — sistem saati floor'un altındaysa true
@@ -36,11 +42,17 @@ static Task<TrustedTimeResult> VerifyClockAsync()
 
 ## Lisans UI
 
-### Partials/MainWindow.License.cs (152 satır)
+### Partials/MainWindow.License.cs (204 satır — #14)
 
-Detaylı satır haritası: [docs/partials.md](partials.md#partialsmainwindowlicensecs-152-satır)
+Detaylı satır haritası: [docs/partials.md](partials.md)
 
-Metotlar: `LisansPanelGuncelle`, `SetLisansUI`, `MaskeLisansAnahtari`, `LisansYenile_Click`, `LisansSifirla_Click`
+Metotlar: `LisansPanelGuncelle`, `SetLisansUI`, `MaskeLisansAnahtari`, `LisansYenile_Click`, `LisansSifirla_Click`, `LisansBannerKapat_Click`, `LisansKopyala_Click`
+
+**Yeni davranışlar:**
+- Kalan gün < 7 → pencere üstünde sticky `LisansBanner` (oturum boyunca kapatılabilir, `_lisansBannerGizle`)
+- `LisansMakineMetin`: MachineId ilk 8 karakter + `…`
+- `LisansSonDogrulamaMetin`: `LicenseService.GetLastValidationTime()` UTC formatında
+- `LisansNtpMetin`: `TrustedTimeService.LastNtpTime` UTC formatında
 
 ### LicenseWindow.xaml / .cs
 

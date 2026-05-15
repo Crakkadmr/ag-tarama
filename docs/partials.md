@@ -4,7 +4,7 @@
 > "md güncelle" talimatı geldiğinde haritalar yeniden hesaplanır.
 > Harita ile gerçek dosya arasında büyük sapma görülürse dosyayı `offset` yerine baştan oku ve haritayı güncelle.
 
-`MainWindow.xaml.cs` + 8 partial dosya derleyici tarafından tek `MainWindow` sınıfında birleştirilir.
+`MainWindow.xaml.cs` + 10 partial dosya derleyici tarafından tek `MainWindow` sınıfında birleştirilir.
 Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` NetworkTools'ta tanımlı, her partial'dan çağrılabilir).
 
 ---
@@ -21,7 +21,7 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 | L351–L354 | `UygulaButonSablon(Button)` static |
 
 **Alanlar özeti (L29-L161):**
-`_ayarlar`, `_taramaDevamEdiyor`, `_taramaCts`, `LisansIptal`, `MasterCts`, sekme sabitleri (TabChatbot=0..TabLisans=10), `_pingCts`, `_portScanCts`, `_traceCts`, `_kameraCts`, `_kameraBilgileri`, `_kameraSatirlari`, `_kameraSatirlar`, `_kameraSatirView`, `_bantTimer`, `_bantOnceki`, `_toastTimer`, `_mesajGecmisi`, `_gecmisKayitlari`, `_gecmisFiltreTur`, `_gecmisdenCalistiriliyor`, `_captureService`, `_otomatikGuncelleniyor`, `_oncekiUzunluk`
+`_ayarlar`, `_taramaDevamEdiyor`, `_taramaCts`, `LisansIptal`, `MasterCts`, sekme sabitleri (TabChatbot=0..TabWlan=10, TabLisans=11), `_pingCts`, `_portScanCts`, `_traceCts`, `_kameraCts`, `_kameraBilgileri`, `_kameraSatirlari`, `_kameraSatirlar`, `_kameraSatirView`, `_bantTimer`, `_bantOnceki`, `_bantAralikSn` (int, default 300), `_toastTimer`, `_mesajGecmisi`, `_gecmisKayitlari`, `_gecmisFiltreTur`, `_gecmisdenCalistiriliyor`, `_captureService`, `_otomatikGuncelleniyor`, `_oncekiUzunluk`, `_lisansBannerGizle` (bool), `_konsoleCts`, `_konsoleCalistiriliyor` (bool), `_konsoleGecmisIndex` (int)
 
 ---
 
@@ -66,7 +66,7 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 | L314–L409 | `KimlikBelirle(KameraBilgi) static`, `KayitCihaziIpuclariVar`, `YaziciIpuclariVar`, `CihazAdiBilgisayarGibi` |
 | L410–L526 | DataGrid event handler'ları: filtre text changed, tür filtresi, filtre temizle, çift tık, sağ tık |
 | L527–L617 | `KameraWebArayuzunuAc`, `KameraDisariAktar`, `DisariAktarilanDosyayiAc`, `SeciliKameraSatiri`, `UstOgeBul` |
-| L619–L826 | Export format metotları: `IpSiralamaAnahtari`, `KameraExportSatirlari`, `KameraCsvOlustur`, `KameraJsonOlustur`, `KameraTxtOlustur`, `KameraExcelHtmlOlustur`, `KameraPdfOlustur`, `KameraPdfSayfaIcerigi`, `PdfMetin`, `PdfAscii`, `MetniKirp` |
+| L619–L826 | Export format metotları: `IpSiralamaAnahtari`, `KameraExportSatirlari`, `KameraCsvOlustur`, `KameraJsonOlustur`, `KameraTxtOlustur`, `KameraExcelXlsxOlustur` (ClosedXML → `.xlsx`), `KameraPdfQuestOlustur` (QuestPDF → `PdfReportService`), `MetniKirp` |
 | L827–L830 | `KameraBaslatBtn_Click`, `KameraDurdurBtn_Click` |
 | L830–L900 | `NetbiosBilgileriniGuncelleAsync`, `NetbiosSweepAsync` |
 | L886–L994 | `MdnsServisler` static array, `MdnsSweepAsync`, `OlusturMdnsSorgusu`, `MdnsPaketCoz` |
@@ -82,18 +82,41 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 4. Ping Sweep — SemaphoreSlim(64), 1000ms
 
 **Cihaz Tara DataGrid sütunları:** IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif, MAC, Üretici, Servis
-**Dışa aktarma formatları:** Excel (.xls HTML), PDF, TXT, CSV (UTF-8 `;`), JSON — sağ tık menüsünden
+**Dışa aktarma formatları:** Excel (`.xlsx` ClosedXML), PDF (QuestPDF A4 Yatay), TXT, CSV (UTF-8 `;`), JSON — sağ tık menüsünden
 
 ---
 
-## Partials/MainWindow.Bandwidth.cs (112 satır)
+## Partials/MainWindow.Bandwidth.cs (347 satır — #10 ile yeniden yazıldı)
 
 | Satır | İçerik |
 |---|---|
-| L1–L19 | using/namespace |
-| L20–L60 | `BantIzlemeBaslat()` — aktif adaptörler snapshot, DispatcherTimer(1s) başlatır |
-| L61–L105 | `BantTimerTick()` — `NetworkInterface.GetIPv4Statistics()`, hız hesabı, `BantAdaptorPanel` güncelleme |
-| L106–L112 | `BantHizFormatla(long) static` — `≥1MB/s`, `≥1KB/s`, `B/s` |
+| L1–L11 | using/namespace |
+| L17–L20 | `BtnBant_Click`, `BantPanelKapat_Click` — sekme geçişi |
+| L28–L39 | `BantAralikBtn_Click` — `_bantAralikSn` güncelle, buton stilini ChipButton/ActiveActionButton arasında geçir |
+| L41–L147 | `BantPerAppBtn_Click` — UAC kontrolü → `netstat -bno` çalıştır → `[Process.exe]` satırları parse et → top 5 `BantPerAppPanel`'de göster |
+| L149–L168 | `BantIzlemeBaslat()` — snapshot al, DispatcherTimer(1s) başlatır |
+| L170–L244 | `BantTimerTick()` — `GetIPv4Statistics()`, hız hesabı, `BandwidthHistoryService.RecordTick()` çağrısı, adaptör kartları |
+| L246–L258 | `BantGrafigiVeStatlariGuncelle()` — grafik çiz + stat TextBlock'ları güncelle |
+| L260–L336 | `BantGrafiginiCiz()` — Canvas temizle, grid çizgileri (40-alpha mavi kesikli), Rx Polyline (mavi `#58A6FF`), Tx Polyline (yeşil `#3FB950`), max etiket, legend |
+| L338–L339 | `BantGrafikCanvas_SizeChanged` — `BantGrafiginiCiz()` |
+| L341–L347 | `BantHizFormatla(long) static` — `≥1MB/s`, `≥1KB/s`, `B/s` |
+
+**Yeni XAML öğeleri:** `BantBtn5dk`, `BantBtn15dk`, `BantBtn60dk`, `BantStatPeakRx/Tx`, `BantStatAvgRx/Tx`, `BantStatToplam`, `BantGrafikCanvas` (SizeChanged), `BantPerAppPanel`
+
+---
+
+## Partials/MainWindow.Console.cs (yeni — #13)
+
+| Satır | İçerik |
+|---|---|
+| — | `KonsoleBaslat()` — `Window.KeyDown` olayına `Window_KonsoleKeyDown` ekler (F12 dinler) |
+| — | `KonsoleToggle()` — `ConsolePanel` göster/gizle, `ConsoleInput` focus, hoş geldin mesajı |
+| — | `ConsoleInput_KeyDown` — Enter: çalıştır; ↑/↓: `_konsoleGecmisIndex` geçmiş gezimi; Tab: autocomplete; Esc: CancellationToken iptal |
+| — | `KonsoleYaz(string)` — `ConsoleOutput.AppendText` + ScrollToEnd |
+
+**ConsolePanel XAML yapısı:** Dış `Grid` (Grid.Row=1 iç grid) → `ConsoleScrollViewer` + `ConsoleOutput` (TextBox, IsReadOnly) + `ConsoleInput` (TextBox, KeyDown handler). Panel `TabControl` template'ının **dışındadır** — code-behind'dan doğrudan erişilebilir.
+
+**Önemli kısıt:** x:Name öğeleri ControlTemplate içine konulursa code-behind'dan erişilemez. Console öğeleri TabControl'ün dışında ayrı Grid satırındadır.
 
 ---
 
@@ -131,11 +154,39 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 
 ---
 
-## Partials/MainWindow.License.cs (152 satır)
+## Partials/MainWindow.Wlan.cs (~180 satır)
 
 | Satır | İçerik |
 |---|---|
-| L1–L19 | using/namespace |
-| L20–L80 | `LisansPanelGuncelle()`, `SetLisansUI(LicenseInfo?)` — kalan süre, durum göstergesi |
-| L81–L120 | `MaskeLisansAnahtari(string)` — lisans anahtarını `xxxx-xxxx-****-****` formatında gösterir |
-| L121–L152 | `LisansYenile_Click`, `LisansSifirla_Click` event handler'ları |
+| L1–L10 | using/namespace |
+| L11–L18 | Alanlar: `_wlanCts`, `_wlanSatirlar` (ObservableCollection), `_wlanOtoTimer`, `_wlanSayac` (int), `_wlanAdaptorVar` (bool) |
+| L20–L30 | `WlanPanelBaşlat()` — `WlanGrid.ItemsSource` bağla, `WifiAdaptorVarMi()` kontrol; adaptör yoksa `WlanTab.IsEnabled=false` + ToolTip |
+| L32–L50 | `WlanTaraBtn_Click`, `WlanDurdurBtn_Click`, `WlanOtoYenile_Changed` |
+| L52–L80 | `WlanOtoTimerBaslat()` / `WlanOtoTimerDurdur()` — DispatcherTimer(1s), geri sayım WlanSayacText |
+| L82–L130 | `WlanTaramaBaslat()` — CTS, buton durumları, `WlanService.ScanAsync`, `_wlanSatirlar` güncelle, Evil-Twin toast |
+| L132–L180 | `WlanSatir` sealed class — `Ssid`, `Bssid`, `Auth`, `Encryption`, `Signal`, `Channel`, `RadioType`, `EvilTwin`, `DurumMetni`, `DurumRenk` (constructor'da hesaplanır) |
+
+**Durum renk mantığı (`WlanSatir`):**
+- WPA2/WPA3 → yeşil `#3FB950` + "✓ Güvenli"
+- WPA (1. nesil) → sarı `#E3B341` + "⚠ Orta"
+- WEP / Open → kırmızı `#F85149` + "✖ Güvensiz"
+- Evil-Twin → sarı `#E3B341` + "⚠ Evil-Twin" (öncelikli)
+
+**XAML öğeleri:** `WlanTab` (x:Name, IsEnabled kontrolü için), `WlanPanel`, `WlanDurumText`, `WlanTaraBtn`, `WlanDurdurBtn`, `WlanOtoYenileCheck`, `WlanSayacText`, `WlanGrid` (DataGrid)
+
+---
+
+## Partials/MainWindow.License.cs (204 satır — #14 ile genişletildi)
+
+| Satır | İçerik |
+|---|---|
+| L1–L5 | using/namespace |
+| L9–L18 | `LisansPanelGuncelle()` — önbellek kontrolü → `SetLisansUI` |
+| L20–L127 | `SetLisansUI(LicenseStatus, string, LicenseInfo?)` — durum kartı (geçerli/süresi doldu/geçersiz), kalan süre hesabı, sticky banner (7 günden az kaldıysa), MachineId (ilk 8 karakter), son online doğrulama UTC, NTP zamanı |
+| L129–L140 | `MaskeLisansAnahtari(string)` — `****-****-SON4` formatı |
+| L142–L159 | `LisansYenile_Click` — `LicenseService.ValidateAsync()` çağrısı |
+| L161–L172 | `LisansSifirla_Click` — onay diyalogu + `LicenseService.ClearCache()` |
+| L174–L178 | `LisansBannerKapat_Click` — `_lisansBannerGizle = true`, banner gizle |
+| L180–L204 | `LisansKopyala_Click` — destek metni (durum, tür, bitiş, MachineId 16-char, son doğrulama, NTP) → `Clipboard.SetText` |
+
+**Yeni XAML öğeleri:** `LisansBanner` (sticky, Grid.Row=1), `LisansBannerMetin`, `LisansBannerKapatBtn`, `LisansSonDogrulamaMetin`, `LisansNtpMetin`, "📋 Lisans Bilgilerini Kopyala" butonu

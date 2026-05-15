@@ -1373,7 +1373,115 @@
                 </Border>
             </TabItem>
 
-            <!-- ══ Sekme 10: Lisans ══════════════════════════════════════════ -->
+            <!-- ═══ Sekme 10: Wi-Fi Tara ═══ -->
+            <TabItem x:Name="WlanTab">
+                <TabItem.Header>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Text="📶  Wi-Fi"/>
+                </TabItem.Header>
+                <Border x:Name="WlanPanel" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="10">
+                    <Grid Margin="20,14,20,14">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Başlık -->
+                        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                            <TextBlock Text="📶 WI-FI TARAMA" Foreground="#58A6FF" FontFamily="Consolas"
+                                       FontSize="12" FontWeight="Bold" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="WlanDurumText" Text="Çevredeki kablosuz ağları tara."
+                                       Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- Kontroller -->
+                        <Grid Grid.Row="1" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <Button x:Name="WlanTaraBtn" Content="📶  Tara"
+                                        Style="{StaticResource PrimaryButton}"
+                                        Height="36" Margin="0,0,8,0" Padding="16,0"
+                                        Click="WlanTaraBtn_Click"/>
+                                <Button x:Name="WlanDurdurBtn" Content="◼  Durdur"
+                                        Style="{StaticResource DangerButton}"
+                                        Height="36" Padding="16,0" IsEnabled="False"
+                                        Click="WlanDurdurBtn_Click"/>
+                            </StackPanel>
+                            <!-- Otomatik Yenile -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <CheckBox x:Name="WlanOtoYenileCheck"
+                                          Content="Otomatik yenile (10s)"
+                                          Foreground="#8B949E" FontFamily="Consolas" FontSize="11"
+                                          Checked="WlanOtoYenile_Changed" Unchecked="WlanOtoYenile_Changed"
+                                          VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock x:Name="WlanSayacText" Text=""
+                                           Foreground="#484F58" FontFamily="Consolas" FontSize="11"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Legend -->
+                        <WrapPanel Grid.Row="2" Margin="0,0,0,8">
+                            <Border Background="#3D1A1A" BorderBrush="#F85149" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
+                                <TextBlock Text="WEP / Açık" Foreground="#F85149" FontFamily="Consolas" FontSize="10"/>
+                            </Border>
+                            <Border Background="#2A2010" BorderBrush="#E3B341" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
+                                <TextBlock Text="WPA" Foreground="#E3B341" FontFamily="Consolas" FontSize="10"/>
+                            </Border>
+                            <Border Background="#1A4A2E" BorderBrush="#3FB950" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
+                                <TextBlock Text="WPA2 / WPA3" Foreground="#3FB950" FontFamily="Consolas" FontSize="10"/>
+                            </Border>
+                            <Border Background="#0D1F2F" BorderBrush="#E3B341" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,0,0">
+                                <TextBlock Text="⚠ Evil-Twin" Foreground="#E3B341" FontFamily="Consolas" FontSize="10"/>
+                            </Border>
+                        </WrapPanel>
+
+                        <!-- DataGrid -->
+                        <DataGrid x:Name="WlanGrid"
+                                  Grid.Row="3"
+                                  Style="{StaticResource DarkDataGrid}"
+                                  ColumnHeaderStyle="{StaticResource DarkDataGridColumnHeader}"
+                                  CellStyle="{StaticResource DarkDataGridCell}"
+                                  RowStyle="{StaticResource DarkDataGridRow}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserSortColumns="True"
+                                  CanUserReorderColumns="False"
+                                  CanUserResizeRows="False"
+                                  SelectionMode="Single"
+                                  GridLinesVisibility="Horizontal"
+                                  BorderBrush="#21262D" BorderThickness="1">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="SSID"        Binding="{Binding Ssid}"       Width="180"/>
+                                <DataGridTextColumn Header="BSSID"       Binding="{Binding Bssid}"      Width="140"/>
+                                <DataGridTextColumn Header="Sinyal %"    Binding="{Binding Signal}"     Width="70"  SortDirection="Descending"/>
+                                <DataGridTextColumn Header="Kanal"       Binding="{Binding Channel}"    Width="60"/>
+                                <DataGridTextColumn Header="Kimlik"      Binding="{Binding Auth}"       Width="160"/>
+                                <DataGridTextColumn Header="Şifreleme"   Binding="{Binding Encryption}" Width="90"/>
+                                <DataGridTextColumn Header="Radyo"       Binding="{Binding RadioType}"  Width="90"/>
+                                <DataGridTemplateColumn Header="Durum"   Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock x:Name="WlanDurumCell"
+                                                       Text="{Binding DurumMetni}"
+                                                       Foreground="{Binding DurumRenk}"
+                                                       FontFamily="Consolas" FontSize="11"
+                                                       VerticalAlignment="Center" Margin="4,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- ══ Sekme 11: Lisans ══════════════════════════════════════════ -->
             <TabItem>
                 <TabItem.Header>
                     <TextBlock FontFamily="Consolas" FontSize="12" Text="⊙  Lisans"/>

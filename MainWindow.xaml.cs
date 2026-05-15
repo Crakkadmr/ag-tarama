@@ -57,7 +57,8 @@ public partial class MainWindow : Window
     private const int TabFavoriler = 7;
     private const int TabBant      = 8;
     private const int TabGecmis    = 9;
-    private const int TabLisans    = 10;
+    private const int TabWlan      = 10;
+    private const int TabLisans    = 11;
 
     // ─── Ping paneli ─────────────────────────────────────────────────
     private CancellationTokenSource? _pingCts;
@@ -181,6 +182,7 @@ public partial class MainWindow : Window
         var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         VersionText.Text = ver is not null ? $"v{ver.Major}.{ver.Minor}.{ver.Build}" : "v0.1.0";
         MesajEkle("sistem", "Network Sniffer başlatıldı — made by demircan.");
+        WlanPanelBaşlat();
         KonsoleBaslat();
         _ = BaslangicAsync();
     }

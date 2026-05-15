@@ -3,9 +3,13 @@
 ## UI Düzeni
 
 - `WindowState="Maximized"` — uygulama tam ekran açılır
-- **2 satırlı kök Grid:** Satır 0 (Auto) = başlık kartı; Satır 1 (`*`) = `MainTabControl`
+- **3 satırlı kök Grid:** Satır 0 (Auto) = başlık kartı; Satır 1 (Auto) = `LisansBanner` (gizli, < 7 gün kaldığında görünür); Satır 2 (`*`) = iç Grid
+- **İç Grid (Grid.Row=2):** Satır 0 (`*`) = `MainTabControl`; Satır 1 (Auto) = `ConsolePanel` (F12 toggle)
+- **Toast:** `Grid.RowSpan="3"` — tüm satırları kapsar
 - **Başlık kartı** (`#161B22`, CornerRadius=12): sol — ikon + `NETWORK SNIFFER` + `StatusText`; orta — araç WrapPanel; sağ — versiyon yazısı
 - **TabControl** (`x:Name="MainTabControl"`, custom ControlTemplate — TabPanel ScrollViewer ile sarılmış)
+- **ConsolePanel** (`x:Name="ConsolePanel"`, MinHeight=180, Visibility=Collapsed): `ConsoleOutput` (TextBox, IsReadOnly) + `ConsoleInput` (TextBox). F12 ile toggle. **ControlTemplate dışında** — code-behind'dan doğrudan erişilir.
+- **LisansBanner** (`x:Name="LisansBanner"`, Grid.Row=1, Visibility=Collapsed): uyarı rengi (`#1F1400`/`#D29A22`), `LisansBannerMetin` + [Yenile] butonu + kapatma butonu
 
 ### Sekmeler
 
@@ -19,9 +23,10 @@
 | 5 | ⊕ DNS Lookup | `DnsPanel` | — | Hostname giriş, DnsResultPanel |
 | 6 | ⏻ Wake-on-LAN | `WolPanel` | — | MAC giriş, magic packet gönder |
 | 7 | ★ Favoriler | `FavorilerPanel` | — | Favori IP listesi + sil chip'leri |
-| 8 | ▶ Bant Genişliği | `BantPanel` | — | Adaptör kartları (canlı ↓↑ hız, 1s timer) |
+| 8 | ▶ Bant Genişliği | `BantPanel` | — | 5/15/60dk seçici, Canvas grafiği (Rx mavi / Tx yeşil), Peak/Avg/Toplam stat kartları, adaptör listesi, per-app trafik (admin gerekli) |
 | 9 | ◷ Geçmiş | `GecmisPanel` | — | JSON geçmiş kayıtları, aç/tekrar çalıştır/karşılaştır |
-| 10 | ⊙ Lisans | `LisansPanel` | — | Lisans durumu, kalan süre, yenile/sıfırla |
+| 10 | 📶 Wi-Fi | `WlanPanel` | `_wlanCts` | Tara/Durdur, otomatik yenile (10s), DataGrid (SSID/BSSID/Sinyal/Kanal/Kimlik/Şifreleme/Radyo/Durum), Evil-Twin göstergesi; Wi-Fi adaptörü yoksa `WlanTab.IsEnabled=false` |
+| 11 | ⊙ Lisans | `LisansPanel` | — | Lisans durumu, kalan süre (renk kodlu), son online doğrulama UTC, NTP zamanı, MachineId (8 char), sticky banner (< 7 gün), kopyala butonu |
 
 **TabItem stili:** Consolas 12pt, `#8B949E` fg, transparent. Seçilince alt kenarlık `#2F81F7` (2px), bg `#0D1F2F`, metin `#58A6FF`. Hover: bg `#161B22`, metin `#C9D1D9`. CornerRadius=6,6,0,0.
 

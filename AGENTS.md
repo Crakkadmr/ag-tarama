@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larının projeye hızlı giriş noktasıdır.
 > Detaylı referans bilgi `docs/` klasöründe konuya göre ayrılmıştır.
-> Son güncelleme: 2026-05-15
+> Son güncelleme: 2026-05-15 (v0.2.0 — #10 bant grafiği, #12 QuestPDF/ClosedXML, #13 F12 konsol, #14 lisans UI, #11 Wi-Fi tarama)
 
 ---
 
@@ -16,7 +16,7 @@
 | csproj ek | `tools\**\*` ve `Req\**\*` → `CopyToOutputDirectory=PreserveNewest` |
 | Output | `WinExe` |
 | Namespace | `AgTarama` |
-| Sürüm | v0.1.0 |
+| Sürüm | v0.2.0 |
 | Branch | `guvenlik-guncellestirmeleri-zirtpirt` (main: `main`) |
 | Git user | Crakkadmr |
 | Kök yol | `C:\Projects\AG TARAMA PROGRAMI\AgTarama` |
@@ -25,7 +25,7 @@
 
 ## 2. Proje Amacı
 
-WPF tabanlı **Network Sniffer** markalı chatbot arayüzlü ağ tarama ve paket yakalama uygulaması. tshark ile paket yakalar, Wireshark Portable ile analiz eder. Ek araçlar: ping, port tara (banner tespiti), traceroute, DNS, ARP, Wake-on-LAN, bant genişliği monitörü, Cihaz Tara (çok protokollü keşif: ONVIF, SSDP, mDNS, Ping Sweep, NetBIOS, Advanced IP Scanner zenginleştirme), favori IP, geçmiş, lisanslama (Supabase).
+WPF tabanlı **Network Sniffer** markalı chatbot arayüzlü ağ tarama ve paket yakalama uygulaması. tshark ile paket yakalar, Wireshark Portable ile analiz eder. Ek araçlar: ping, port tara (banner tespiti), traceroute, DNS, ARP, Wake-on-LAN, bant genişliği monitörü (geçmiş grafik + istatistik), Cihaz Tara (çok protokollü keşif: ONVIF, SSDP, mDNS, Ping Sweep, NetBIOS, Advanced IP Scanner zenginleştirme; QuestPDF/ClosedXML export), Wi-Fi Tarama (SSID/BSSID/sinyal/kanal, Evil-Twin tespiti), F12 komut konsolu (CommandRouter, 15 komut, `&&` zincirleme), favori IP, geçmiş, lisanslama (Supabase).
 
 ---
 

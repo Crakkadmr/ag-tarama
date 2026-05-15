@@ -151,6 +151,20 @@ public static class LicenseService
         catch (Exception ex) { LogService.Hata("LicenseService.ClearCache", ex); }
     }
 
+    public static DateTime? GetLastValidationTime()
+    {
+        try
+        {
+            if (!File.Exists(CacheFile)) return null;
+            var machineKey = SHA256.HashData(Encoding.UTF8.GetBytes(GetMachineId()));
+            var plain = DecryptAesHmac(File.ReadAllBytes(CacheFile), machineKey);
+            if (plain is null) return null;
+            var payload = JsonSerializer.Deserialize<CachePayload>(Encoding.UTF8.GetString(plain), JsonOpts);
+            return payload?.CachedAt;
+        }
+        catch { return null; }
+    }
+
     private static async Task<ValidationResult> ValidateViaSupabaseAsync(string licenseKey, bool allowOfflineCache)
     {
         try

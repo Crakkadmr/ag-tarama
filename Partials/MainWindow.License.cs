@@ -60,7 +60,7 @@ public partial class MainWindow
                     : info.ExpiresAt.Value.ToUniversalTime();
                 var trustedNow = TrustedTimeService.GetTrustedNowSync();
                 var kalan = bitisUtc - trustedNow;
-                var bitis = bitisUtc.ToLocalTime(); // sadece görüntüleme
+                var bitis = bitisUtc.ToLocalTime();
 
                 LisansBitisTarihi.Text = bitis.ToString("dd.MM.yyyy");
 
@@ -69,17 +69,25 @@ public partial class MainWindow
                     int gun  = (int)kalan.TotalDays;
                     int saat = kalan.Hours;
 
-                    LisansKalanGun.Text = gun > 0 ? $"{gun} gün" : $"{saat} saat";
+                    LisansKalanGun.Text      = gun > 0 ? $"{gun} gün" : $"{saat} saat";
                     LisansKalanAciklama.Text = bitis.ToString("dd MMMM yyyy HH:mm") + " tarihinde bitiyor";
 
-                    // Renk: 7 günden az → kırmızı, 30 günden az → sarı, normal → mavi
                     var kalanRenk = gun < 7
                         ? Color.FromRgb(0xF8, 0x51, 0x49)
                         : gun < 30
                             ? Color.FromRgb(0xD2, 0x9A, 0x22)
                             : Color.FromRgb(0x58, 0xA6, 0xFF);
-                    LisansKalanGun.Foreground = new SolidColorBrush(kalanRenk);
+                    LisansKalanGun.Foreground   = new SolidColorBrush(kalanRenk);
                     LisansKalanKart.BorderBrush = new SolidColorBrush(kalanRenk);
+
+                    // Sticky banner: 7 günden az kaldıysa göster
+                    if (gun < 7 && !_lisansBannerGizle)
+                    {
+                        LisansBannerMetin.Text = gun == 0
+                            ? $"Lisansınız bugün ({saat} saat içinde) sona eriyor!  [Yenile]"
+                            : $"Lisansınız {gun} gün içinde sona eriyor.  [Yenile]";
+                        LisansBanner.Visibility = Visibility.Visible;
+                    }
                 }
                 else
                 {
@@ -101,14 +109,27 @@ public partial class MainWindow
             LisansKalanKart.Visibility = Visibility.Collapsed;
         }
 
-        LisansMakineMetin.Text = LicenseService.GetMachineId()[..16] + "…";
+        // Makine kimliği (ilk 8 karakter)
+        var machineId = LicenseService.GetMachineId();
+        LisansMakineMetin.Text = machineId[..Math.Min(8, machineId.Length)] + "…";
+
+        // Son online doğrulama
+        var lastValidation = LicenseService.GetLastValidationTime();
+        LisansSonDogrulamaMetin.Text = lastValidation.HasValue
+            ? lastValidation.Value.ToUniversalTime().ToString("yyyy-MM-dd HH:mm") + " UTC"
+            : "—";
+
+        // NTP zamanı
+        var ntpTime = TrustedTimeService.LastNtpTime;
+        LisansNtpMetin.Text = ntpTime == DateTime.MinValue
+            ? "NTP henüz sorgulanmadı"
+            : ntpTime.ToUniversalTime().ToString("yyyy-MM-dd HH:mm") + " UTC";
     }
 
     private static string MaskeLisansAnahtari(string key)
     {
         if (key.Length <= 4) return key;
-        var son4 = key[^4..];
-        // Göster: XXXX-XXXX-XXXX-<son4>
+        var son4    = key[^4..];
         var parcalar = key.Split('-');
         if (parcalar.Length > 1)
         {
@@ -118,7 +139,7 @@ public partial class MainWindow
         return new string('*', key.Length - 4) + son4;
     }
 
-    private async void LisansYenile_Click(object sender, System.Windows.RoutedEventArgs e)
+    private async void LisansYenile_Click(object sender, RoutedEventArgs e)
     {
         var cached = LicenseService.CheckCache();
         if (cached?.Info is null)
@@ -137,7 +158,7 @@ public partial class MainWindow
             ToastGoster(sonuc.Message, hata: true);
     }
 
-    private void LisansSifirla_Click(object sender, System.Windows.RoutedEventArgs e)
+    private void LisansSifirla_Click(object sender, RoutedEventArgs e)
     {
         var onay = MessageBox.Show(
             "Lisans önbelleği silinecek.\nUygulamayı bir sonraki açışta lisans anahtarı girilmesi gerekecek.\n\nDevam etmek istiyor musunuz?",
@@ -148,5 +169,36 @@ public partial class MainWindow
         LicenseService.ClearCache();
         SetLisansUI(LicenseStatus.Invalid, "Lisans önbelleği silindi.", null);
         ToastGoster("Lisans önbelleği temizlendi.", hata: false);
+    }
+
+    private void LisansBannerKapat_Click(object sender, RoutedEventArgs e)
+    {
+        _lisansBannerGizle = true;
+        LisansBanner.Visibility = Visibility.Collapsed;
+    }
+
+    private void LisansKopyala_Click(object sender, RoutedEventArgs e)
+    {
+        var cached = LicenseService.CheckCache();
+        var machineId = LicenseService.GetMachineId();
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("=== Network Sniffer Lisans Bilgileri ===");
+        sb.AppendLine($"Tarih      : {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine($"Durum      : {(cached?.Status.ToString() ?? "Bilinmiyor")}");
+        sb.AppendLine($"Lisans Türü: {(cached?.Info?.Type ?? "—")}");
+        sb.AppendLine($"Bitiş      : {(cached?.Info?.ExpiresAt?.ToString("yyyy-MM-dd") ?? "—")}");
+        sb.AppendLine($"Makine ID  : {machineId[..Math.Min(16, machineId.Length)]}…");
+        sb.AppendLine($"Son Doğrulama: {(LicenseService.GetLastValidationTime()?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")} UTC");
+        sb.AppendLine($"NTP Zamanı : {(TrustedTimeService.LastNtpTime == DateTime.MinValue ? "—" : TrustedTimeService.LastNtpTime.ToUniversalTime().ToString("yyyy-MM-dd HH:mm") + " UTC")}");
+
+        try
+        {
+            System.Windows.Clipboard.SetText(sb.ToString());
+            ToastGoster("Lisans bilgileri panoya kopyalandı.");
+        }
+        catch
+        {
+            ToastGoster("Pano erişimi başarısız.", hata: true);
+        }
     }
 }

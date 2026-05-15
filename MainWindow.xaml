@@ -524,6 +524,7 @@
         </Grid.Background>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -564,9 +565,42 @@
             </Grid>
         </Border>
 
+        <!-- Lisans sona erme uyarı banner -->
+        <Border x:Name="LisansBanner" Grid.Row="1" Visibility="Collapsed"
+                Background="#1F1400" BorderBrush="#D29A22" BorderThickness="0,0,0,1"
+                Padding="16,6" Margin="16,4,16,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="⚠  " Foreground="#D29A22" FontFamily="Consolas"
+                               FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="LisansBannerMetin"
+                               Text="Lisansınız yakında sona eriyor."
+                               Foreground="#D29A22" FontFamily="Consolas" FontSize="12"
+                               VerticalAlignment="Center"/>
+                    <Button Content="  Lisansı Yenile →" Style="{StaticResource ChipButton}"
+                            Foreground="#58A6FF" Margin="10,0,0,0" Padding="8,2"
+                            Click="LisansYenile_Click"/>
+                </StackPanel>
+                <Button x:Name="LisansBannerKapatBtn" Grid.Column="1"
+                        Content="✕" Style="{StaticResource ChipButton}"
+                        Padding="6,2" Click="LisansBannerKapat_Click"/>
+            </Grid>
+        </Border>
+
+        <!-- Ana içerik: TabControl + Konsol -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
         <!-- Ana TabControl -->
-        <TabControl Grid.Row="1" x:Name="MainTabControl"
-                    Margin="16,8,16,16"
+        <TabControl Grid.Row="0" x:Name="MainTabControl"
+                    Margin="16,8,16,0"
                     Background="Transparent"
                     BorderThickness="0"
                     SelectionChanged="MainTabControl_SelectionChanged">
@@ -1180,18 +1214,112 @@
                     <TextBlock FontFamily="Consolas" FontSize="12" Text="▶  Bant Genişliği"/>
                 </TabItem.Header>
                 <Border x:Name="BantPanel" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="10">
-                    <Grid Margin="20,16,20,16">
+                    <Grid Margin="20,14,20,14">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+
+                        <!-- Başlık -->
+                        <StackPanel Grid.Row="0" Margin="0,0,0,10">
                             <TextBlock Text="▶ BANT GENİŞLİĞİ" Foreground="#58A6FF" FontFamily="Consolas"
-                                       FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                                       FontSize="12" FontWeight="Bold" Margin="0,0,0,4"/>
                             <TextBlock x:Name="BantDurumText" Text="Ağ adaptörleri izleniyor..."
                                        Foreground="#8B949E" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
                         </StackPanel>
-                        <Border Grid.Row="1" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6">
+
+                        <!-- Zaman dilimi butonları + Stat kartları -->
+                        <Grid Grid.Row="1" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="BantBtn5dk"  Content="5 dk"  Tag="300"  Margin="0,0,4,0"
+                                        Style="{StaticResource ActiveActionButton}"
+                                        Click="BantAralikBtn_Click"/>
+                                <Button x:Name="BantBtn15dk" Content="15 dk" Tag="900"  Margin="0,0,4,0"
+                                        Style="{StaticResource ChipButton}"
+                                        Click="BantAralikBtn_Click"/>
+                                <Button x:Name="BantBtn60dk" Content="60 dk" Tag="3600" Margin="0,0,0,0"
+                                        Style="{StaticResource ChipButton}"
+                                        Click="BantAralikBtn_Click"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
+                                        Padding="10,6" Margin="4,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="PEAK ↓" Foreground="#484F58" FontFamily="Consolas" FontSize="9"/>
+                                        <TextBlock x:Name="BantStatPeakRx" Text="—"
+                                                   Foreground="#58A6FF" FontFamily="Consolas" FontSize="11" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
+                                        Padding="10,6" Margin="4,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="PEAK ↑" Foreground="#484F58" FontFamily="Consolas" FontSize="9"/>
+                                        <TextBlock x:Name="BantStatPeakTx" Text="—"
+                                                   Foreground="#3FB950" FontFamily="Consolas" FontSize="11" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
+                                        Padding="10,6" Margin="4,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="AVG ↓" Foreground="#484F58" FontFamily="Consolas" FontSize="9"/>
+                                        <TextBlock x:Name="BantStatAvgRx" Text="—"
+                                                   Foreground="#58A6FF" FontFamily="Consolas" FontSize="11" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
+                                        Padding="10,6" Margin="4,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="AVG ↑" Foreground="#484F58" FontFamily="Consolas" FontSize="9"/>
+                                        <TextBlock x:Name="BantStatAvgTx" Text="—"
+                                                   Foreground="#3FB950" FontFamily="Consolas" FontSize="11" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6"
+                                        Padding="10,6" Margin="4,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="TOPLAM" Foreground="#484F58" FontFamily="Consolas" FontSize="9"/>
+                                        <TextBlock x:Name="BantStatToplam" Text="—"
+                                                   Foreground="#C9D1D9" FontFamily="Consolas" FontSize="11" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Grafik canvas -->
+                        <Border Grid.Row="2" Background="#070B10" BorderBrush="#21262D" BorderThickness="1"
+                                CornerRadius="6" Height="130" Margin="0,0,0,10" ClipToBounds="True">
+                            <Canvas x:Name="BantGrafikCanvas" ClipToBounds="True"
+                                    SizeChanged="BantGrafikCanvas_SizeChanged"/>
+                        </Border>
+
+                        <!-- Per-App trafik (opsiyonel) -->
+                        <Border Grid.Row="3" Background="#161B22" BorderBrush="#21262D" BorderThickness="1"
+                                CornerRadius="6" Padding="12,8" Margin="0,0,0,10">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Per-Uygulama Trafik" Foreground="#484F58"
+                                               FontFamily="Consolas" FontSize="10" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Content="netstat -bo Analiz Et"
+                                            Style="{StaticResource ChipButton}" Click="BantPerAppBtn_Click"/>
+                                </Grid>
+                                <StackPanel x:Name="BantPerAppPanel" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Adaptör listesi -->
+                        <Border Grid.Row="4" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6">
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <StackPanel x:Name="BantAdaptorPanel" Margin="8,6,8,6"/>
                             </ScrollViewer>
@@ -1346,7 +1474,7 @@
                                                    Foreground="#C9D1D9" FontFamily="Consolas" FontSize="11"
                                                    TextWrapping="Wrap"/>
                                     </Grid>
-                                    <Grid>
+                                    <Grid Margin="0,0,0,10">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="160"/>
                                             <ColumnDefinition Width="*"/>
@@ -1355,6 +1483,28 @@
                                                    FontFamily="Consolas" FontSize="11"/>
                                         <TextBlock x:Name="LisansMakineMetin" Grid.Column="1" Text="—"
                                                    Foreground="#484F58" FontFamily="Consolas" FontSize="10"
+                                                   TextWrapping="Wrap"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="160"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Son Doğrulama" Foreground="#8B949E"
+                                                   FontFamily="Consolas" FontSize="11"/>
+                                        <TextBlock x:Name="LisansSonDogrulamaMetin" Grid.Column="1" Text="—"
+                                                   Foreground="#C9D1D9" FontFamily="Consolas" FontSize="11"
+                                                   TextWrapping="Wrap"/>
+                                    </Grid>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="160"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="NTP Zamanı" Foreground="#8B949E"
+                                                   FontFamily="Consolas" FontSize="11"/>
+                                        <TextBlock x:Name="LisansNtpMetin" Grid.Column="1" Text="—"
+                                                   Foreground="#C9D1D9" FontFamily="Consolas" FontSize="11"
                                                    TextWrapping="Wrap"/>
                                     </Grid>
                                 </StackPanel>
@@ -1366,6 +1516,8 @@
                                         Click="LisansYenile_Click"/>
                                 <Button Content="✕  Lisansı Sıfırla" Style="{StaticResource ChipButton}"
                                         Foreground="#F85149" Click="LisansSifirla_Click"/>
+                                <Button Content="📋  Lisans Bilgilerini Kopyala" Style="{StaticResource ChipButton}"
+                                        Click="LisansKopyala_Click"/>
                             </WrapPanel>
                         </Grid>
                     </ScrollViewer>
@@ -1374,9 +1526,68 @@
 
         </TabControl>
 
+        <!-- ═══ F12 Komut Konsolu ═══ -->
+        <Grid x:Name="ConsolePanel" Grid.Row="1" Visibility="Collapsed"
+              Background="#070B10" MinHeight="180" Margin="16,0,16,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" Background="#111827" BorderBrush="#243147"
+                    BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,5">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <TextBlock Text="KOMUT KONSOLU" Foreground="#58A6FF"
+                                   FontFamily="Consolas" FontSize="11" FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="   F12: aç/kapat  •  Tab: tamamla  •  ↑↓: geçmiş  •  Esc: iptal"
+                                   Foreground="#484F58" FontFamily="Consolas" FontSize="10"
+                                   VerticalAlignment="Center" Margin="8,0,0,0"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="✕" Style="{StaticResource ChipButton}"
+                            Padding="6,2" Click="ConsoleKapat_Click"/>
+                </Grid>
+            </Border>
+            <ScrollViewer x:Name="ConsoleScrollViewer" Grid.Row="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Auto"
+                          Background="#070B10">
+                <TextBox x:Name="ConsoleOutput"
+                         FontFamily="Consolas" FontSize="12"
+                         Foreground="#C9D1D9" Background="Transparent"
+                         BorderThickness="0" IsReadOnly="True"
+                         TextWrapping="Wrap" Padding="12,6"
+                         AcceptsReturn="True" IsTabStop="False"/>
+            </ScrollViewer>
+            <Border Grid.Row="2" Background="#111827" BorderBrush="#243147"
+                    BorderThickness="1,0,1,1" CornerRadius="0,0,6,6" Padding="8,5">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="▶ " Foreground="#58A6FF" FontFamily="Consolas"
+                               FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <TextBox x:Name="ConsoleInput" Grid.Column="1"
+                             FontFamily="Consolas" FontSize="12"
+                             Background="Transparent" BorderThickness="0"
+                             Foreground="#E6EDF3" CaretBrush="#58A6FF"
+                             VerticalAlignment="Center"
+                             KeyDown="ConsoleInput_KeyDown"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        </Grid>
+
         <!-- Toast bildirimi (sağ alt köşe) -->
         <Border x:Name="ToastBildirim"
-                Grid.RowSpan="2"
+                Grid.RowSpan="3"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Bottom"
                 Margin="0,0,24,24"

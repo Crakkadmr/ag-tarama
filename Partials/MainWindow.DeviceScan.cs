@@ -19,6 +19,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using ClosedXML.Excel;
 using AgTarama.Services;
 
 namespace AgTarama;
@@ -555,7 +556,7 @@ public partial class MainWindow
 
         var (filter, ext) = format switch
         {
-            KameraExportFormat.Excel => ("Excel Raporu (*.xls)|*.xls", "xls"),
+            KameraExportFormat.Excel => ("Excel Dosyası (*.xlsx)|*.xlsx", "xlsx"),
             KameraExportFormat.Pdf   => ("PDF Raporu (*.pdf)|*.pdf", "pdf"),
             KameraExportFormat.Txt   => ("Metin Raporu (*.txt)|*.txt", "txt"),
             KameraExportFormat.Csv   => ("CSV Dosyası (*.csv)|*.csv", "csv"),
@@ -578,10 +579,10 @@ public partial class MainWindow
             switch (format)
             {
                 case KameraExportFormat.Excel:
-                    File.WriteAllText(dlg.FileName, KameraExcelHtmlOlustur(satirlar), new UTF8Encoding(true));
+                    File.WriteAllBytes(dlg.FileName, KameraExcelXlsxOlustur(satirlar));
                     break;
                 case KameraExportFormat.Pdf:
-                    File.WriteAllBytes(dlg.FileName, KameraPdfOlustur(satirlar));
+                    File.WriteAllBytes(dlg.FileName, KameraPdfQuestOlustur(satirlar));
                     break;
                 case KameraExportFormat.Txt:
                     File.WriteAllText(dlg.FileName, KameraTxtOlustur(satirlar), new UTF8Encoding(true));
@@ -696,35 +697,48 @@ public partial class MainWindow
         return sb.ToString();
     }
 
-    private static string KameraExcelHtmlOlustur(List<KameraSatir> satirlar)
+    private static byte[] KameraExcelXlsxOlustur(List<KameraSatir> satirlar)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>");
-        sb.AppendLine("body{font-family:Segoe UI,Arial,sans-serif;background:#0D1117;color:#C9D1D9;margin:24px}");
-        sb.AppendLine("h1{color:#58A6FF;margin:0 0 6px;font-size:24px}.meta{color:#8B949E;margin:0 0 18px}");
-        sb.AppendLine("table{border-collapse:collapse;width:100%;background:#0D1117}th{background:#0D3B66;color:#E6EDF3;text-align:left;padding:9px;border:1px solid #243147}");
-        sb.AppendLine("td{padding:8px;border:1px solid #243147;vertical-align:top}tr:nth-child(even){background:#101722}.type{font-weight:600;color:#3FB950}");
-        sb.AppendLine("</style></head><body>");
-        sb.AppendLine("<h1>Network Sniffer - Cihaz Tara Raporu</h1>");
-        sb.AppendLine($"<div class=\"meta\">Tarih: {DateTime.Now:yyyy-MM-dd HH:mm:ss} &nbsp;|&nbsp; Cihaz: {satirlar.Count}</div>");
-        sb.AppendLine("<table><thead><tr>");
-        foreach (var baslik in KameraExportBasliklari)
-            sb.Append("<th>").Append(WebUtility.HtmlEncode(baslik)).AppendLine("</th>");
-        sb.AppendLine("</tr></thead><tbody>");
-        foreach (var row in KameraExportSatirlari(satirlar))
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Cihaz Tara");
+
+        for (int i = 0; i < KameraExportBasliklari.Length; i++)
+            ws.Cell(1, i + 1).Value = KameraExportBasliklari[i];
+
+        var headerRange = ws.Range(1, 1, 1, KameraExportBasliklari.Length);
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#0D3B66");
+        headerRange.Style.Font.Bold            = true;
+        headerRange.Style.Font.FontColor       = XLColor.White;
+        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+        int row = 2;
+        foreach (var s in satirlar)
         {
-            sb.AppendLine("<tr>");
-            for (int i = 0; i < row.Length; i++)
-            {
-                var cls = i == 2 ? " class=\"type\"" : "";
-                sb.Append("<td").Append(cls).Append(">").Append(WebUtility.HtmlEncode(row[i])).AppendLine("</td>");
-            }
-            sb.AppendLine("</tr>");
+            var vals = new[] { s.Ip, s.Ad, s.Tur, s.Marka, s.Model, s.Ping, s.Portlar, s.Kesif, s.Mac, s.Uretici, s.Servis };
+            for (int i = 0; i < vals.Length; i++)
+                ws.Cell(row, i + 1).Value = vals[i];
+            if (row % 2 == 0)
+                ws.Range(row, 1, row, KameraExportBasliklari.Length)
+                  .Style.Fill.BackgroundColor = XLColor.FromHtml("#101722");
+            row++;
         }
-        sb.AppendLine("</tbody></table></body></html>");
-        return sb.ToString();
+
+        ws.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return ms.ToArray();
     }
 
+    private static byte[] KameraPdfQuestOlustur(List<KameraSatir> satirlar)
+    {
+        var rows = satirlar.Select(s => new DeviceScanRow(
+            s.Ip, s.Ad, s.Tur, s.Marka, s.Model,
+            s.Ping, s.Portlar, s.Kesif, s.Mac, s.Uretici, s.Servis)).ToList();
+        return PdfReportService.GenerateDeviceScanReport(rows, new ReportMetadata());
+    }
+
+    // Geriye dönük uyumluluk için tutuldu — artık kullanılmıyor
     private static byte[] KameraPdfOlustur(List<KameraSatir> satirlar)
     {
         var sayfalar = new List<string>();

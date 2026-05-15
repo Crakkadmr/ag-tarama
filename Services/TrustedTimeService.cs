@@ -30,6 +30,7 @@ public static class TrustedTimeService
     public static bool NtpStale =>
         _lastNtpSuccess != DateTime.MinValue &&
         (DateTime.UtcNow - _lastNtpSuccess).TotalDays > 7;
+    public static DateTime LastNtpTime => _lastNtpSuccess;
 
     private enum AdvanceSource { Ntp, Local, HttpDate, TrustedServer }
     private const double MaxHttpAdvanceSec = 86400; // 24h limit for HTTP Date jumps

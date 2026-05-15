@@ -29,6 +29,8 @@
 
   <ItemGroup>
     <PackageReference Include="System.Management" Version="9.0.5" />
+    <PackageReference Include="QuestPDF" Version="2024.12.*" />
+    <PackageReference Include="ClosedXML" Version="0.102.*" />
   </ItemGroup>
 
   <!-- Obfuscar: yalnızca Release build'de çalıştır -->

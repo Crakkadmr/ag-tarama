@@ -56,34 +56,45 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 
 ---
 
-## Partials/MainWindow.DeviceScan.cs (1636 satır)
+## Partials/MainWindow.DeviceScan.cs (2245 satır — v0.2.0 ile büyük genişleme)
 
 | Satır | İçerik |
 |---|---|
 | L1–L27 | using/namespace |
-| L28–L73 | `KameraBilgi` sealed class (tüm alanlar), `CihazKimlik` sealed class |
-| L75–L313 | `MarkaTablosu` static array (40+ HTTP banner/title anahtar → marka/tür) |
-| L314–L409 | `KimlikBelirle(KameraBilgi) static`, `KayitCihaziIpuclariVar`, `YaziciIpuclariVar`, `CihazAdiBilgisayarGibi` |
-| L410–L526 | DataGrid event handler'ları: filtre text changed, tür filtresi, filtre temizle, çift tık, sağ tık |
-| L527–L617 | `KameraWebArayuzunuAc`, `KameraDisariAktar`, `DisariAktarilanDosyayiAc`, `SeciliKameraSatiri`, `UstOgeBul` |
-| L619–L826 | Export format metotları: `IpSiralamaAnahtari`, `KameraExportSatirlari`, `KameraCsvOlustur`, `KameraJsonOlustur`, `KameraTxtOlustur`, `KameraExcelXlsxOlustur` (ClosedXML → `.xlsx`), `KameraPdfQuestOlustur` (QuestPDF → `PdfReportService`), `MetniKirp` |
-| L827–L830 | `KameraBaslatBtn_Click`, `KameraDurdurBtn_Click` |
-| L830–L900 | `NetbiosBilgileriniGuncelleAsync`, `NetbiosSweepAsync` |
-| L886–L994 | `MdnsServisler` static array, `MdnsSweepAsync`, `OlusturMdnsSorgusu`, `MdnsPaketCoz` |
-| L995–L1247 | **`KameraTaramaBaslat()`** — 4 paralel görev: port tarama (SemaphoreSlim 80), ONVIF WS-Discovery, SSDP+mDNS, Ping Sweep; + NetBIOS/AIS/ARP zenginleştirme |
-| L1248–L1490 | Async yardımcılar: `HttpBannerOku`, `ServisDetaylariniGuncelleAsync`, `PortBannerOku`, `RtspHizliKontrol`, `HttpBasliklariniParse`, `SsdpDetayOku`, `XmlEtiketiOku`, `AdvancedScannerKayitlariniIsleAsync`, `ArpBilgileriniTopluGuncelleAsync`, `ArpTablosuOkuAsync`, `UreticiAra`, `IpScannerMacDbYukle`, `MacFormatla` |
-| L1491–L1576 | `KameraKartEkleVeyaGuncelle`, `KameraFiltreleriUygula`, `KameraSatirFiltredenGecer`, `KameraKutucugaYaz`, `CihazAdiSec`, `IlkDolu`, `KisaHostAdi`, `AnlamliSayfaBasligi`, `TemizKimlikMetni` |
-| L1578–L1636 | `KameraSatir` sealed class (INotifyPropertyChanged) — DataGrid görünüm modeli |
+| L28–L86 | `KameraBilgi` sealed class — 30+ alan (Ubiquiti, MikroTik, SNMP, HTTP-FP, WSD, `KesifKaynaklari HashSet<string>`), `CihazKimlik` sealed class |
+| L88–L220 | `KameraPorts` array, `MarkaTablosu` static array (~100 anahtar kelime → marka/tür) |
+| L222–L420 | `KimlikBelirle(KameraBilgi) static` — vendor-specific yüksek güven kaynakları → mDNS → yazıcı/NVR/PC heuristikleri → MarkaTablosu → port-based fallback → TTL fallback |
+| L422–L520 | `GuvenSkoru(b, k) static`, `CihazAdiBilgisayarGibi`, `KayitCihaziIpuclariVar`, `YaziciIpuclariVar`, `CihazAdiSec`, `IlkDolu`, `KisaHostAdi`, `AnlamliSayfaBasligi`, `TemizKimlikMetni` |
+| L517–L640 | `TaramaSubneti` sealed class, `YerelSubnetleriBul`, `NicSubneti` record, `YerelNicSubnetleriniBul`, `YerelSubnetiBul`, `SanalAdaptorMu`, `SubnetGirdisiniCoz` |
+| L641–L759 | `_subnetBoxChipSenkronu` bool, `BtnKamera_Click`, `KameraNicYenileBtn_Click`, `KameraNicChipleriniYenile(bool)`, `KameraChipOlustur(NicSubneti)`, `KameraChipDegisti`, `KameraChipleriSenkronizeEt` |
+| L760–L984 | DataGrid event handler'ları: panel kapat, subnet textbox sync, kolon filtre, tür filtresi, filtre temizle, çift tık, sağ tık; `KameraMenuYenidenTara_Click`, `TekIpTaraAsync(ip)` |
+| L985–L1210 | Sağ tık menü aksiyon handler'ları (web, ping, port, trace, dns, kopyala, favori, export); `KameraWebArayuzunuAc`, `KameraDisariAktar`, `KameraGorunenSatirlariAl` |
+| L1084–L1210 | Export: `IpSiralamaAnahtari`, `KameraExportSatirlari`, `KameraCsvOlustur`, `KameraJsonOlustur`, `KameraTxtOlustur`, `KameraExcelXlsxOlustur`, `KameraPdfQuestOlustur`, `MetniKirp` |
+| L1212–L1213 | `KameraBaslatBtn_Click`, `KameraDurdurBtn_Click` |
+| L1215–L1271 | `NetbiosBilgileriniGuncelleAsync`, `NetbiosSweepAsync` |
+| L1272–L1392 | `MdnsServisler` static array (25 servis), `MdnsSweepAsync`, `OlusturMdnsSorgusu`, `MdnsPaketCoz` |
+| L1394–L1736 | **`KameraTaramaBaslat()`** — 4+3 paralel görev; `derinTara` flag kontrolü; `KesifKaynaklari` güncelleme |
+| L1737–L1813 | `UbiquitiSweepAsync`, `MndpSweepAsync`, `SnmpSweepAsync` — ek keşif protokolleri |
+| L1814–L1950 | `HttpBannerOku` (HTTP 200 kontrolü), `ServisDetaylariniGundelleAsync`, `PortBannerOku`, `BannerTemizle`, `RtspHizliKontrol` |
+| L1913–L1990 | `HttpBasliklariniParse`, `SsdpDetayOku`, `XmlEtiketiOku`, `AdvancedScannerKayitlariniIsleAsync` |
+| L1971–L2065 | `ArpBilgileriniTopluGuncelleAsync` (OUI fallback), `ArpTablosuOkuAsync`, `UreticiAra`, `IpScannerMacDbYukle`, `MacFormatla` |
+| L2066–L2185 | `KameraKartEkleVeyaGuncelle`, `KesifSira()`, `KameraWebUrlSec` (snapshot lock), `KameraFiltreleriUygula`, `KameraSatirFiltredenGecer`, `Icerir`, `KameraKutucugaYaz` |
+| L2186–L2245 | `KameraSatir` sealed class (INotifyPropertyChanged) — `Guven` (int) dahil tüm alanlar |
 
-**`KameraTaramaBaslat` paralel görevler (L995):**
-1. Port tarama — 1–254 IP, SemaphoreSlim(80), 800ms, `KameraPorts` = {554,8000,8080,37777,80,8443,22,23,139,443,445,3389,9000,34567}
-2. ONVIF WS-Discovery — `239.255.255.250:3702` Probe XML → 4sn ProbeMatch
-3. SSDP/UPnP + mDNS/Bonjour — `239.255.255.250:1900` M-SEARCH + `224.0.0.251:5353`
+**`KameraTaramaBaslat` paralel görevler (L1394):**
+1. Port tarama — 1–254 IP, SemaphoreSlim(80), 800ms, `KameraPorts` = {554,8000,8080,37777,80,8443,22,23,139,443,445,3389,9000,34567}; `HttpFingerprintService.ProbeAsync` derin modda
+2. ONVIF WS-Discovery (`239.255.255.250:3702`) + WSD `wsdp:Device` ikinci probe → yazıcı/PC
+3. SSDP/UPnP (`239.255.255.250:1900`) + mDNS (`224.0.0.251:5353`)
 4. Ping Sweep — SemaphoreSlim(64), 1000ms
+5. *(Derin mod)* `UbiquitiSweepAsync` — UDP 10001
+6. *(Derin mod)* `MndpSweepAsync` — UDP 5678
+7. *(Derin mod)* `SnmpSweepAsync` — UDP 161
 
-**Cihaz Tara DataGrid sütunları:** IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif, MAC, Üretici, Servis
-**Not:** Risk sütunu ve risk puanlama kaldırıldı. Sütun başlıklarında açıklama tooltip'i için `ⓘ` kullanılır.
-**Dışa aktarma formatları:** Excel (`.xlsx` ClosedXML), PDF (QuestPDF A4 Yatay), TXT, CSV (UTF-8 `;`), JSON — sağ tık menüsünden
+**`KameraBilgi` yeni alanlar (v0.2.0):** `UbntPlatform`, `UbntFirmware`, `UbntHostname`, `MikroTikBoard`, `MikroTikVersion`, `MikroTikIdentity`, `SnmpSysDescr`, `SnmpSysName`, `HttpFpMarka`, `HttpFpTur`, `HttpFpModel`, `WsdTipi`, `KesifKaynaklari HashSet<string>`.
+
+**Cihaz Tara DataGrid sütunları:** IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif (130px), MAC, Üretici, Servis, **Güven** (60px — `Guven` confidence score 0-100).
+**Not:** Risk sütunu kaldırıldı. Sütun başlıklarında `ⓘ` tooltip kullanılır.
+**Dışa aktarma formatları:** Excel (`.xlsx` ClosedXML), PDF (QuestPDF A4 Yatay), TXT, CSV (UTF-8 `;`), JSON — sağ tık menüsünden.
 
 ---
 

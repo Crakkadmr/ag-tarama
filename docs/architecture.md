@@ -5,7 +5,7 @@
 ```
 AG TARAMA PROGRAMI/
 └── AgTarama/
-    ├── AgTarama.csproj               ← .NET 10 WPF; NuGet: QuestPDF 2024.12.*, ClosedXML 0.102.*
+    ├── AgTarama.csproj               ← .NET 10 WPF v0.2.0; NuGet: QuestPDF 2024.12.*, ClosedXML 0.102.*
     ├── App.xaml / App.xaml.cs        ← Application giriş noktası (boş)
     ├── AssemblyInfo.cs               ← ThemeInfo
     ├── MainWindow.xaml               ← Network Sniffer UI tasarımı + stiller (~1254 satır)
@@ -20,7 +20,7 @@ AG TARAMA PROGRAMI/
     │   ├── MainWindow.UI.cs          ← BtnAyarlar, RaporKaydet, Toast, Bildirim (141 satır)
     │   ├── MainWindow.License.cs     ← LisansPanelGuncelle, sticky banner, MachineId, NTP, Kopyala (204 satır)
     │   ├── MainWindow.Wlan.cs        ← WlanPanelBaşlat, WlanTaramaBaslat, WlanSatir, Evil-Twin tespiti (~180 satır)
-    │   └── MainWindow.DeviceScan.cs  ← KameraTaramaBaslat, tüm keşif protokolleri, export (1636 satır)
+    │   └── MainWindow.DeviceScan.cs  ← KameraTaramaBaslat, 7 paralel keşif protokolü, subnet chip picker, export (2245 satır)
     ├── Paths.cs                      ← Tüm exe-relative yol sabitleri (static)
     ├── LogService.cs                 ← %APPDATA%\AgTarama\logs\YYYYMMDD.log
     ├── obfuscar.xml                  ← Obfuscar yapılandırması (Release post-build)
@@ -69,7 +69,7 @@ Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI contain
 | `mac_interval_tree.txt` | `tools\Ip_Scanner\` | MAC prefix → üretici veritabanı | Cihaz Tara içinde otomatik |
 | `sadptool.exe` | `tools\sadp\` | Hikvision SADP | Manuel |
 
-> **NuGet:** `QuestPDF 2024.12.*` (PDF raporu) + `ClosedXML 0.102.*` (XLSX). `Lextm.SharpSnmpLib` kaldırıldı — SNMPv1 artık CommandRouter içinde manuel DER ile yapılıyor.
+> **NuGet:** `QuestPDF 2024.12.*` (PDF raporu) + `ClosedXML 0.102.*` (XLSX). `Lextm.SharpSnmpLib` kaldırıldı — SNMPv1 artık `SnmpFingerprintService` + `CommandRouter` içinde manuel ASN.1 DER ile yapılıyor (NuGet bağımlılığı yok).
 
 ---
 

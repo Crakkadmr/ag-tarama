@@ -2,6 +2,8 @@
 
 ## UI Düzeni
 
+**Versiyon:** v0.2.0
+
 - `WindowState="Maximized"` — uygulama tam ekran açılır
 - **3 satırlı kök Grid:** Satır 0 (Auto) = başlık kartı; Satır 1 (Auto) = `LisansBanner` (gizli, < 7 gün kaldığında görünür); Satır 2 (`*`) = iç Grid
 - **İç Grid (Grid.Row=2):** Satır 0 (`*`) = `MainTabControl`; Satır 1 (Auto) = `ConsolePanel` (F12 toggle)
@@ -16,7 +18,7 @@
 | # | Başlık | Panel x:Name | CTS | İçerik |
 |---|---|---|---|---|
 | 0 | 💬 Chatbot | `ChatPanel` + `FavoriChipleri` | — | ChatScrollViewer; header butonları Chatbot'u kontrol eder |
-| 1 | ◎ Cihaz Tara | `KameraPanel` | `_kameraCts` | Subnet giriş, Tara/Durdur, filtreler, DataGrid (Risk sütunu yok) |
+| 1 | ◎ Cihaz Tara | `KameraPanel` | `_kameraCts` | NIC chip picker + "Derin tara" checkbox + ⟳ yenile; Subnet TextBox, Tara/Durdur, filtreler, DataGrid (Güven sütunu eklendi, Risk kaldırıldı) |
 | 2 | ◈ Ping Testi | `PingPanel` | `_pingCts` | IP giriş, chip'ler, PingResultPanel |
 | 3 | ⊞ Port Tara | `PortPanel` | `_portScanCts` | IP + port aralığı, chip'ler, PortResultPanel |
 | 4 | ⇢ Traceroute | `TracePanel` | `_traceCts` | IP giriş, TraceResultPanel |
@@ -27,6 +29,29 @@
 | 9 | ◷ Geçmiş | `GecmisPanel` | — | JSON geçmiş kayıtları, aç/tekrar çalıştır/karşılaştır |
 | 10 | 📶 Wi-Fi | `WlanPanel` | `_wlanCts` | Tara/Durdur, otomatik yenile (10s), DataGrid (SSID/BSSID/Sinyal/Kanal/Kimlik/Şifreleme/Radyo/Durum), Evil-Twin göstergesi; Wi-Fi adaptörü yoksa `WlanTab.IsEnabled=false` |
 | 11 | ⊙ Lisans | `LisansPanel` | — | Lisans durumu, kalan süre (renk kodlu), son online doğrulama UTC, NTP zamanı, MachineId (8 char), sticky banner (< 7 gün), kopyala butonu |
+
+**Cihaz Tara sekme detayı (v0.2.0):**
+
+Satır 1 — NIC chip picker:
+```
+[ ScrollViewer > WrapPanel x:Name="KameraSubnetChips" ]  [☐ Derin tara]  [⟳]
+```
+- Her aktif NIC için `ToggleButton` chip: `192.168.1.0/24 (Ethernet)` formatı; seçim subnet TextBox'a senkronize edilir.
+- `KameraDerinTaraCheck` (CheckBox) — Ubiquiti, MikroTik, SNMP, HTTP endpoint probe'larını etkinleştirir.
+- `KameraNicYenileBtn` (⟳) — `KameraNicChipleriniYenile(seciliVarsayilan: false)` çağırır.
+
+Satır 2 — Manuel subnet + butonlar:
+```
+[ KameraSubnetBox ]  [ Tara ]  [⏹]
+```
+- Chip seçimi TextBox'a yansır; TextBox manuel düzenlense chip'ler deselect olur.
+
+Filtre seçenekleri (`KameraTurFiltreBox`):
+`(Tümü)`, Kamera, NVR/DVR, Bilgisayar, Yazıcı, Router/AP, Switch/AP, NAS, Sunucu, Akıllı Cihaz, Akıllı TV, Telefon, Tablet, Hoparlör, Linux IoT, Router, Switch, Erişim Noktası, **Bilinmiyor** (Tur=="Cihaz" olanlar).
+
+DataGrid sütunları: IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif (130px), MAC, Üretici, Servis, **Güven** (60px, SortMemberPath=Guven).
+
+Sağ tık menüsü: Web Arayüzü Aç, Ping Testi, Port Tara, Traceroute, DNS Lookup, IP Kopyala, Favorilere Ekle, **Bu cihazı yeniden tara**, Export (Excel/PDF/TXT/CSV/JSON).
 
 **TabItem stili:** Consolas 12pt, `#8B949E` fg, transparent. Seçilince alt kenarlık `#2F81F7` (2px), bg `#0D1F2F`, metin `#58A6FF`. Hover: bg `#161B22`, metin `#C9D1D9`. CornerRadius=6,6,0,0.
 

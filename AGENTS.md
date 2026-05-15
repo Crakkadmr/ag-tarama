@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larinin projeye hizli giris noktasidir.
 > Detayli referans bilgi `docs/` klasorunde konuya gore ayrilmistir.
-> Son guncelleme: 2026-05-15 (v0.2.1 — Risk sutunu kaldirildi)
+> Son guncelleme: 2026-05-15 (v0.2.0 — Cihaz Tara genisleme: 5 yeni protokol, subnet chip picker, confidence scoring)
 
 ---
 
@@ -16,7 +16,7 @@
 | csproj ek | `tools\**\*` ve `Req\**\*` -> `CopyToOutputDirectory=PreserveNewest` |
 | Output | `WinExe` |
 | Namespace | `AgTarama` |
-| Surum | v0.2.1 |
+| Surum | v0.2.0 |
 | Branch | `guvenlik-guncellestirmeleri-zirtpirt` (main: `main`) |
 | Git user | Crakkadmr |
 | Kok yol | `C:\Projects\AG TARAMA PROGRAMI\AgTarama` |
@@ -31,7 +31,7 @@ Ana ozellikler:
 - Paket yakalama (tshark) ve Wireshark Portable ile analiz
 - Ping, Port Tara (banner), Traceroute, DNS, ARP, Wake-on-LAN
 - Bant genisligi monitoru (gecmis grafik + istatistik)
-- Cihaz Tara (ONVIF, SSDP, mDNS, Ping Sweep, NetBIOS, Advanced IP Scanner zenginlestirme; QuestPDF/ClosedXML export)
+- Cihaz Tara (ONVIF+WSD, SSDP, mDNS/25-servis, Ping Sweep, NetBIOS, Advanced IP Scanner, Ubiquiti Discovery UDP-10001, MikroTik MNDP UDP-5678, SNMP sysDescr UDP-161, HTTP Fingerprint vendor-specific endpoint'ler; subnet chip picker; confidence score; QuestPDF/ClosedXML export)
 - Wi-Fi Tarama (SSID/BSSID/sinyal/kanal, Evil-Twin tespiti)
 - F12 komut konsolu (CommandRouter, `&&` zincirleme)
 - Favori IP, gecmis, lisanslama (Supabase)
@@ -84,8 +84,23 @@ Kullanici `"md guncelle"` dediginde:
 
 ---
 
-## 7. Son Degisiklik Notu (2026-05-15)
+## 7. Son Degisiklik Notu (2026-05-15) — v0.2.0
 
-- Cihaz Tara ekranindan `Risk` sutunu kaldirildi.
-- Cihaz Tara risk puani hesaplama mantigi kaldirildi.
-- Cihaz Tara export/PDF ciktilarindan risk alanlari kaldirildi.
+**Cihaz Tara buyuk genisleme:**
+- 5 yeni keşif protokolü: Ubiquiti Discovery (UDP 10001 TLV), MikroTik MNDP (UDP 5678 TLV), SNMP sysDescr/sysName (UDP 161 ASN.1), HTTP vendor-specific endpoint fingerprinting, WSD `wsdp:Device` probe.
+- 5 yeni servis dosyasi: `UbiquitiDiscoveryService.cs`, `MndpDiscoveryService.cs`, `SnmpFingerprintService.cs`, `OuiVendorLookup.cs`, `HttpFingerprintService.cs`.
+- Subnet chip picker: NIC'lere gore ToggleButton chip'leri (WrapPanel), "Derin tara" CheckBox, ⟳ yenile butonu.
+- Confidence score (`Guven` 0-100): DataGrid'de yeni sutun.
+- `KesifKaynaklari HashSet<string>`: hangi protokolun cihaziı keşfettigini izler.
+- mDNS servis listesi 12 → 25 servise genisletildi.
+- `MarkaTablosu` ~40 → ~100 anahtar kelimeye genisletildi.
+- `KimlikBelirle` heuristikleri iyilestirildi: Linux IoT, Akilli Cihaz, Router DNS/DHCP, yazici sikilasmasi.
+- `GuvenSkoru()` yeni metodu.
+- `KesifSira()` yeni metodu.
+- NetbiosService: `nbtstat`/`ping` ciktisi icin OEM kod sayfasi kodlamasi duzeltildi.
+- HTTP 200 kontrolu `HttpBannerOku`'ya eklendi.
+- `AcikPortlar` race condition duzeltildi (`KameraWebUrlSec`).
+- CIDR aralik dogrulamasi genisetildi: /16-/30.
+- Filtre secenekleri genisletildi: Bilinmiyor, Linux IoT, Router/AP, Erisim Noktasi, Switch, Akilli TV, Akilli Cihaz, Telefon, Hoparlor.
+- DataGrid `Kesif` sutunu 130px, yeni `Guven` sutunu 60px.
+- Sag tik menusune "Bu cihazi yeniden tara" eklendi.

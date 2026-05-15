@@ -52,6 +52,7 @@ Task TaraAsync(string ip, int[] portlar,
 ## NetbiosService.cs (241 satır)
 
 UDP 137 NetBIOS Node Status + reverse DNS + `ping -a` + `nbtstat -A`.
+**Not:** `nbtstat`/`ping` çıktısı için `ProcessStartInfo.StandardOutputEncoding = Encoding.GetEncoding(OEMCodePage)` zorunlu (Türkçe karakter sorunu düzeltildi).
 
 ```csharp
 Task<NetbiosSonuc> SorgulaAsync(string ip, CancellationToken)
@@ -193,6 +194,90 @@ static List<string> GetCommandNames()
 - `snmp` komutu dahili ASN.1 DER kodlama/çözümleme kullanır (NuGet yok); OID takma adları: sysName, sysDescr, sysUpTime, sysLocation, sysContact
 - `"\x00CLEAR"` dönüş değeri konsol çıktısını temizler
 - Geçmiş: son 50 komut, yineleme önlemeli
+
+---
+
+## UbiquitiDiscoveryService.cs (yeni — v0.2.0)
+
+UDP 10001 üzerinden Ubiquiti UniFi AP / EdgeRouter / AirOS cihazlarını keşfeder.
+
+```csharp
+internal sealed record UbiquitiKaydi(string Ip, string? Mac, string? Hostname,
+    string? Platform, string? Firmware, string? ModelKodu);
+static Task<IReadOnlyList<UbiquitiKaydi>> TaraAsync(string subnet, CancellationToken, int dinlemeMs = 2500)
+```
+
+- v1 probe: `{0x01,0x00,0x00,0x00}` + v2 probe: `{0x02,0x08,0x00,0x00}` → subnet broadcast + global broadcast.
+- TLV parser: `0x01`=MAC, `0x02`=MAC+IP, `0x03`=firmware, `0x0B`=hostname, `0x0C`=platform, `0x14`=modelCode.
+- Sonuç: `Marka=Ubiquiti`, `Model=<platform>`, `Tur=Erişim Noktası` veya `Router/AP`.
+
+---
+
+## MndpDiscoveryService.cs (yeni — v0.2.0)
+
+MikroTik Neighbor Discovery Protocol (UDP 5678) — aktif probe + pasif broadcast dinleme.
+
+```csharp
+internal sealed record MndpKaydi(string Ip, string? Mac, string? Identity,
+    string? Version, string? Platform, string? Board, string? SoftwareId);
+static Task<IReadOnlyList<MndpKaydi>> TaraAsync(string subnet, CancellationToken, int dinlemeMs = 3000)
+```
+
+- Probe: `{0x00,0x00,0x00,0x00}` → broadcast; UDP 5678'e bind ederek ~30s aralıklı broadcast'ları da yakalar.
+- TLV: `0x01`=MAC, `0x05`=identity, `0x07`=version, `0x08`=platform, `0x0B`=softId, `0x0C`=board.
+- Sonuç: `Marka=MikroTik`, `Model=<board>`, `Tur=Router/AP`.
+
+---
+
+## SnmpFingerprintService.cs (yeni — v0.2.0)
+
+SNMP v1/v2c `sysDescr` / `sysName` probe (UDP 161, community `public`). Manuel ASN.1 DER kodlama (NuGet bağımlılığı yok).
+
+```csharp
+static Task<string?> SysDescrAsync(string ip, CancellationToken, int timeoutMs = 1500)
+static Task<string?> SysNameAsync(string ip, CancellationToken, int timeoutMs = 1500)
+```
+
+- OID: `sysDescr = 1.3.6.1.2.1.1.1.0`, `sysName = 1.3.6.1.2.1.1.5.0`.
+- Yalnızca port 161 açık tespit edildiğinde `ServisDetaylariniGuncelleAsync` içinden çağrılır.
+- Yanıt örnekleri: `"Cisco IOS..."` → Switch; `"HP ETHERNET..."` → Yazıcı; `"RouterOS RB951..."` → MikroTik.
+
+---
+
+## OuiVendorLookup.cs (yeni — v0.2.0)
+
+MAC OUI prefix → üretici eşlemesi (built-in fallback, Advanced IP Scanner DB yokken devreye girer).
+
+```csharp
+static string? Bul(string? mac)   // "AA:BB:CC:DD:EE:FF" → "Apple" veya null
+```
+
+- ~100 OUI girdisi: Apple, Samsung, Xiaomi, Huawei, Google, Hikvision, Dahua, Axis, Ubiquiti, MikroTik, TP-Link, Cisco, NETGEAR, ASUS, D-Link, Synology, QNAP, Espressif, Raspberry Pi, Sonos, Amazon, Reolink, EZVIZ, Tuya, Sony, LG, VMware.
+- `ArpBilgileriniTopluGuncelleAsync` içinden `UreticiAra` sonucu `null` gelirse `OuiVendorLookup.Bul(mac)` denenir.
+
+---
+
+## HttpFingerprintService.cs (yeni — v0.2.0)
+
+Açık HTTP/HTTPS portuna vendor-specific endpoint'leri paralel deneyerek marka/model belirler.
+
+```csharp
+internal sealed record HttpFingerprintSonuc(string? Marka, string? Tur, string? Model, string? Kaynak);
+static Task<HttpFingerprintSonuc?> ProbeAsync(string ip, int port, CancellationToken, int timeoutMs = 1500)
+```
+
+- Paralel `Task.WhenAll`, ilk başarılı yanıt kazanır.
+- Endpoint → vendor eşlemesi:
+
+| Endpoint | Vendor |
+|---|---|
+| `/ISAPI/System/deviceInfo` | Hikvision |
+| `/cgi-bin/magicBox.cgi?action=getSystemInfo` | Dahua |
+| `/api.cgi?cmd=GetDevInfo` | Reolink |
+| `/onvif/device_service` | ONVIF probe |
+| `/api/v1/status` | Ubiquiti UniFi |
+
+- Yalnızca "Derin tara" modu açıkken ve HTTP port açıkken çağrılır.
 
 ---
 

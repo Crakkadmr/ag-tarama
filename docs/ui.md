@@ -16,7 +16,7 @@
 | # | Başlık | Panel x:Name | CTS | İçerik |
 |---|---|---|---|---|
 | 0 | 💬 Chatbot | `ChatPanel` + `FavoriChipleri` | — | ChatScrollViewer; header butonları Chatbot'u kontrol eder |
-| 1 | ◎ Cihaz Tara | `KameraPanel` | `_kameraCts` | Subnet giriş, Tara/Durdur, filtreler, DataGrid |
+| 1 | ◎ Cihaz Tara | `KameraPanel` | `_kameraCts` | Subnet giriş, Tara/Durdur, filtreler, DataGrid (Risk sütunu yok) |
 | 2 | ◈ Ping Testi | `PingPanel` | `_pingCts` | IP giriş, chip'ler, PingResultPanel |
 | 3 | ⊞ Port Tara | `PortPanel` | `_portScanCts` | IP + port aralığı, chip'ler, PortResultPanel |
 | 4 | ⇢ Traceroute | `TracePanel` | `_traceCts` | IP giriş, TraceResultPanel |

@@ -209,4 +209,5 @@ static byte[] GenerateDeviceScanReport(IEnumerable<DeviceScanRow> rows, ReportMe
 - Statik constructor'da `QuestPDF.Settings.License = LicenseType.Community`
 - A4 Yatay, kenar boşlukları 18px (yatay) / 14px (dikey)
 - 11 sütunlu tablo, başlık arka planı `#0D3B66`, dönüşümlü satır renkleri `#0D1117`/`#101722`
+- Risk alanları PDF modelinden çıkarılmıştır.
 - Altbilgi: sayfa X/Y numarası

@@ -182,7 +182,7 @@ public partial class MainWindow : Window
         var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         VersionText.Text = ver is not null ? $"v{ver.Major}.{ver.Minor}.{ver.Build}" : "v0.1.0";
         MesajEkle("sistem", "Network Sniffer başlatıldı — made by demircan.");
-        WlanPanelBaşlat();
+        WlanPanelBaslat();
         KonsoleBaslat();
         _ = BaslangicAsync();
     }

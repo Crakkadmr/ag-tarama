@@ -82,6 +82,7 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 4. Ping Sweep — SemaphoreSlim(64), 1000ms
 
 **Cihaz Tara DataGrid sütunları:** IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif, MAC, Üretici, Servis
+**Not:** Risk sütunu ve risk puanlama kaldırıldı. Sütun başlıklarında açıklama tooltip'i için `ⓘ` kullanılır.
 **Dışa aktarma formatları:** Excel (`.xlsx` ClosedXML), PDF (QuestPDF A4 Yatay), TXT, CSV (UTF-8 `;`), JSON — sağ tık menüsünden
 
 ---

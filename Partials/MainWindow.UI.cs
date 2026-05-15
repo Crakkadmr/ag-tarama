@@ -20,7 +20,14 @@ public partial class MainWindow
     {
         var win = new SettingsWindow(_ayarlar) { Owner = this };
         if (win.ShowDialog() == true)
+        {
             _ayarlar = win.Ayarlar;
+            if (WlanOtoYenileCheck is not null)
+            {
+                WlanOtoYenileCheck.Content = $"Otomatik yenile ({Math.Clamp(_ayarlar.WlanAutoRefreshSeconds, 5, 300)}s)";
+                if (WlanOtoYenileCheck.IsChecked == true) WlanOtoTimerBaslat();
+            }
+        }
     }
 
     // ─── 4.4 HTML Rapor Çıktısı ──────────────────────────────────────

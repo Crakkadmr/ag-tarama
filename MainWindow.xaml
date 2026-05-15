@@ -1,4 +1,4 @@
-<Window x:Class="AgTarama.MainWindow"
+﻿<Window x:Class="AgTarama.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -525,7 +525,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Başlık (tam genişlik) -->
@@ -609,7 +610,8 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <Border Grid.Row="0" Background="#111827" BorderBrush="#243147"
                                 BorderThickness="1" CornerRadius="8" Padding="4,4" Margin="0,0,0,8">
@@ -661,12 +663,13 @@
             <!-- ═══ Sekme 0: Chatbot ═══ -->
             <TabItem>
                 <TabItem.Header>
-                    <TextBlock FontFamily="Consolas" FontSize="12" Text="💬  Chatbot"/>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Text="●  Chatbot"/>
                 </TabItem.Header>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <!-- Araç çubuğu -->
                     <Border Grid.Row="0" Background="#111827" BorderBrush="#243147" BorderThickness="1"
@@ -779,13 +782,14 @@
                             <Grid Grid.Column="0">
                                 <TextBox x:Name="KameraSubnetBox" Style="{StaticResource PingInputBox}"
                                          Padding="10,8,10,8" TextChanged="KameraSubnetBox_TextChanged"/>
-                                <TextBlock x:Name="KameraSubnetPlaceholder" Text="Subnet: 192.168.1"
+                                <TextBlock x:Name="KameraSubnetPlaceholder" Text="Subnet/CIDR: 192.168.1 veya 192.168.1.0/24"
                                            FontFamily="Consolas" FontSize="12" Foreground="#484F58"
                                            VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
                             </Grid>
                             <Button x:Name="KameraBaslatBtn" Grid.Column="2" Style="{StaticResource PrimaryButton}"
-                                    Height="38" HorizontalContentAlignment="Center" Click="KameraBaslatBtn_Click">
-                                <TextBlock Text="◎  Tara" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                                    Height="38" HorizontalContentAlignment="Center" Click="KameraBaslatBtn_Click"
+                                    ToolTip="Girilen subnet/CIDR aralığını tarar ve cihaz envanterini günceller.">
+                                <TextBlock Text="◎  Tara  ⓘ" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
                             </Button>
                             <Button x:Name="KameraDurdurBtn" Grid.Column="3" Content="■"
                                     Style="{StaticResource DangerButton}" Height="38"
@@ -809,16 +813,21 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Grid Grid.Column="0">
-                                <TextBox x:Name="KameraIpFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7" TextChanged="KameraKolonFiltre_TextChanged"/>
+                                <TextBox x:Name="KameraIpFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7"
+                                         TextChanged="KameraKolonFiltre_TextChanged"
+                                         ToolTip="IP sütununa göre filtreler. Örn: 192.168.1.24 veya 192.168.1"/>
                                 <TextBlock x:Name="KameraIpFiltrePlaceholder" Text="IP filtre" FontFamily="Consolas" FontSize="10" Foreground="#484F58" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
                             </Grid>
                             <Grid Grid.Column="2">
-                                <TextBox x:Name="KameraAdFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7" TextChanged="KameraKolonFiltre_TextChanged"/>
+                                <TextBox x:Name="KameraAdFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7"
+                                         TextChanged="KameraKolonFiltre_TextChanged"
+                                         ToolTip="Ad ve model sütunlarını birlikte filtreler. Hostname, cihaz adı veya model yazabilirsiniz."/>
                                 <TextBlock x:Name="KameraAdFiltrePlaceholder" Text="Ad / hostname" FontFamily="Consolas" FontSize="10" Foreground="#484F58" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
                             </Grid>
                             <ComboBox x:Name="KameraTurFiltreBox" Grid.Column="4"
-                                      Style="{StaticResource DarkComboBox}"
-                                      SelectedIndex="0" SelectionChanged="KameraTurFiltreDegisti" Padding="8,6">
+                                       Style="{StaticResource DarkComboBox}"
+                                       SelectedIndex="0" SelectionChanged="KameraTurFiltreDegisti" Padding="8,6"
+                                       ToolTip="Tür sütununa göre filtreler (Kamera, NVR/DVR, Bilgisayar vb.).">
                                 <ComboBoxItem Content="Tüm türler" Tag="Hepsi"/>
                                 <ComboBoxItem Content="Kamera" Tag="Kamera"/>
                                 <ComboBoxItem Content="NVR/DVR" Tag="NVR/DVR"/>
@@ -831,19 +840,26 @@
                                 <ComboBoxItem Content="Yazıcı" Tag="Yazıcı"/>
                             </ComboBox>
                             <Grid Grid.Column="6">
-                                <TextBox x:Name="KameraMarkaFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7" TextChanged="KameraKolonFiltre_TextChanged"/>
+                                <TextBox x:Name="KameraMarkaFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7"
+                                         TextChanged="KameraKolonFiltre_TextChanged"
+                                         ToolTip="Marka ve üretici sütunlarını filtreler. Örn: Hikvision, Dahua, TP-Link"/>
                                 <TextBlock x:Name="KameraMarkaFiltrePlaceholder" Text="Marka / üretici" FontFamily="Consolas" FontSize="10" Foreground="#484F58" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
                             </Grid>
                             <Grid Grid.Column="8">
-                                <TextBox x:Name="KameraPortFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7" TextChanged="KameraKolonFiltre_TextChanged"/>
+                                <TextBox x:Name="KameraPortFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7"
+                                         TextChanged="KameraKolonFiltre_TextChanged"
+                                         ToolTip="Portlar, servis ve keşif sütunlarını birlikte filtreler. Örn: 554, ONVIF, RTSP"/>
                                 <TextBlock x:Name="KameraPortFiltrePlaceholder" Text="Port / servis" FontFamily="Consolas" FontSize="10" Foreground="#484F58" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
                             </Grid>
                             <Grid Grid.Column="10">
-                                <TextBox x:Name="KameraMacFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7" TextChanged="KameraKolonFiltre_TextChanged"/>
+                                <TextBox x:Name="KameraMacFiltreBox" Style="{StaticResource PingInputBox}" Padding="9,7"
+                                         TextChanged="KameraKolonFiltre_TextChanged"
+                                         ToolTip="MAC sütununa göre filtreler. Tam MAC veya parça yazabilirsiniz."/>
                                 <TextBlock x:Name="KameraMacFiltrePlaceholder" Text="MAC" FontFamily="Consolas" FontSize="10" Foreground="#484F58" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
                             </Grid>
                             <StackPanel Grid.Column="12" Orientation="Horizontal" Margin="0,0,0,8">
-                                <Button Content="Filtreyi Temizle" Style="{StaticResource ChipButton}"
+                                <Button Content="Filtreyi Temizle  ⓘ" Style="{StaticResource ChipButton}"
+                                        ToolTip="Tüm filtre kutularını sıfırlar ve tüm satırları tekrar gösterir."
                                         Click="KameraFiltreTemizle_Click" Margin="0,0,6,0"/>
                             </StackPanel>
                         </Grid>
@@ -879,17 +895,61 @@
                                     </ContextMenu>
                                 </DataGrid.ContextMenu>
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="IP"      Binding="{Binding Ip}"      SortMemberPath="Ip"      Width="118"/>
-                                    <DataGridTextColumn Header="Ad"      Binding="{Binding Ad}"      SortMemberPath="Ad"      Width="140"/>
-                                    <DataGridTextColumn Header="Tür"     Binding="{Binding Tur}"     SortMemberPath="Tur"     Width="115"/>
-                                    <DataGridTextColumn Header="Marka"   Binding="{Binding Marka}"   SortMemberPath="Marka"   Width="105"/>
-                                    <DataGridTextColumn Header="Model"   Binding="{Binding Model}"   SortMemberPath="Model"   Width="130"/>
-                                    <DataGridTextColumn Header="Ping"    Binding="{Binding Ping}"    SortMemberPath="PingMs"  Width="70"/>
-                                    <DataGridTextColumn Header="Portlar" Binding="{Binding Portlar}" SortMemberPath="Portlar" Width="120"/>
-                                    <DataGridTextColumn Header="Keşif"   Binding="{Binding Kesif}"   SortMemberPath="Kesif"   Width="90"/>
-                                    <DataGridTextColumn Header="MAC"     Binding="{Binding Mac}"     SortMemberPath="Mac"     Width="130"/>
-                                    <DataGridTextColumn Header="Üretici" Binding="{Binding Uretici}" SortMemberPath="Uretici" Width="130"/>
-                                    <DataGridTextColumn Header="Servis"  Binding="{Binding Servis}"  SortMemberPath="Servis"  Width="220"/>
+                                    <DataGridTextColumn Binding="{Binding Ip}" SortMemberPath="Ip" Width="118">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="IP ⓘ" ToolTip="Cihazın IPv4 adresi."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Ad}" SortMemberPath="Ad" Width="140">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Ad ⓘ" ToolTip="NetBIOS/DNS/hostname veya cihaz adı."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Tur}" SortMemberPath="Tur" Width="115">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Tür ⓘ" ToolTip="Algılanan cihaz sınıfı (Kamera, NVR, Bilgisayar vb.)."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Marka}" SortMemberPath="Marka" Width="105">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Marka ⓘ" ToolTip="Cihaz markası (banner, OUI veya keşif bilgisinden)."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Model}" SortMemberPath="Model" Width="130">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Model ⓘ" ToolTip="Algılanan model/hardware metni."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Ping}" SortMemberPath="PingMs" Width="70">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Ping ⓘ" ToolTip="ICMP gecikme süresi (ms)."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Portlar}" SortMemberPath="Portlar" Width="120">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Portlar ⓘ" ToolTip="Açık tespit edilen TCP portları."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Kesif}" SortMemberPath="Kesif" Width="90">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Keşif ⓘ" ToolTip="ONVIF/UPnP gibi keşif kaynakları."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Mac}" SortMemberPath="Mac" Width="130">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="MAC ⓘ" ToolTip="Cihazın MAC adresi."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Uretici}" SortMemberPath="Uretici" Width="130">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Üretici ⓘ" ToolTip="MAC OUI veya keşiften üretici bilgisi."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Servis}" SortMemberPath="Servis" Width="220">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Servis ⓘ" ToolTip="Port bazlı servis/banner detayları."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Border>
@@ -909,7 +969,8 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Margin="0,0,0,16">
                             <TextBlock Text="◈ PING TESTİ" Foreground="#58A6FF" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
@@ -977,7 +1038,8 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Margin="0,0,0,12">
                             <TextBlock Text="⊞ PORT TARA" Foreground="#58A6FF" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
@@ -1058,7 +1120,8 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Margin="0,0,0,12">
                             <TextBlock Text="⇢ TRACEROUTE" Foreground="#58A6FF" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
@@ -1191,7 +1254,8 @@
                     <Grid Margin="20,16,20,16">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Margin="0,0,0,12">
                             <TextBlock Text="★ FAVORİLER" Foreground="#58A6FF" FontFamily="Consolas"
@@ -1220,7 +1284,8 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
                         <!-- Başlık -->
@@ -1363,6 +1428,7 @@
                             <Button x:Name="GecmisFiltrePing"     Content="PING"        Tag="PING"       Style="{StaticResource ChipButton}" Click="GecmisFiltreBtn_Click"/>
                             <Button x:Name="GecmisFiltrePort"     Content="PORT TARA"  Tag="PORT TARA"  Style="{StaticResource ChipButton}" Click="GecmisFiltreBtn_Click"/>
                             <Button x:Name="GecmisFiltreArp"      Content="ARP"         Tag="ARP"        Style="{StaticResource ChipButton}" Click="GecmisFiltreBtn_Click"/>
+                            <Button x:Name="GecmisFiltreWifi"     Content="WIFI TARA"   Tag="WIFI TARA"  Style="{StaticResource ChipButton}" Click="GecmisFiltreBtn_Click"/>
                         </WrapPanel>
                         <Border Grid.Row="3" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6">
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -1381,6 +1447,7 @@
                 <Border x:Name="WlanPanel" Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="10">
                     <Grid Margin="20,14,20,14">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -1441,9 +1508,22 @@
                             </Border>
                         </WrapPanel>
 
+                        <Border Grid.Row="3" Background="#070B10" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6" Height="130" Margin="0,0,0,10">
+                            <Grid>
+                                <Canvas x:Name="WlanKanalGrafikCanvas" Margin="8,8,8,28" ClipToBounds="True" SizeChanged="WlanKanalGrafikCanvas_SizeChanged"/>
+                                <TextBlock x:Name="WlanKanalOzetText"
+                                           Margin="10,0,10,8"
+                                           VerticalAlignment="Bottom"
+                                           Foreground="#8B949E"
+                                           FontFamily="Consolas"
+                                           FontSize="10"
+                                           Text="Kanal dagilimi hazir degil."/>
+                            </Grid>
+                        </Border>
+
                         <!-- DataGrid -->
                         <DataGrid x:Name="WlanGrid"
-                                  Grid.Row="3"
+                                  Grid.Row="4"
                                   Style="{StaticResource DarkDataGrid}"
                                   ColumnHeaderStyle="{StaticResource DarkDataGridColumnHeader}"
                                   CellStyle="{StaticResource DarkDataGridCell}"
@@ -1639,7 +1719,8 @@
               Background="#070B10" MinHeight="180" Margin="16,0,16,16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <Border Grid.Row="0" Background="#111827" BorderBrush="#243147"
@@ -1717,3 +1798,4 @@
         </Border>
     </Grid>
 </Window>
+

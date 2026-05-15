@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Ayarlar"
         Background="#0D1117"
-        Width="400" Height="480"
+        Width="400" Height="520"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False">
@@ -149,6 +149,17 @@
 
                         <TextBlock Text="Bağlantı timeout (ms)" Style="{StaticResource LabelStyle}"/>
                         <TextBox x:Name="PortTimeoutBox" Style="{StaticResource InputStyle}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Wi-Fi -->
+                <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1"
+                        CornerRadius="6" Padding="14,12" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="WI-FI" Foreground="#484F58" FontFamily="Consolas"
+                                   FontSize="10" FontWeight="Bold" Margin="0,0,0,10"/>
+                        <TextBlock Text="Otomatik yenile araligi (sn)" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="WlanRefreshBox" Style="{StaticResource InputStyle}"/>
                     </StackPanel>
                 </Border>
 

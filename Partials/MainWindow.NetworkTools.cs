@@ -131,7 +131,7 @@ public partial class MainWindow
         if (sel == TabLisans)
             LisansPanelGuncelle();
         if (sel == TabCihazTara && string.IsNullOrEmpty(KameraSubnetBox.Text))
-            KameraSubnetBox.Text = YerelSubnetiBul() ?? "";
+            KameraSubnetBox.Text = string.Join(",", YerelSubnetleriBul());
     }
 
     private void BtnPing_Click(object sender, RoutedEventArgs e)

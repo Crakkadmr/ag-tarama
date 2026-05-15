@@ -1,37 +1,34 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace AgTarama.Services;
 
 public sealed class WlanSonuc
 {
-    public string Ssid        { get; set; } = "";
-    public string Bssid       { get; set; } = "";
-    public string Auth        { get; set; } = "";   // WPA2-Personal, WPA3-Personal, WEP, Open …
-    public string Encryption  { get; set; } = "";   // CCMP, WEP, None …
-    public int    Signal      { get; set; }          // 0-100 %
-    public int    Channel     { get; set; }
-    public string RadioType   { get; set; } = "";   // 802.11ax, 802.11ac …
-    public bool   EvilTwin    { get; set; }          // aynı SSID, farklı BSSID ile birden fazla görünen
+    public string Ssid { get; set; } = "";
+    public string Bssid { get; set; } = "";
+    public string Auth { get; set; } = "";
+    public string Encryption { get; set; } = "";
+    public int Signal { get; set; }
+    public int Channel { get; set; }
+    public string RadioType { get; set; } = "";
+    public string Band { get; set; } = "";
+    public string Oui { get; set; } = "";
+    public bool CokluAp { get; set; }
+    public bool SupheliEvilTwin { get; set; }
+    public List<string> SupheNedenleri { get; } = new();
 }
 
 public static class WlanService
 {
-    // netsh wlan show networks mode=bssid çıktısını parse eder
     public static async Task<List<WlanSonuc>> ScanAsync(CancellationToken ct = default)
     {
-        var sonuclar = new List<WlanSonuc>();
-
         var psi = new ProcessStartInfo("netsh", "wlan show networks mode=bssid")
         {
             RedirectStandardOutput = true,
-            RedirectStandardError  = true,
-            UseShellExecute        = false,
-            CreateNoWindow         = true
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
         };
 
         using var proc = new Process { StartInfo = psi };
@@ -40,15 +37,14 @@ public static class WlanService
         var output = await proc.StandardOutput.ReadToEndAsync(ct);
         await proc.WaitForExitAsync(ct);
 
-        sonuclar = Parse(output);
-        Işaretle(sonuclar);
+        var sonuclar = Parse(output);
+        Isaretle(sonuclar);
         return sonuclar;
     }
 
-    // -------------------------------------------------------------------
     private static List<WlanSonuc> Parse(string output)
     {
-        var list    = new List<WlanSonuc>();
+        var list = new List<WlanSonuc>();
         WlanSonuc? cur = null;
 
         foreach (var rawLine in output.Split('\n'))
@@ -58,10 +54,8 @@ public static class WlanService
             if (line.StartsWith("SSID", StringComparison.OrdinalIgnoreCase)
                 && !line.StartsWith("BSSID", StringComparison.OrdinalIgnoreCase))
             {
-                // "SSID 1                 : MyNetwork"  — yeni ağ bloğu başlıyor
                 if (cur != null) list.Add(cur);
-                cur = new WlanSonuc();
-                cur.Ssid = AfterColon(line);
+                cur = new WlanSonuc { Ssid = AfterColon(line) };
                 continue;
             }
 
@@ -69,41 +63,47 @@ public static class WlanService
 
             if (line.StartsWith("BSSID", StringComparison.OrdinalIgnoreCase))
             {
-                // Birden fazla BSSID satırı gelirse yeni WlanSonuc nesnesi oluştur (aynı SSID)
                 if (!string.IsNullOrEmpty(cur.Bssid))
                 {
                     list.Add(cur);
                     cur = new WlanSonuc
                     {
-                        Ssid       = cur.Ssid,
-                        Auth       = cur.Auth,
+                        Ssid = cur.Ssid,
+                        Auth = cur.Auth,
                         Encryption = cur.Encryption,
-                        RadioType  = cur.RadioType,
+                        RadioType = cur.RadioType,
+                        Band = cur.Band,
                     };
                 }
+
                 cur.Bssid = AfterColon(line);
+                cur.Oui = OuiPrefix(cur.Bssid);
             }
-            else if (StartsWithCI(line, "Authentication"))
+            else if (StartsWithAny(line, "Authentication", "Kimlik dogrulamasi", "Kimlik doğrulaması"))
             {
                 cur.Auth = AfterColon(line);
             }
-            else if (StartsWithCI(line, "Encryption"))
+            else if (StartsWithAny(line, "Encryption", "Sifreleme", "Şifreleme"))
             {
                 cur.Encryption = AfterColon(line);
             }
-            else if (StartsWithCI(line, "Signal"))
+            else if (StartsWithAny(line, "Signal", "Sinyal"))
             {
                 var s = AfterColon(line).Replace("%", "").Trim();
                 if (int.TryParse(s, out var pct)) cur.Signal = pct;
             }
-            else if (StartsWithCI(line, "Channel"))
+            else if (StartsWithAny(line, "Channel", "Kanal"))
             {
                 var s = AfterColon(line).Trim();
                 if (int.TryParse(s, out var ch)) cur.Channel = ch;
             }
-            else if (StartsWithCI(line, "Radio type"))
+            else if (StartsWithAny(line, "Radio type", "Radyo turu", "Radyo türü"))
             {
                 cur.RadioType = AfterColon(line);
+            }
+            else if (StartsWithAny(line, "Band", "Bant"))
+            {
+                cur.Band = AfterColon(line);
             }
         }
 
@@ -113,8 +113,7 @@ public static class WlanService
         return list;
     }
 
-    // Evil-Twin: aynı SSID, birden fazla farklı BSSID
-    private static void Işaretle(List<WlanSonuc> list)
+    private static void Isaretle(List<WlanSonuc> list)
     {
         var gruplar = new Dictionary<string, List<WlanSonuc>>(StringComparer.OrdinalIgnoreCase);
         foreach (var s in list)
@@ -127,25 +126,49 @@ public static class WlanService
         foreach (var g in gruplar.Values)
         {
             if (g.Count < 2) continue;
-            // farklı BSSID'ler varsa Evil-Twin
-            var bssids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var s in g) bssids.Add(s.Bssid);
-            if (bssids.Count > 1)
-                foreach (var s in g) s.EvilTwin = true;
+
+            foreach (var s in g)
+                s.CokluAp = true;
+
+            var oiuSet = g.Select(x => x.Oui).Where(x => !string.IsNullOrWhiteSpace(x)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (oiuSet.Count > 1)
+                SupheEkle(g, "Ayni SSID altinda farkli OUI");
+
+            var sifrelemeSet = g.Select(x => Normalize(x.Encryption)).Where(x => x.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (sifrelemeSet.Count > 1)
+                SupheEkle(g, "Ayni SSID altinda farkli sifreleme");
         }
     }
 
-    // ─── Yardımcılar ────────────────────────────────────────────────────
+    private static void SupheEkle(IEnumerable<WlanSonuc> grup, string neden)
+    {
+        foreach (var s in grup)
+        {
+            s.SupheliEvilTwin = true;
+            if (!s.SupheNedenleri.Contains(neden, StringComparer.OrdinalIgnoreCase))
+                s.SupheNedenleri.Add(neden);
+        }
+    }
+
     private static string AfterColon(string line)
     {
         var idx = line.IndexOf(':');
         return idx >= 0 ? line[(idx + 1)..].Trim() : "";
     }
 
-    private static bool StartsWithCI(string line, string prefix)
-        => line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    private static bool StartsWithAny(string line, params string[] prefixes)
+        => prefixes.Any(p => line.StartsWith(p, StringComparison.OrdinalIgnoreCase));
 
-    // Wi-Fi adaptörü var mı?
+    private static string OuiPrefix(string? bssid)
+    {
+        if (string.IsNullOrWhiteSpace(bssid)) return "";
+        var hex = Regex.Replace(bssid, "[^0-9A-Fa-f]", "").ToUpperInvariant();
+        return hex.Length >= 6 ? hex[..6] : "";
+    }
+
+    private static string Normalize(string value)
+        => Regex.Replace(value ?? "", "\\s+", " ").Trim();
+
     public static bool WifiAdaptorVarMi()
     {
         try
@@ -153,17 +176,19 @@ public static class WlanService
             var psi = new ProcessStartInfo("netsh", "wlan show interfaces")
             {
                 RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                UseShellExecute        = false,
-                CreateNoWindow         = true
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
             };
             using var proc = Process.Start(psi)!;
             var output = proc.StandardOutput.ReadToEnd();
             proc.WaitForExit();
-            // "There is 1 interface" veya "Name" satırı varsa adaptor mevcut
             return output.Contains("Name", StringComparison.OrdinalIgnoreCase)
                 && !output.Contains("There are 0 interfaces", StringComparison.OrdinalIgnoreCase);
         }
-        catch { return false; }
+        catch
+        {
+            return false;
+        }
     }
 }

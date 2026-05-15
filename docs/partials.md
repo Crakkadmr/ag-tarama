@@ -1,0 +1,141 @@
+# MainWindow Partial Dosya Haritası
+
+> Satır numaraları ±20 satır toleransla doğrudur. Kod değişiklikleri sonrası eskime olabilir.
+> "md güncelle" talimatı geldiğinde haritalar yeniden hesaplanır.
+> Harita ile gerçek dosya arasında büyük sapma görülürse dosyayı `offset` yerine baştan oku ve haritayı güncelle.
+
+`MainWindow.xaml.cs` + 8 partial dosya derleyici tarafından tek `MainWindow` sınıfında birleştirilir.
+Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` NetworkTools'ta tanımlı, her partial'dan çağrılabilir).
+
+---
+
+## MainWindow.xaml.cs — Ana Partial (354 satır)
+
+| Satır | İçerik |
+|---|---|
+| L1–L28 | using/namespace |
+| L29–L161 | Alanlar, sabitler (TabChatbot..TabLisans), `OuiTablosu`, `BilindikPortlar` |
+| L163–L182 | `OuiAra(mac) static` |
+| L183–L251 | `MainWindow()` constructor, `BaslangicAsync`, `HataBildir`, `NpcapKurulumu`, `NpcapKontrolVeKur` |
+| L252–L349 | `ArayuzSecimAsync` — ChatPanel'e toggle butonlu kart, kullanıcı arayüz seçer |
+| L351–L354 | `UygulaButonSablon(Button)` static |
+
+**Alanlar özeti (L29-L161):**
+`_ayarlar`, `_taramaDevamEdiyor`, `_taramaCts`, `LisansIptal`, `MasterCts`, sekme sabitleri (TabChatbot=0..TabLisans=10), `_pingCts`, `_portScanCts`, `_traceCts`, `_kameraCts`, `_kameraBilgileri`, `_kameraSatirlari`, `_kameraSatirlar`, `_kameraSatirView`, `_bantTimer`, `_bantOnceki`, `_toastTimer`, `_mesajGecmisi`, `_gecmisKayitlari`, `_gecmisFiltreTur`, `_gecmisdenCalistiriliyor`, `_captureService`, `_otomatikGuncelleniyor`, `_oncekiUzunluk`
+
+---
+
+## Partials/MainWindow.Capture.cs (351 satır)
+
+| Satır | İçerik |
+|---|---|
+| L1–L19 | using/namespace |
+| L20–L326 | `YakalamaBaslat()` — InterfaceDiscovery → ArayuzSecim → pcap oluştur → CaptureService.YakalaAsync → `YakalamaKartiOlustur` |
+| L327–L334 | `YakalamaDurdur()` |
+| L335–L351 | `WiresharkIleAc(string pcap)` |
+
+**`YakalamaKartiOlustur`** tuple döner: `Kart`, `Guncelle(mb,paket,sure)`, `Tamamla(mb,paket)`, `Durdur()`.
+
+---
+
+## Partials/MainWindow.NetworkTools.cs (835 satır)
+
+| Satır | İçerik |
+|---|---|
+| L1–L24 | using/namespace |
+| L26–L100 | `MesajEkle(tur, metin)` — Border+TextBlock chat mesajı |
+| L101–L136 | `TaramaDurumunuAyarla`, `BtnTaramaBaslat_Click`, `BtnTaramaDurdur_Click`, `MainTabControl_SelectionChanged` |
+| L137–L315 | Ping: `BtnPing_Click`, `GecerliIpv4Mu`, `GecerliHostnameMu`, `OtomatikNoktaUygula`, `PingIpBox_TextChanged`, `PingBaslat`, `PingKutucugaYaz`, `PingFavoriEkle_Click` |
+| L317–L524 | Port tara: `BtnPortTara_Click`, `PortIpBox_TextChanged`, `PortAralikBox_TextChanged`, `AktarButonDurumu`, `PortHizliBtn_Click`, `PortTaraBaslat`, `PortKutucugaYaz` |
+| L525–L699 | Traceroute: `TracerouteBaslat`; DNS: `DnsLookupBaslat`, `DnsKutucugaYaz` |
+| L700–L762 | WoL: `WolMacBox_TextChanged`, `WolGonder` |
+| L763–L794 | `AgAdaptorleriniGoster` — `NetworkInterface.GetAllNetworkInterfaces()` → chat kart |
+| L795–L835 | `ArpTablosuGoster` — `arp -a` parse → chat kart + OUI |
+
+**`TaramaDurumunuAyarla(bool)`:** Buton durumları + `StatusText` ("● Hazır" yeşil / "● Yakalanıyor..." sarı). `BtnTemizle` tarama sırasında `IsEnabled=false`.
+
+---
+
+## Partials/MainWindow.DeviceScan.cs (1636 satır)
+
+| Satır | İçerik |
+|---|---|
+| L1–L27 | using/namespace |
+| L28–L73 | `KameraBilgi` sealed class (tüm alanlar), `CihazKimlik` sealed class |
+| L75–L313 | `MarkaTablosu` static array (40+ HTTP banner/title anahtar → marka/tür) |
+| L314–L409 | `KimlikBelirle(KameraBilgi) static`, `KayitCihaziIpuclariVar`, `YaziciIpuclariVar`, `CihazAdiBilgisayarGibi` |
+| L410–L526 | DataGrid event handler'ları: filtre text changed, tür filtresi, filtre temizle, çift tık, sağ tık |
+| L527–L617 | `KameraWebArayuzunuAc`, `KameraDisariAktar`, `DisariAktarilanDosyayiAc`, `SeciliKameraSatiri`, `UstOgeBul` |
+| L619–L826 | Export format metotları: `IpSiralamaAnahtari`, `KameraExportSatirlari`, `KameraCsvOlustur`, `KameraJsonOlustur`, `KameraTxtOlustur`, `KameraExcelHtmlOlustur`, `KameraPdfOlustur`, `KameraPdfSayfaIcerigi`, `PdfMetin`, `PdfAscii`, `MetniKirp` |
+| L827–L830 | `KameraBaslatBtn_Click`, `KameraDurdurBtn_Click` |
+| L830–L900 | `NetbiosBilgileriniGuncelleAsync`, `NetbiosSweepAsync` |
+| L886–L994 | `MdnsServisler` static array, `MdnsSweepAsync`, `OlusturMdnsSorgusu`, `MdnsPaketCoz` |
+| L995–L1247 | **`KameraTaramaBaslat()`** — 4 paralel görev: port tarama (SemaphoreSlim 80), ONVIF WS-Discovery, SSDP+mDNS, Ping Sweep; + NetBIOS/AIS/ARP zenginleştirme |
+| L1248–L1490 | Async yardımcılar: `HttpBannerOku`, `ServisDetaylariniGuncelleAsync`, `PortBannerOku`, `RtspHizliKontrol`, `HttpBasliklariniParse`, `SsdpDetayOku`, `XmlEtiketiOku`, `AdvancedScannerKayitlariniIsleAsync`, `ArpBilgileriniTopluGuncelleAsync`, `ArpTablosuOkuAsync`, `UreticiAra`, `IpScannerMacDbYukle`, `MacFormatla` |
+| L1491–L1576 | `KameraKartEkleVeyaGuncelle`, `KameraFiltreleriUygula`, `KameraSatirFiltredenGecer`, `KameraKutucugaYaz`, `CihazAdiSec`, `IlkDolu`, `KisaHostAdi`, `AnlamliSayfaBasligi`, `TemizKimlikMetni` |
+| L1578–L1636 | `KameraSatir` sealed class (INotifyPropertyChanged) — DataGrid görünüm modeli |
+
+**`KameraTaramaBaslat` paralel görevler (L995):**
+1. Port tarama — 1–254 IP, SemaphoreSlim(80), 800ms, `KameraPorts` = {554,8000,8080,37777,80,8443,22,23,139,443,445,3389,9000,34567}
+2. ONVIF WS-Discovery — `239.255.255.250:3702` Probe XML → 4sn ProbeMatch
+3. SSDP/UPnP + mDNS/Bonjour — `239.255.255.250:1900` M-SEARCH + `224.0.0.251:5353`
+4. Ping Sweep — SemaphoreSlim(64), 1000ms
+
+**Cihaz Tara DataGrid sütunları:** IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif, MAC, Üretici, Servis
+**Dışa aktarma formatları:** Excel (.xls HTML), PDF, TXT, CSV (UTF-8 `;`), JSON — sağ tık menüsünden
+
+---
+
+## Partials/MainWindow.Bandwidth.cs (112 satır)
+
+| Satır | İçerik |
+|---|---|
+| L1–L19 | using/namespace |
+| L20–L60 | `BantIzlemeBaslat()` — aktif adaptörler snapshot, DispatcherTimer(1s) başlatır |
+| L61–L105 | `BantTimerTick()` — `NetworkInterface.GetIPv4Statistics()`, hız hesabı, `BantAdaptorPanel` güncelleme |
+| L106–L112 | `BantHizFormatla(long) static` — `≥1MB/s`, `≥1KB/s`, `B/s` |
+
+---
+
+## Partials/MainWindow.Favorites.cs (133 satır)
+
+| Satır | İçerik |
+|---|---|
+| L1–L19 | using/namespace |
+| L20–L70 | `FavoriChipleriniYenile()` — Ping ve Port panellerindeki chip'leri `FavoriService.YukleHepsi()` ile yeniler |
+| L71–L133 | `FavorilerPanelGuncelle()` + favori event handler'ları (ekle/sil) |
+
+---
+
+## Partials/MainWindow.History.cs (235 satır)
+
+| Satır | İçerik |
+|---|---|
+| L1–L17 | using/namespace |
+| L18–L55 | Event handler'lar: `GecmisYenile_Click`, `GecmisKlasorAc_Click`, `GecmisFiltreBtn_Click`, `GecmisKaydiSil`, `GecmisTumunuTemizle_Click` |
+| L56–L91 | `GecmisPanelGuncelle()` — filtre + kart listesi oluşturma |
+| L92–L153 | `GecmisKartiOlustur(HistoryRecord)` — JSON Aç, Tekrar Çalıştır, Sil chip'leri |
+| L154–L187 | `GecmisKaydiAc`, `GecmisKaydiTekrarCalistir` — `_gecmisdenCalistiriliyor` flag ile çift kayıt önlenir |
+| L188–L235 | `GecmisKarsilastir_Click`, `GecmisCihazIpSeti` — son iki Cihaz Tara'yı karşılaştırır |
+
+---
+
+## Partials/MainWindow.UI.cs (141 satır)
+
+| Satır | İçerik |
+|---|---|
+| L1–L19 | using/namespace |
+| L20–L60 | `BtnAyarlar_Click` (SettingsWindow), `RaporKaydet` (SaveFileDialog → .txt) |
+| L61–L100 | `Window_DragOver`, `Window_Drop` — Drag-Drop desteği |
+| L101–L141 | `ToastGoster(mesaj, hata)`, `BildirimCal` |
+
+---
+
+## Partials/MainWindow.License.cs (152 satır)
+
+| Satır | İçerik |
+|---|---|
+| L1–L19 | using/namespace |
+| L20–L80 | `LisansPanelGuncelle()`, `SetLisansUI(LicenseInfo?)` — kalan süre, durum göstergesi |
+| L81–L120 | `MaskeLisansAnahtari(string)` — lisans anahtarını `xxxx-xxxx-****-****` formatında gösterir |
+| L121–L152 | `LisansYenile_Click`, `LisansSifirla_Click` event handler'ları |

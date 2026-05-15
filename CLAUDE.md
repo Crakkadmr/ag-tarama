@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-> Tüm proje detayları, mimari, metot haritası, geliştirme kuralları ve TODO listesi **`AGENTS.md`** dosyasındadır.
-> Her session başında önce `AGENTS.md`'yi oku — kaynak dosyaları tek tek taramana gerek kalmaz.
-> `AGENTS.md` otomatik güncelleme kurallarını da içerir (hangi tetikleyicilerde güncelleneceği).
-> Bu dosya hem Claude Code hem Codex CLI tarafından ortak kullanılır — ikisi de `AGENTS.md`'yi günceller.
+> Her session başında önce `AGENTS.md`'yi oku — kısa bir index'e dönüştürüldü, detaylar `docs/` klasöründe.
+> Hangi konuda hangi dosyayı okuyacağını `AGENTS.md §4 Dokümantasyon Haritası`'ndan öğren.
+> Markdown dosyaları (AGENTS.md, docs/*) **otomatik güncellenmez**. Yalnızca kullanıcı "md güncelle" dediğinde güncelle.
+> Bu kural hem Claude Code hem Codex CLI için geçerlidir.

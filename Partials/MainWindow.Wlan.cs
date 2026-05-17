@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -18,7 +19,8 @@ public partial class MainWindow
 {
     private CancellationTokenSource? _wlanCts;
     private readonly ObservableCollection<WlanSatir> _wlanSatirlar = new();
-    private readonly Dictionary<string, HashSet<string>> _wlanBilinenBssid = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _wlanBilinenBssid =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly List<WlanSonuc> _sonWlanSonuclar = new();
     private DispatcherTimer? _wlanOtoTimer;
     private int _wlanSayac;
@@ -256,13 +258,14 @@ public partial class MainWindow
 
             if (_wlanBilinenBssid.TryGetValue(ssid, out var bilinenler))
             {
+                int sinyalEsigi = Math.Clamp(SettingsService.Yukle().EvilTwinSinyalEsigi, 50, 90);
                 foreach (var s in grup)
                 {
                     if (string.IsNullOrWhiteSpace(s.Bssid)) continue;
-                    if (bilinenler.Contains(s.Bssid)) continue;
+                    if (bilinenler.ContainsKey(s.Bssid)) continue;
 
                     SupheNedeniEkle(s, "Ayni SSID altinda beklenmeyen BSSID");
-                    if (s.Signal >= 75)
+                    if (s.Signal >= sinyalEsigi)
                         SupheNedeniEkle(s, "Yuksek sinyal ile yeni BSSID");
                 }
             }
@@ -273,15 +276,12 @@ public partial class MainWindow
             var ssid = grup.Key;
             if (string.IsNullOrWhiteSpace(ssid)) continue;
 
-            if (!_wlanBilinenBssid.TryGetValue(ssid, out var bssidler))
-            {
-                bssidler = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                _wlanBilinenBssid[ssid] = bssidler;
-            }
+            var bssidler = _wlanBilinenBssid.GetOrAdd(ssid,
+                _ => new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase));
 
             foreach (var s in grup)
                 if (!string.IsNullOrWhiteSpace(s.Bssid))
-                    bssidler.Add(s.Bssid);
+                    bssidler.TryAdd(s.Bssid, 0);
         }
     }
 

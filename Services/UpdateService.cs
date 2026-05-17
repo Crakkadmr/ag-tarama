@@ -156,7 +156,7 @@ public static class UpdateService
         var extractTo = Path.Combine(updateDir, "extracted");
 
         if (Directory.Exists(extractTo)) Directory.Delete(extractTo, true);
-        ZipFile.ExtractToDirectory(zipPath, extractTo);
+        SafeExtractZip(zipPath, extractTo);
 
         var entries = Directory.GetFileSystemEntries(extractTo);
         var srcDir = entries.Length == 1 && Directory.Exists(entries[0]) ? entries[0] : extractTo;
@@ -198,6 +198,54 @@ public static class UpdateService
         });
 
         Application.Current.Shutdown();
+    }
+
+    // Hardened ZIP extraction: validates each entry path stays inside extractTo
+    // (defends against ZipSlip / path traversal). Limits entry count and total size.
+    private const int MaxZipEntries = 5000;
+    private const long MaxZipUncompressedSize = 500L * 1024 * 1024; // 500 MB
+    private const long MaxSingleEntrySize = 200L * 1024 * 1024;     // 200 MB
+
+    private static void SafeExtractZip(string zipPath, string extractTo)
+    {
+        Directory.CreateDirectory(extractTo);
+        var baseFull = Path.GetFullPath(extractTo);
+        if (!baseFull.EndsWith(Path.DirectorySeparatorChar))
+            baseFull += Path.DirectorySeparatorChar;
+
+        using var archive = ZipFile.OpenRead(zipPath);
+        if (archive.Entries.Count > MaxZipEntries)
+            throw new InvalidDataException($"Update ZIP contains too many entries ({archive.Entries.Count} > {MaxZipEntries}).");
+
+        long totalSize = 0;
+        foreach (var entry in archive.Entries)
+        {
+            if (entry.Length > MaxSingleEntrySize)
+                throw new InvalidDataException($"Update entry '{entry.FullName}' exceeds size limit.");
+            totalSize += entry.Length;
+            if (totalSize > MaxZipUncompressedSize)
+                throw new InvalidDataException("Update ZIP uncompressed size exceeds limit.");
+
+            // Reject absolute paths, drive letters, and parent traversal
+            var entryName = entry.FullName.Replace('\\', '/');
+            if (Path.IsPathRooted(entryName) || entryName.Contains(".."))
+                throw new InvalidDataException($"Unsafe entry path: {entry.FullName}");
+
+            var targetPath = Path.GetFullPath(Path.Combine(extractTo, entryName));
+            if (!targetPath.StartsWith(baseFull, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"Zip Slip detected for entry: {entry.FullName}");
+
+            // Directory entry
+            if (string.IsNullOrEmpty(entry.Name))
+            {
+                Directory.CreateDirectory(targetPath);
+                continue;
+            }
+
+            var parent = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrEmpty(parent)) Directory.CreateDirectory(parent);
+            entry.ExtractToFile(targetPath, overwrite: true);
+        }
     }
 
     private static bool VerifySignerThumbprint(string filePath, out string error)

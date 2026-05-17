@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larinin projeye hizli giris noktasidir.
 > Detayli referans bilgi `docs/` klasorunde konuya gore ayrilmistir.
-> Son guncelleme: 2026-05-15 (v0.2.0 — Cihaz Tara genisleme: 5 yeni protokol, subnet chip picker, confidence scoring)
+> Son guncelleme: 2026-05-17 (v0.3.0 — Guvenlik sertlestirmesi, gercek CIDR /16-/30 destegi, concurrency duzeltmeleri, koyu tema chip + checkbox)
 
 ---
 
@@ -16,7 +16,7 @@
 | csproj ek | `tools\**\*` ve `Req\**\*` -> `CopyToOutputDirectory=PreserveNewest` |
 | Output | `WinExe` |
 | Namespace | `AgTarama` |
-| Surum | v0.2.0 |
+| Surum | v0.3.0 |
 | Branch | `guvenlik-guncellestirmeleri-zirtpirt` (main: `main`) |
 | Git user | Crakkadmr |
 | Kok yol | `C:\Projects\AG TARAMA PROGRAMI\AgTarama` |
@@ -149,23 +149,32 @@ Kullanici `"md guncelle"` dediginde:
 
 ---
 
-## 7. Son Degisiklik Notu (2026-05-15) — v0.2.0
+## 7. Son Degisiklik Notu (2026-05-17) — v0.3.0
 
-**Cihaz Tara buyuk genisleme:**
-- 5 yeni keşif protokolü: Ubiquiti Discovery (UDP 10001 TLV), MikroTik MNDP (UDP 5678 TLV), SNMP sysDescr/sysName (UDP 161 ASN.1), HTTP vendor-specific endpoint fingerprinting, WSD `wsdp:Device` probe.
-- 5 yeni servis dosyasi: `UbiquitiDiscoveryService.cs`, `MndpDiscoveryService.cs`, `SnmpFingerprintService.cs`, `OuiVendorLookup.cs`, `HttpFingerprintService.cs`.
-- Subnet chip picker: NIC'lere gore ToggleButton chip'leri (WrapPanel), "Derin tara" CheckBox, ⟳ yenile butonu.
-- Confidence score (`Guven` 0-100): DataGrid'de yeni sutun.
-- `KesifKaynaklari HashSet<string>`: hangi protokolun cihaziı keşfettigini izler.
-- mDNS servis listesi 12 → 25 servise genisletildi.
-- `MarkaTablosu` ~40 → ~100 anahtar kelimeye genisletildi.
-- `KimlikBelirle` heuristikleri iyilestirildi: Linux IoT, Akilli Cihaz, Router DNS/DHCP, yazici sikilasmasi.
-- `GuvenSkoru()` yeni metodu.
-- `KesifSira()` yeni metodu.
-- NetbiosService: `nbtstat`/`ping` ciktisi icin OEM kod sayfasi kodlamasi duzeltildi.
-- HTTP 200 kontrolu `HttpBannerOku`'ya eklendi.
-- `AcikPortlar` race condition duzeltildi (`KameraWebUrlSec`).
-- CIDR aralik dogrulamasi genisetildi: /16-/30.
-- Filtre secenekleri genisletildi: Bilinmiyor, Linux IoT, Router/AP, Erisim Noktasi, Switch, Akilli TV, Akilli Cihaz, Telefon, Hoparlor.
-- DataGrid `Kesif` sutunu 130px, yeni `Guven` sutunu 60px.
-- Sag tik menusune "Bu cihazi yeniden tara" eklendi.
+**Guvenlik, dogruluk ve UI temasi sertlestirmesi:**
+
+**P0 — Kritik:**
+- **CIDR `/16-/30` gercekten taraniyor:** `TaramaSubneti` artik `HostStart`, `HostEnd`, `HostCount`, `OriginalCidr` aliyor. `SubnetGirdisiniCoz` /16-/23 maskeleri icin birden cok /24'e acilim yapar; /25-/30 icin sinirli host araligi hesaplar. Tum sweep'ler (`Enumerable.Range(1, 254)` yerine `Enumerable.Range(hostStart, sayi)`). `toplamHost = subnetler.Sum(s => s.HostCount)`.
+- **`UpdateService.SafeExtractZip`:** Yeni `SafeExtractZip` ile Zip Slip / path traversal koruması, entry sayısı (max 5000), toplam boyut (500 MB), tek entry boyutu (200 MB), `..`/mutlak yol reddi.
+
+**P1 — Concurrency / kaynak güvenliği:**
+- `BandwidthHistoryService`: tüm static buffer erişimi `lock (_sync)` altında.
+- `_wlanBilinenBssid`: `Dictionary<>` → `ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>`.
+- `InterfaceDiscoveryService`: `Process.Start(psi)!` kaldırıldı; tshark yoksa açık `InvalidOperationException`.
+- `MndpDiscoveryService` / `UbiquitiDiscoveryService`: TLV uzunlukları `& 0xFF` ile unsigned okunuyor, taşmaya dayanıklı sınır kontrolü.
+- `CancellationTokenSource` disposal pattern: `_pingCts`, `_portScanCts`, `_traceCts`, `_konsoleCts`, `UpdateWindow._cts` yeniden atanmadan önce `Dispose()` ediliyor.
+- `PingService`: `catch when (ex.GetBaseException() is not OperationCanceledException)` — AggregateException içine sarılı iptal artık yanlışlıkla loglanmıyor.
+
+**P2 — Veri ve UX:**
+- `HistoryService`:
+  - `Id` formatı: `yyyyMMdd_HHmmss_fff_{guid8}_{type}` (ms collision imkansız).
+  - `SonKayitlariYukle`: lazy load — önce `LastWriteTimeUtc`'ye göre sıralı listeden `Take(limit)` sonra deserialize.
+- `FavoriService`: `IPAddress.TryParse` ile normalize + `OrdinalIgnoreCase` karşılaştırma (`192.168.001.1` = `192.168.1.1`).
+- `MainWindow.History.NormalizeTip`: `İ→I, Ş→S, Ğ→G, Ü→U, Ö→O, Ç→C` — Türkçe locale `ToUpper` sorunu giderildi.
+- `AppSettings.EvilTwinSinyalEsigi` (varsayılan 75, 50-90): Evil Twin "yüksek sinyal" eşiği artık ayarlanabilir.
+- `SecurityService.Dogrula`: `#if DEBUG ... #else ... #endif` ile CS0162 uyarısı temizlendi.
+
+**UI — Koyu tema tutarlılığı:**
+- `DarkCheckBox` stili (`MainWindow.xaml`): 16×16 koyu kutucuk + mavi `Path` onay işareti + hover/checked/disabled trigger'ları. `<Style TargetType="CheckBox" BasedOn="{StaticResource DarkCheckBox}"/>` ile tüm CheckBox'lar otomatik koyu tema (Derin tara, Otomatik yenile vb.).
+- `DarkChip` stili: `prim:ToggleButton` için yuvarlatılmış chip (CornerRadius=12), seçili durumda mavi vurgu, hover mavi kenar. `KameraChipOlustur` artık `Style = (Style)FindResource("DarkChip")` kullanıyor; inline renkler kaldırıldı.
+- `prim:` namespace prefix'i Window root'una eklendi.

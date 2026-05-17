@@ -76,10 +76,10 @@ internal static class MndpDiscoveryService
 
         while (index + 4 <= buf.Length)
         {
-            int tip      = (buf[index] << 8) | buf[index + 1];
-            int uzunluk  = (buf[index + 2] << 8) | buf[index + 3];
+            int tip     = ((buf[index] & 0xFF) << 8) | (buf[index + 1] & 0xFF);
+            int uzunluk = ((buf[index + 2] & 0xFF) << 8) | (buf[index + 3] & 0xFF);
             index += 4;
-            if (uzunluk < 0 || index + uzunluk > buf.Length) break;
+            if (uzunluk > buf.Length - index) break;
             var payload = new ReadOnlySpan<byte>(buf, index, uzunluk);
 
             switch (tip)

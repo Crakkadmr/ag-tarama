@@ -517,7 +517,13 @@ public partial class MainWindow
     private sealed class TaramaSubneti
     {
         public string Prefix { get; init; } = "";
-        public string Cidr => $"{Prefix}.0/24";
+        public int HostStart { get; init; } = 1;
+        public int HostEnd { get; init; } = 254;
+        public string OriginalCidr { get; init; } = "";
+        public string Cidr => string.IsNullOrEmpty(OriginalCidr)
+            ? $"{Prefix}.0/24"
+            : OriginalCidr;
+        public int HostCount => HostEnd >= HostStart ? HostEnd - HostStart + 1 : 0;
     }
 
     private static List<string> YerelSubnetleriBul()
@@ -598,27 +604,26 @@ public partial class MainWindow
         foreach (var parca in parcalar)
         {
             var token = parca.Trim();
-            string? prefix = null;
 
             var cidr = Regex.Match(token, @"^(?<a>\d{1,3})\.(?<b>\d{1,3})\.(?<c>\d{1,3})\.(?<d>\d{1,3})/(?<m>\d{1,2})$");
             if (cidr.Success)
             {
-                var mask = int.Parse(cidr.Groups["m"].Value);
-                if (mask < 16 || mask > 30) continue;
-                prefix = $"{cidr.Groups["a"].Value}.{cidr.Groups["b"].Value}.{cidr.Groups["c"].Value}";
+                if (!int.TryParse(cidr.Groups["a"].Value, out var a) || a is < 0 or > 255) continue;
+                if (!int.TryParse(cidr.Groups["b"].Value, out var b) || b is < 0 or > 255) continue;
+                if (!int.TryParse(cidr.Groups["c"].Value, out var c) || c is < 0 or > 255) continue;
+                if (!int.TryParse(cidr.Groups["d"].Value, out var d) || d is < 0 or > 255) continue;
+                if (!int.TryParse(cidr.Groups["m"].Value, out var mask) || mask is < 16 or > 30) continue;
+                CidrAraligaCoz(a, b, c, d, mask, token, list, tekiller);
+                continue;
             }
-            else
-            {
-                var p3 = Regex.Match(token, @"^(?<a>\d{1,3})\.(?<b>\d{1,3})\.(?<c>\d{1,3})$");
-                if (p3.Success)
-                    prefix = $"{p3.Groups["a"].Value}.{p3.Groups["b"].Value}.{p3.Groups["c"].Value}";
-                else
-                {
-                    var p4 = Regex.Match(token, @"^(?<a>\d{1,3})\.(?<b>\d{1,3})\.(?<c>\d{1,3})\.(?<d>\d{1,3})$");
-                    if (p4.Success)
-                        prefix = $"{p4.Groups["a"].Value}.{p4.Groups["b"].Value}.{p4.Groups["c"].Value}";
-                }
-            }
+
+            var p3 = Regex.Match(token, @"^(?<a>\d{1,3})\.(?<b>\d{1,3})\.(?<c>\d{1,3})$");
+            var p4 = Regex.Match(token, @"^(?<a>\d{1,3})\.(?<b>\d{1,3})\.(?<c>\d{1,3})\.(?<d>\d{1,3})$");
+            string? prefix = null;
+            if (p3.Success)
+                prefix = $"{p3.Groups["a"].Value}.{p3.Groups["b"].Value}.{p3.Groups["c"].Value}";
+            else if (p4.Success)
+                prefix = $"{p4.Groups["a"].Value}.{p4.Groups["b"].Value}.{p4.Groups["c"].Value}";
 
             if (prefix is null) continue;
 
@@ -626,11 +631,95 @@ public partial class MainWindow
             if (oktetler.Length != 3) continue;
             if (!oktetler.All(x => int.TryParse(x, out var n) && n is >= 0 and <= 255)) continue;
 
-            if (tekiller.Add(prefix))
-                list.Add(new TaramaSubneti { Prefix = prefix });
+            var key = $"{prefix}|1-254";
+            if (tekiller.Add(key))
+                list.Add(new TaramaSubneti { Prefix = prefix, HostStart = 1, HostEnd = 254 });
         }
 
         return list;
+    }
+
+    // CIDR /16-/30 araligini /24-bazli TaramaSubneti listesine ayristirir.
+    // /16-/23: birden cok /24 olusur, her biri 1-254 host taranir.
+    // /24:     tek subnet, 1-254.
+    // /25-/30: tek /24 prefix'i icinde sinirli host araligi.
+    private static void CidrAraligaCoz(int a, int b, int c, int d, int mask, string orijinal,
+                                       List<TaramaSubneti> list, HashSet<string> tekiller)
+    {
+        uint ipUint = ((uint)a << 24) | ((uint)b << 16) | ((uint)c << 8) | (uint)d;
+        uint maskUint = mask == 0 ? 0u : 0xFFFFFFFFu << (32 - mask);
+        uint network = ipUint & maskUint;
+        uint broadcast = network | ~maskUint;
+
+        if (mask >= 24)
+        {
+            // Tek /24 icinde sinirli aralik
+            int ho1 = (int)((network >> 24) & 0xFF);
+            int ho2 = (int)((network >> 16) & 0xFF);
+            int ho3 = (int)((network >> 8) & 0xFF);
+            var prefix = $"{ho1}.{ho2}.{ho3}";
+
+            int hostStart, hostEnd;
+            if (mask == 24)
+            {
+                hostStart = 1;
+                hostEnd = 254;
+            }
+            else if (mask == 31)
+            {
+                // /31 — point-to-point (RFC 3021): 2 host, broadcast yok
+                hostStart = (int)(network & 0xFF);
+                hostEnd = (int)(broadcast & 0xFF);
+            }
+            else if (mask == 32)
+            {
+                hostStart = (int)(network & 0xFF);
+                hostEnd = hostStart;
+            }
+            else
+            {
+                // /25 .. /30: network + 1 .. broadcast - 1
+                hostStart = (int)((network & 0xFF) + 1);
+                hostEnd = (int)((broadcast & 0xFF) - 1);
+            }
+
+            if (hostEnd < hostStart) return;
+            var key = $"{prefix}|{hostStart}-{hostEnd}";
+            if (tekiller.Add(key))
+                list.Add(new TaramaSubneti
+                {
+                    Prefix = prefix,
+                    HostStart = hostStart,
+                    HostEnd = hostEnd,
+                    OriginalCidr = orijinal,
+                });
+        }
+        else
+        {
+            // /16 .. /23: birden cok /24 araligi (broadcast - network + 1) / 256
+            ulong toplam = (ulong)broadcast - network + 1ul;
+            ulong adetCidr = toplam / 256ul;
+            // Asiri patlamayi engelle: maks 256 alt /24 (yani /16)
+            if (adetCidr > 256) return;
+
+            for (uint cur = network; cur <= broadcast && cur >= network; cur += 256)
+            {
+                int o1 = (int)((cur >> 24) & 0xFF);
+                int o2 = (int)((cur >> 16) & 0xFF);
+                int o3 = (int)((cur >> 8) & 0xFF);
+                var p = $"{o1}.{o2}.{o3}";
+                var key = $"{p}|1-254";
+                if (tekiller.Add(key))
+                    list.Add(new TaramaSubneti
+                    {
+                        Prefix = p,
+                        HostStart = 1,
+                        HostEnd = 254,
+                        OriginalCidr = orijinal,
+                    });
+                if (cur > 0xFFFFFF00u) break; // overflow guard
+            }
+        }
     }
 
     private readonly ObservableCollection<KameraSatir> _kameraSatirlari = new();
@@ -713,16 +802,9 @@ public partial class MainWindow
         {
             Tag = nic.Prefix,
             Content = icerik,
-            Padding = new Thickness(10, 4, 10, 4),
-            Margin = new Thickness(0, 0, 6, 6),
-            BorderThickness = new Thickness(1),
-            Background = new SolidColorBrush(Color.FromRgb(0x1F, 0x29, 0x33)),
-            Foreground = new SolidColorBrush(Color.FromRgb(0xE6, 0xED, 0xF3)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(0x30, 0x36, 0x3D)),
+            Style = (Style)FindResource("DarkChip"),
             ToolTip = $"{nic.NicAdi}\nTür: {nic.Tip}" +
                       (nic.Hiz > 0 ? $"\nHız: {nic.Hiz / 1_000_000} Mbps" : ""),
-            FocusVisualStyle = null,
-            Cursor = Cursors.Hand,
         };
         chip.Checked += KameraChipDegisti;
         chip.Unchecked += KameraChipDegisti;
@@ -731,15 +813,7 @@ public partial class MainWindow
 
     private void KameraChipDegisti(object sender, RoutedEventArgs e)
     {
-        if (sender is System.Windows.Controls.Primitives.ToggleButton tb)
-        {
-            tb.Background = tb.IsChecked == true
-                ? new SolidColorBrush(Color.FromRgb(0x0F, 0x37, 0x6D))
-                : new SolidColorBrush(Color.FromRgb(0x1F, 0x29, 0x33));
-            tb.BorderBrush = tb.IsChecked == true
-                ? new SolidColorBrush(Color.FromRgb(0x2F, 0x81, 0xF7))
-                : new SolidColorBrush(Color.FromRgb(0x30, 0x36, 0x3D));
-        }
+        // Görsel durum DarkChip stilindeki trigger'lar tarafından yönetiliyor.
         KameraChipleriSenkronizeEt();
     }
 
@@ -1239,12 +1313,15 @@ public partial class MainWindow
 
     private async Task NetbiosSweepAsync(
         string subnet,
+        int hostStart,
+        int hostEnd,
         ConcurrentDictionary<string, KameraBilgi> bulunanlar,
         ConcurrentBag<string> logSatirlari,
         CancellationToken token)
     {
         var sem   = new SemaphoreSlim(64);
-        var tasks = Enumerable.Range(1, 254).Select(i =>
+        int sayi = Math.Max(0, hostEnd - hostStart + 1);
+        var tasks = Enumerable.Range(hostStart, sayi).Select(i =>
         {
             var ip = $"{subnet}.{i}";
             return Task.Run(async () =>
@@ -1429,7 +1506,7 @@ public partial class MainWindow
         var logSatirlari = new ConcurrentBag<string>();
         using var netbiosSem = new SemaphoreSlim(16);
         int taranan = 0;
-        int toplamHost = subnetler.Count * 254;
+        int toplamHost = subnetler.Sum(s => s.HostCount);
 
         KameraKutucugaYaz($"Hedef: {string.Join(", ", subnetler.Select(x => x.Cidr))}", "#8B949E");
         KameraKutucugaYaz($"Portlar: {string.Join(", ", KameraPorts)}", "#484F58");
@@ -1445,7 +1522,7 @@ public partial class MainWindow
             {
                 token.ThrowIfCancellationRequested();
                 KameraKutucugaYaz($"Taranan subnet: {subnet.Cidr}", "#8B949E");
-                await TaramaYurutAsync(subnet.Prefix);
+                await TaramaYurutAsync(subnet.Prefix, subnet.HostStart, subnet.HostEnd);
             }
 
             await ArpBilgileriniTopluGuncelleAsync(bulunanlar, logSatirlari, token);
@@ -1497,12 +1574,13 @@ public partial class MainWindow
             KameraDurdurBtn.Visibility = Visibility.Collapsed;
         }
 
-        async Task TaramaYurutAsync(string subnet)
+        async Task TaramaYurutAsync(string subnet, int hostStart, int hostEnd)
         {
+            int hostSayi = Math.Max(0, hostEnd - hostStart + 1);
             var portTask = Task.Run(async () =>
             {
                 var sem = new SemaphoreSlim(80);
-                var tasks = Enumerable.Range(1, 254).Select(i =>
+                var tasks = Enumerable.Range(hostStart, hostSayi).Select(i =>
                 {
                     var ip = $"{subnet}.{i}";
                     return Task.Run(async () =>
@@ -1689,7 +1767,7 @@ public partial class MainWindow
             var pingSweepTask = Task.Run(async () =>
             {
                 var sem = new SemaphoreSlim(64);
-                var tasks = Enumerable.Range(1, 254).Select(i =>
+                var tasks = Enumerable.Range(hostStart, hostSayi).Select(i =>
                 {
                     var ip = $"{subnet}.{i}";
                     return Task.Run(async () =>
@@ -1719,14 +1797,14 @@ public partial class MainWindow
 
             var mdnsTask = Task.Run(() => MdnsSweepAsync(subnet, bulunanlar, logSatirlari, token), token);
             var advancedScannerTask = Task.Run(() => AdvancedScannerKayitlariniIsleAsync(subnet, bulunanlar, logSatirlari, token), token);
-            var netbiosSweepTask = Task.Run(() => NetbiosSweepAsync(subnet, bulunanlar, logSatirlari, token), token);
+            var netbiosSweepTask = Task.Run(() => NetbiosSweepAsync(subnet, hostStart, hostEnd, bulunanlar, logSatirlari, token), token);
 
             var ekTasks = new List<Task>();
             if (derinTara)
             {
                 ekTasks.Add(Task.Run(() => UbiquitiSweepAsync(subnet, bulunanlar, logSatirlari, token), token));
                 ekTasks.Add(Task.Run(() => MndpSweepAsync(subnet, bulunanlar, logSatirlari, token), token));
-                ekTasks.Add(Task.Run(() => SnmpSweepAsync(subnet, bulunanlar, logSatirlari, token), token));
+                ekTasks.Add(Task.Run(() => SnmpSweepAsync(subnet, hostStart, hostEnd, bulunanlar, logSatirlari, token), token));
             }
 
             await Task.WhenAll(new[] { portTask, onvifTask, ssdpTask, pingSweepTask, mdnsTask, advancedScannerTask, netbiosSweepTask }
@@ -1778,13 +1856,15 @@ public partial class MainWindow
         catch (Exception ex) { logSatirlari.Add($"MNDP hata: {ex.Message}"); }
     }
 
-    private async Task SnmpSweepAsync(string subnet, ConcurrentDictionary<string, KameraBilgi> bulunanlar,
+    private async Task SnmpSweepAsync(string subnet, int hostStart, int hostEnd,
+                                      ConcurrentDictionary<string, KameraBilgi> bulunanlar,
                                       ConcurrentBag<string> logSatirlari, CancellationToken token)
     {
         try
         {
             using var sem = new SemaphoreSlim(32);
-            var tasks = Enumerable.Range(1, 254).Select(i =>
+            int sayi = Math.Max(0, hostEnd - hostStart + 1);
+            var tasks = Enumerable.Range(hostStart, sayi).Select(i =>
             {
                 var ip = $"{subnet}.{i}";
                 return Task.Run(async () =>

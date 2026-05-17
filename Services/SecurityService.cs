@@ -29,13 +29,14 @@ public static class SecurityService
     public static void Dogrula()
     {
 #if DEBUG
-        return; // Geliştirme ortamında kontrol yapma
-#endif
+        // Geliştirme ortamında kontrol yapma
+#else
         if (DebuggerVarMi())
             Sonlandir("Hata kodu: 0xE_DBG");
 
         if (AnalizAraciVarMi())
             Sonlandir("Hata kodu: 0xE_ENV");
+#endif
     }
 
     // ─── Çağrılabilir yardımcılar ────────────────────────────────────────────

@@ -5,7 +5,7 @@
 ```
 AG TARAMA PROGRAMI/
 └── AgTarama/
-    ├── AgTarama.csproj               ← .NET 10 WPF v0.2.0; NuGet: QuestPDF 2024.12.*, ClosedXML 0.102.*
+    ├── AgTarama.csproj               ← .NET 10 WPF v0.3.0; NuGet: QuestPDF 2024.12.*, ClosedXML 0.102.*
     ├── App.xaml / App.xaml.cs        ← Application giriş noktası (boş)
     ├── AssemblyInfo.cs               ← ThemeInfo
     ├── MainWindow.xaml               ← Network Sniffer UI tasarımı + stiller (~1254 satır)
@@ -19,8 +19,8 @@ AG TARAMA PROGRAMI/
     │   ├── MainWindow.History.cs     ← GecmisPanelGuncelle, Tekrar Çalıştır, Karşılaştır (235 satır)
     │   ├── MainWindow.UI.cs          ← BtnAyarlar, RaporKaydet, Toast, Bildirim (141 satır)
     │   ├── MainWindow.License.cs     ← LisansPanelGuncelle, sticky banner, MachineId, NTP, Kopyala (204 satır)
-    │   ├── MainWindow.Wlan.cs        ← WlanPanelBaşlat, WlanTaramaBaslat, WlanSatir, Evil-Twin tespiti (~180 satır)
-    │   └── MainWindow.DeviceScan.cs  ← KameraTaramaBaslat, 7 paralel keşif protokolü, subnet chip picker, export (2245 satır)
+    │   ├── MainWindow.Wlan.cs        ← WlanPanelBaşlat, WlanTaramaBaslat, WlanSatir, Evil-Twin (~420 satır; v0.3.0 ConcurrentDictionary)
+    │   └── MainWindow.DeviceScan.cs  ← KameraTaramaBaslat, 7 paralel keşif protokolü, subnet chip picker (DarkChip), CIDR /16-/30 enumerator, export (~2340 satır)
     ├── Paths.cs                      ← Tüm exe-relative yol sabitleri (static)
     ├── LogService.cs                 ← %APPDATA%\AgTarama\logs\YYYYMMDD.log
     ├── obfuscar.xml                  ← Obfuscar yapılandırması (Release post-build)
@@ -38,8 +38,8 @@ AG TARAMA PROGRAMI/
 
 **Log:** `%APPDATA%\AgTarama\logs\YYYYMMDD.log`
 **Ayarlar:** `%APPDATA%\AgTarama\settings.json`
-**Favoriler:** `%APPDATA%\AgTarama\favoriler.json`
-**Geçmiş:** `%APPDATA%\AgTarama\history\*.json`
+**Favoriler:** `%APPDATA%\AgTarama\favorites.json` (v0.3.0: IP normalize edilerek saklanır)
+**Geçmiş:** `%APPDATA%\AgTarama\history\*.json` (v0.3.0: ID `{tarih}_{guid8}_{type}`; `SonKayitlariYukle` lazy load)
 
 ---
 

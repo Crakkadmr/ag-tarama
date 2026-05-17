@@ -81,9 +81,9 @@ internal static class UbiquitiDiscoveryService
         while (index + 3 <= buf.Length)
         {
             byte tip = buf[index];
-            int uzunluk = (buf[index + 1] << 8) | buf[index + 2];
+            int uzunluk = ((buf[index + 1] & 0xFF) << 8) | (buf[index + 2] & 0xFF);
             index += 3;
-            if (uzunluk <= 0 || index + uzunluk > buf.Length) break;
+            if (uzunluk <= 0 || uzunluk > buf.Length - index) break;
             var payload = new ReadOnlySpan<byte>(buf, index, uzunluk);
 
             switch (tip)

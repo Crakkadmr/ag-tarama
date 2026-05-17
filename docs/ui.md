@@ -36,8 +36,9 @@ Satır 1 — NIC chip picker:
 ```
 [ ScrollViewer > WrapPanel x:Name="KameraSubnetChips" ]  [☐ Derin tara]  [⟳]
 ```
-- Her aktif NIC için `ToggleButton` chip: `192.168.1.0/24 (Ethernet)` formatı; seçim subnet TextBox'a senkronize edilir.
-- `KameraDerinTaraCheck` (CheckBox) — Ubiquiti, MikroTik, SNMP, HTTP endpoint probe'larını etkinleştirir.
+- Her aktif NIC için `ToggleButton` chip (v0.3.0: `DarkChip` stilini kullanır): `192.168.1.0/24 (Ethernet)` formatı; seçim subnet TextBox'a senkronize edilir.
+- `KameraDerinTaraCheck` (CheckBox; v0.3.0: `DarkCheckBox` stiliyle koyu tema) — Ubiquiti, MikroTik, SNMP, HTTP endpoint probe'larını etkinleştirir.
+- Subnet TextBox kabul ettiği formatlar (v0.3.0): `192.168.1` (3-oktet), `192.168.1.0/24`, `10.0.0.0/16` (256 alt /24'e açılır), `192.168.1.0/30` (2 host), virgül/satırla ayrılmış liste.
 - `KameraNicYenileBtn` (⟳) — `KameraNicChipleriniYenile(seciliVarsayilan: false)` çağırır.
 
 Satır 2 — Manuel subnet + butonlar:
@@ -87,6 +88,8 @@ Sekme geçişi: `MainTabControl.SelectedIndex = TabXxx` (sabitler `MainWindow.xa
 | `DangerButton` | Button | Kırmızı "Durdur" butonu (BasedOn ActionButton) |
 | `PingInputBox` | TextBox | IP/değer giriş kutusu |
 | `ChipButton` | Button | Hızlı seçim chip'leri (CornerRadius=12) |
+| `DarkChip` | ToggleButton | Subnet NIC chip'i (CornerRadius=12, mavi seçili durumu). v0.3.0 |
+| `DarkCheckBox` | CheckBox | Koyu temalı CheckBox (16×16 kutucuk + mavi Path tik). v0.3.0 — `TargetType="CheckBox"` boş stili ile tüm CheckBox'lara otomatik uygulanır |
 | `DarkComboBox` | ComboBox | Cihaz Tara tür filtresi; koyu açılır liste |
 | `DarkComboBoxItem` | ComboBoxItem | Koyu dropdown satırları |
 | `DarkDataGrid` | DataGrid | Cihaz Tara tablo; koyu tema, sıralanabilir |

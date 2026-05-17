@@ -56,7 +56,7 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 
 ---
 
-## Partials/MainWindow.DeviceScan.cs (2245 satır — v0.2.0 ile büyük genişleme)
+## Partials/MainWindow.DeviceScan.cs (~2340 satır — v0.3.0 CIDR enumerator)
 
 | Satır | İçerik |
 |---|---|
@@ -65,7 +65,7 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 | L88–L220 | `KameraPorts` array, `MarkaTablosu` static array (~100 anahtar kelime → marka/tür) |
 | L222–L420 | `KimlikBelirle(KameraBilgi) static` — vendor-specific yüksek güven kaynakları → mDNS → yazıcı/NVR/PC heuristikleri → MarkaTablosu → port-based fallback → TTL fallback |
 | L422–L520 | `GuvenSkoru(b, k) static`, `CihazAdiBilgisayarGibi`, `KayitCihaziIpuclariVar`, `YaziciIpuclariVar`, `CihazAdiSec`, `IlkDolu`, `KisaHostAdi`, `AnlamliSayfaBasligi`, `TemizKimlikMetni` |
-| L517–L640 | `TaramaSubneti` sealed class, `YerelSubnetleriBul`, `NicSubneti` record, `YerelNicSubnetleriniBul`, `YerelSubnetiBul`, `SanalAdaptorMu`, `SubnetGirdisiniCoz` |
+| L517–L720 | `TaramaSubneti` (v0.3.0: `HostStart`/`HostEnd`/`HostCount`/`OriginalCidr`), `YerelSubnetleriBul`, `NicSubneti` record, `YerelNicSubnetleriniBul`, `YerelSubnetiBul`, `SanalAdaptorMu`, `SubnetGirdisiniCoz` + `CidrAraligaCoz` (/16-/23 → çoklu /24; /25-/30 → kısıtlı aralık) |
 | L641–L759 | `_subnetBoxChipSenkronu` bool, `BtnKamera_Click`, `KameraNicYenileBtn_Click`, `KameraNicChipleriniYenile(bool)`, `KameraChipOlustur(NicSubneti)`, `KameraChipDegisti`, `KameraChipleriSenkronizeEt` |
 | L760–L984 | DataGrid event handler'ları: panel kapat, subnet textbox sync, kolon filtre, tür filtresi, filtre temizle, çift tık, sağ tık; `KameraMenuYenidenTara_Click`, `TekIpTaraAsync(ip)` |
 | L985–L1210 | Sağ tık menü aksiyon handler'ları (web, ping, port, trace, dns, kopyala, favori, export); `KameraWebArayuzunuAc`, `KameraDisariAktar`, `KameraGorunenSatirlariAl` |
@@ -82,7 +82,7 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 | L2186–L2245 | `KameraSatir` sealed class (INotifyPropertyChanged) — `Guven` (int) dahil tüm alanlar |
 
 **`KameraTaramaBaslat` paralel görevler (L1394):**
-1. Port tarama — 1–254 IP, SemaphoreSlim(80), 800ms, `KameraPorts` = {554,8000,8080,37777,80,8443,22,23,139,443,445,3389,9000,34567}; `HttpFingerprintService.ProbeAsync` derin modda
+1. Port tarama — `hostStart..hostEnd` IP (v0.3.0: önceden sabit 1-254), SemaphoreSlim(80), 800ms, `KameraPorts` = {554,8000,8080,37777,80,8443,22,23,139,443,445,3389,9000,34567}; `HttpFingerprintService.ProbeAsync` derin modda
 2. ONVIF WS-Discovery (`239.255.255.250:3702`) + WSD `wsdp:Device` ikinci probe → yazıcı/PC
 3. SSDP/UPnP (`239.255.255.250:1900`) + mDNS (`224.0.0.251:5353`)
 4. Ping Sweep — SemaphoreSlim(64), 1000ms
@@ -166,12 +166,12 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 
 ---
 
-## Partials/MainWindow.Wlan.cs (~180 satır)
+## Partials/MainWindow.Wlan.cs (~420 satır — v0.3.0 ConcurrentDictionary)
 
 | Satır | İçerik |
 |---|---|
-| L1–L10 | using/namespace |
-| L11–L18 | Alanlar: `_wlanCts`, `_wlanSatirlar` (ObservableCollection), `_wlanOtoTimer`, `_wlanSayac` (int), `_wlanAdaptorVar` (bool) |
+| L1–L14 | using/namespace (System.Collections.Concurrent dahil) |
+| L17–L26 | Alanlar: `_wlanCts`, `_wlanSatirlar` (ObservableCollection), `_wlanBilinenBssid` **`ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>`** (v0.3.0), `_wlanOtoTimer`, `_wlanSayac` (int), `_wlanAdaptorVar` (bool) |
 | L20–L30 | `WlanPanelBaşlat()` — `WlanGrid.ItemsSource` bağla, `WifiAdaptorVarMi()` kontrol; adaptör yoksa `WlanTab.IsEnabled=false` + ToolTip |
 | L32–L50 | `WlanTaraBtn_Click`, `WlanDurdurBtn_Click`, `WlanOtoYenile_Changed` |
 | L52–L80 | `WlanOtoTimerBaslat()` / `WlanOtoTimerDurdur()` — DispatcherTimer(1s), geri sayım WlanSayacText |
@@ -183,6 +183,8 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 - WPA (1. nesil) → sarı `#E3B341` + "⚠ Orta"
 - WEP / Open → kırmızı `#F85149` + "✖ Güvensiz"
 - Evil-Twin → sarı `#E3B341` + "⚠ Evil-Twin" (öncelikli)
+
+**Evil Twin eşiği (v0.3.0):** `SupheliEvilTwinSinyalleriniGuncelle` artık sabit 75 yerine `Math.Clamp(SettingsService.Yukle().EvilTwinSinyalEsigi, 50, 90)` kullanıyor.
 
 **XAML öğeleri:** `WlanTab` (x:Name, IsEnabled kontrolü için), `WlanPanel`, `WlanDurumText`, `WlanTaraBtn`, `WlanDurdurBtn`, `WlanOtoYenileCheck`, `WlanSayacText`, `WlanGrid` (DataGrid)
 

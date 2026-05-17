@@ -69,6 +69,7 @@ public partial class MainWindow
                 await Task.Delay(100);
             }
 
+            _konsoleCts?.Dispose();
             _konsoleCts = new CancellationTokenSource();
             _konsoleCalistiriliyor = true;
             try

@@ -5,7 +5,7 @@ NuGet bağımlılıkları: `QuestPDF 2024.12.*` (PDF), `ClosedXML 0.102.*` (XLSX
 
 ---
 
-## InterfaceDiscoveryService.cs (71 satır)
+## InterfaceDiscoveryService.cs (72 satır)
 
 `tshark -D` çıktısını parse eder, aktif arayüzleri döner.
 
@@ -13,6 +13,8 @@ NuGet bağımlılıkları: `QuestPDF 2024.12.*` (PDF), `ClosedXML 0.102.*` (XLSX
 Task<List<ArayuzBilgi>> TumunuGetirAsync()
 Task<int> PaketSayisiAsync(ArayuzBilgi, CancellationToken)
 ```
+
+**v0.3.0:** `Process.Start(psi)!` null-forgiveness kaldırıldı. tshark yoksa `TumunuGetirAsync` artık `InvalidOperationException("tshark başlatılamadı: ...")` fırlatır; `PaketSayisiAsync` null process durumunda sessizce 0 döner.
 
 ---
 
@@ -35,6 +37,8 @@ IAsyncEnumerable<PingSonuc> PingleAsync(string hedef, CancellationToken)
 ```
 
 4 ping, TTL, hata sarmalı akış.
+
+**v0.3.0:** Exception filtresi `catch (Exception ex) when (ex.GetBaseException() is not OperationCanceledException)`. `AggregateException` içine sarılı iptal artık yanlışlıkla loglanmıyor.
 
 ---
 
@@ -72,7 +76,7 @@ Task<List<AisSonuc>> TaraAsync(string subnet, CancellationToken)
 
 ---
 
-## HistoryService.cs (88 satır)
+## HistoryService.cs (~95 satır)
 
 `%APPDATA%\AgTarama\history\*.json` altında geçmiş kayıtları.
 
@@ -87,6 +91,10 @@ static void TumunuSil()
 
 Kayıt üreten akışlar: Ping, Port Tara, ARP Tablosu, Cihaz Tara, Yakalama.
 
+**v0.3.0:**
+- `Id` formatı: `yyyyMMdd_HHmmss_fff_{guid8}_{type}` — millisaniye collision imkânsız.
+- `SonKayitlariYukle(limit)` artık önce dosyaları `LastWriteTimeUtc`'ye göre sıralayıp sadece ilk `limit` tanesini deserialize ediyor. 1000+ kayıtta bellek kazancı.
+
 ---
 
 ## SettingsService.cs (30 satır)
@@ -100,18 +108,20 @@ static void Kaydet(AppSettings ayarlar)
 
 ---
 
-## FavoriService.cs (47 satır)
+## FavoriService.cs (~60 satır)
 
 ```csharp
-static void Ekle(string ip)
+static bool Ekle(string ip)            // dönüş: false = zaten var
 static void Sil(string ip)
 static List<string> YukleHepsi()
-// Yol: %APPDATA%\AgTarama\favoriler.json
+// Yol: %APPDATA%\AgTarama\favorites.json
 ```
+
+**v0.3.0:** IP normalizasyonu eklendi. `Normalize(s)` `IPAddress.TryParse` ile `"192.168.001.1"` → `"192.168.1.1"` çevirir; karşılaştırmalar `OrdinalIgnoreCase`. Aynı IP'nin farklı yazımları artık tek favori olarak değerlendiriliyor.
 
 ---
 
-## UpdateService.cs (254 satır)
+## UpdateService.cs (~310 satır)
 
 GitHub Releases API kontrolü, ZIP indirme, PowerShell self-update.
 
@@ -122,15 +132,22 @@ Task IndirVeKurAsync(string indirmeUrl, IProgress<double> progress, Cancellation
 // Opsiyonel: AGT_UPDATE_SIGNER_THUMBPRINT env var ile thumbprint pinning
 ```
 
+**v0.3.0 — Güvenlik sertleştirmesi:** `ZipFile.ExtractToDirectory` yerine `SafeExtractZip`:
+- Entry sayısı ≤ 5000, toplam açılmış boyut ≤ 500 MB, tek entry ≤ 200 MB.
+- Mutlak yol, sürücü harfi, `..` içeren entry reddedilir.
+- Her entry'nin canonical hedef yolu `extractTo` altında olduğu doğrulanır (Zip Slip).
+
 ---
 
-## SecurityService.cs (90 satır)
+## SecurityService.cs (~90 satır)
 
 Debugger + analiz aracı tespiti. Release-only (DEBUG'da no-op).
 
 ```csharp
 static void Dogrula()  // App_Startup'tan çağrılır; tespit edilirse uygulama kapanır
 ```
+
+**v0.3.0:** `#if DEBUG return; #endif` deseni `#if DEBUG ... #else ... #endif` ile değiştirildi; CS0162 "unreachable code" uyarısı giderildi.
 
 ---
 
@@ -139,10 +156,19 @@ static void Dogrula()  // App_Startup'tan çağrılır; tespit edilirse uygulama
 Model sınıfı:
 ```csharp
 class AppSettings {
-    int HedefMB      { get; set; } = 100;
-    int TestSuresiSn { get; set; } = 2;
+    int  HedefMB                { get; set; } = 16;
+    int  TestSuresiSn           { get; set; } = 2;
+    int  PingTimeoutMs          { get; set; } = 2000;
+    int  PortTaramaConcurrency  { get; set; } = 50;
+    int  PortTaramaTimeoutMs    { get; set; } = 1000;
+    int  WlanAutoRefreshSeconds { get; set; } = 10;
+    int  EvilTwinSinyalEsigi    { get; set; } = 75;  // v0.3.0 (50-90)
+    bool SesAcik                { get; set; } = true;
+    bool ToastAcik              { get; set; } = true;
 }
 ```
+
+**v0.3.0:** `EvilTwinSinyalEsigi` eklendi. `SupheliEvilTwinSinyalleriniGuncelle` hardcode 75 yerine bu ayarı `Math.Clamp(50, 90)` ile kullanıyor.
 
 ---
 
@@ -161,7 +187,7 @@ static bool WifiAdaptorVarMi()
 
 ---
 
-## BandwidthHistoryService.cs (yeni — #10)
+## BandwidthHistoryService.cs
 
 In-memory dairesel buffer, bant genişliği zaman serisi.
 
@@ -174,6 +200,8 @@ static (double PeakRx, double PeakTx, double AvgRx, double AvgTx,
 
 - Kapasite: 3600 örnek (1 saat), dairesel `_head` işaretçi ile
 - `GetAggregate(sn)` → son `sn` saniyelik örnekleri kronolojik sırada döner
+
+**v0.3.0 — Thread safety:** `_rxBuf`, `_txBuf`, `_head`, `_count` tüm erişim `lock (_sync)` altında. DispatcherTimer + background thread aynı anda RecordTick/GetSnapshot çağırsa bile data corruption riski yok.
 
 ---
 
@@ -197,7 +225,7 @@ static List<string> GetCommandNames()
 
 ---
 
-## UbiquitiDiscoveryService.cs (yeni — v0.2.0)
+## UbiquitiDiscoveryService.cs (v0.2.0; v0.3.0 TLV fix)
 
 UDP 10001 üzerinden Ubiquiti UniFi AP / EdgeRouter / AirOS cihazlarını keşfeder.
 
@@ -210,10 +238,11 @@ static Task<IReadOnlyList<UbiquitiKaydi>> TaraAsync(string subnet, CancellationT
 - v1 probe: `{0x01,0x00,0x00,0x00}` + v2 probe: `{0x02,0x08,0x00,0x00}` → subnet broadcast + global broadcast.
 - TLV parser: `0x01`=MAC, `0x02`=MAC+IP, `0x03`=firmware, `0x0B`=hostname, `0x0C`=platform, `0x14`=modelCode.
 - Sonuç: `Marka=Ubiquiti`, `Model=<platform>`, `Tur=Erişim Noktası` veya `Router/AP`.
+- **v0.3.0:** Byte shift integer overflow düzeltildi: `((buf[index + 1] & 0xFF) << 8) | (buf[index + 2] & 0xFF)`. Sınır kontrolü `uzunluk > buf.Length - index` (taşmaya dayanıklı). Yüksek bit set TLV uzunluğu artık negatif int'e dönüşmüyor.
 
 ---
 
-## MndpDiscoveryService.cs (yeni — v0.2.0)
+## MndpDiscoveryService.cs (v0.2.0; v0.3.0 TLV fix)
 
 MikroTik Neighbor Discovery Protocol (UDP 5678) — aktif probe + pasif broadcast dinleme.
 
@@ -226,6 +255,7 @@ static Task<IReadOnlyList<MndpKaydi>> TaraAsync(string subnet, CancellationToken
 - Probe: `{0x00,0x00,0x00,0x00}` → broadcast; UDP 5678'e bind ederek ~30s aralıklı broadcast'ları da yakalar.
 - TLV: `0x01`=MAC, `0x05`=identity, `0x07`=version, `0x08`=platform, `0x0B`=softId, `0x0C`=board.
 - Sonuç: `Marka=MikroTik`, `Model=<board>`, `Tur=Router/AP`.
+- **v0.3.0:** TLV `tip` ve `uzunluk` alanları `& 0xFF` ile unsigned okunuyor; sınır kontrolü taşmaya dayanıklı. Malformed MNDP paketinde buffer overread riski giderildi.
 
 ---
 

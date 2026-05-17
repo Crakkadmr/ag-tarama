@@ -176,6 +176,7 @@
 
         <!-- Ping giriş kutusu -->
         <Style x:Key="PingInputBox" TargetType="TextBox">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="Background" Value="#161B22"/>
             <Setter Property="Foreground" Value="#E6EDF3"/>
             <Setter Property="BorderBrush" Value="#30363D"/>
@@ -184,19 +185,25 @@
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="CaretBrush" Value="#58A6FF"/>
             <Setter Property="SelectionBrush" Value="#1F6FEB"/>
+            <Setter Property="SelectionTextBrush" Value="#E6EDF3"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
-                        <Border Background="{TemplateBinding Background}"
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="6"
                                 Padding="{TemplateBinding Padding}">
-                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False"/>
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Focusable="False"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsFocused" Value="True">
-                                <Setter Property="BorderBrush" Value="#58A6FF"/>
+                                <Setter TargetName="Root" Property="BorderBrush" Value="#58A6FF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -636,8 +643,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Başlık (tam genişlik) -->
@@ -730,7 +736,7 @@
                                 <TabPanel IsItemsHost="True"/>
                             </ScrollViewer>
                         </Border>
-                        <ContentPresenter Grid.Row="1" ContentSource="SelectedContent"/>
+                        <ContentPresenter Grid.Row="2" ContentSource="SelectedContent"/>
                     </Grid>
                 </ControlTemplate>
             </TabControl.Template>
@@ -776,14 +782,10 @@
                 <TabItem.Header>
                     <TextBlock FontFamily="Consolas" FontSize="12" Text="●  Chatbot"/>
                 </TabItem.Header>
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                <DockPanel LastChildFill="True">
                     <!-- Araç çubuğu -->
-                    <Border Grid.Row="0" Background="#111827" BorderBrush="#243147" BorderThickness="1"
+                    <Border DockPanel.Dock="Top"
+                            Background="#111827" BorderBrush="#243147" BorderThickness="1"
                             CornerRadius="8" Padding="10,6" Margin="0,0,0,8">
                         <WrapPanel>
                             <Button x:Name="BtnTaramaBaslat" Style="{StaticResource PrimaryButton}"
@@ -843,16 +845,8 @@
                             </Button>
                         </WrapPanel>
                     </Border>
-                    <!-- Chat alanı -->
-                    <Border Grid.Row="1" Background="#0B1220" BorderBrush="#243147" BorderThickness="1" CornerRadius="10">
-                        <ScrollViewer x:Name="ChatScrollViewer"
-                                      VerticalScrollBarVisibility="Auto"
-                                      HorizontalScrollBarVisibility="Disabled"
-                                      Padding="4,4,8,4">
-                            <StackPanel x:Name="ChatPanel" Margin="8,8,4,8"/>
-                        </ScrollViewer>
-                    </Border>
-                    <Border Grid.Row="2"
+                    <!-- AI input barı -->
+                    <Border DockPanel.Dock="Bottom"
                             Background="#111827"
                             BorderBrush="#243147"
                             BorderThickness="1"
@@ -896,7 +890,16 @@
                             </Button>
                         </Grid>
                     </Border>
-                </Grid>
+                    <!-- Chat alanı — LastChildFill kalan tüm alanı doldurur -->
+                    <Border Background="#0B1220" BorderBrush="#243147" BorderThickness="1" CornerRadius="10">
+                        <ScrollViewer x:Name="ChatScrollViewer"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Padding="4,4,8,4">
+                            <StackPanel x:Name="ChatPanel" Margin="8,8,4,8"/>
+                        </ScrollViewer>
+                    </Border>
+                </DockPanel>
             </TabItem>
 
             <!-- ═══ Sekme 1: Cihaz Tara ═══ -->

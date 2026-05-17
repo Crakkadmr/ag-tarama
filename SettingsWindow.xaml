@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Ayarlar"
         Background="#0D1117"
-        Width="400" Height="520"
+        Width="440" Height="640"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False">
@@ -48,11 +48,174 @@
         </Style>
 
         <Style x:Key="CheckStyle" TargetType="CheckBox">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="Foreground" Value="#C9D1D9"/>
             <Setter Property="FontFamily" Value="Consolas"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Margin" Value="0,0,0,14"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#0D1117"/>
+            <Setter Property="BorderBrush" Value="#30363D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="6,0,0,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <Border x:Name="Box"
+                                    Width="16" Height="16"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="3"
+                                    VerticalAlignment="Center"
+                                    SnapsToDevicePixels="True">
+                                <Path x:Name="CheckMark"
+                                      Stroke="#58A6FF" StrokeThickness="2"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      Data="M 3 8 L 7 12 L 13 4"
+                                      Stretch="None"
+                                      Visibility="Collapsed"
+                                      SnapsToDevicePixels="True"/>
+                            </Border>
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"
+                                              RecognizesAccessKey="True"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="#58A6FF"/>
+                                <Setter TargetName="Box" Property="Background" Value="#0D3B66"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="#58A6FF"/>
+                                <Setter Property="Foreground" Value="#E6EDF3"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkComboBox" TargetType="ComboBox">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Background" Value="#161B22"/>
+            <Setter Property="Foreground" Value="#E6EDF3"/>
+            <Setter Property="BorderBrush" Value="#30363D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="Margin" Value="0,0,0,14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="OverridesDefaultStyle" Value="True"/>
+                        <Setter Property="Background" Value="#161B22"/>
+                        <Setter Property="Foreground" Value="#E6EDF3"/>
+                        <Setter Property="FontFamily" Value="Consolas"/>
+                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="Padding" Value="10,7"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="ItemBg"
+                                            Background="{TemplateBinding Background}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter TargetName="ItemBg" Property="Background" Value="#1F6FEB"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="ItemBg" Property="Background" Value="#0D2A4A"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid x:Name="Root">
+                            <!-- Toggle butonu tüm alanı kaplar, tıklamada dropdown açar/kapar -->
+                            <ToggleButton IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                          OverridesDefaultStyle="True"
+                                          Focusable="False"
+                                          Cursor="Hand">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="TgBg"
+                                                Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                BorderThickness="{Binding BorderThickness, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                CornerRadius="6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="30"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter x:Name="HeaderPresenter"
+                                                                  Grid.Column="0"
+                                                                  Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  Margin="{Binding Padding, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  VerticalAlignment="Center"
+                                                                  TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ComboBox}}"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="▾"
+                                                           Foreground="#8B949E"
+                                                           FontSize="11"
+                                                           VerticalAlignment="Center"
+                                                           HorizontalAlignment="Center"
+                                                           IsHitTestVisible="False"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="TgBg" Property="BorderBrush" Value="#58A6FF"/>
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="TgBg" Property="BorderBrush" Value="#58A6FF"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   Placement="Bottom"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Fade">
+                                <Border Background="#161B22"
+                                        BorderBrush="#30363D"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+                                    <ScrollViewer MaxHeight="200"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="BtnStyle" TargetType="Button">
@@ -149,6 +312,119 @@
                                    FontSize="10" FontWeight="Bold" Margin="0,0,0,10"/>
                         <TextBlock Text="Otomatik yenile araligi (sn)" Style="{StaticResource LabelStyle}"/>
                         <TextBox x:Name="WlanRefreshBox" Style="{StaticResource InputStyle}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1"
+                        CornerRadius="6" Padding="14,12" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="AI" Foreground="#484F58" FontFamily="Consolas"
+                                   FontSize="10" FontWeight="Bold" Margin="0,0,0,10"/>
+                        <CheckBox x:Name="AiEnabledBox" Content="AI özelliklerini etkinleştir"
+                                  Style="{StaticResource CheckStyle}"/>
+                        <TextBlock Text="Sağlayıcı" Style="{StaticResource LabelStyle}"/>
+                        <ComboBox x:Name="AiSaglayiciBox"
+                                  Style="{StaticResource DarkComboBox}"
+                                  SelectionChanged="AiSaglayiciBox_SelectionChanged"/>
+                        <TextBlock Text="API anahtarı" Style="{StaticResource LabelStyle}"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <PasswordBox x:Name="AiApiKeyBox"
+                                         Grid.Column="0"
+                                         Background="#161B22"
+                                         Foreground="#E6EDF3"
+                                         CaretBrush="#58A6FF"
+                                         FontFamily="Consolas"
+                                         FontSize="13">
+                                <PasswordBox.Style>
+                                    <Style TargetType="PasswordBox">
+                                        <Setter Property="Background" Value="#161B22"/>
+                                        <Setter Property="Foreground" Value="#E6EDF3"/>
+                                        <Setter Property="CaretBrush" Value="#58A6FF"/>
+                                        <Setter Property="FontFamily" Value="Consolas"/>
+                                        <Setter Property="FontSize" Value="13"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="PasswordBox">
+                                                    <Border x:Name="PwRoot"
+                                                            Background="{TemplateBinding Background}"
+                                                            BorderBrush="#30363D"
+                                                            BorderThickness="1"
+                                                            CornerRadius="6"
+                                                            Padding="10,7">
+                                                        <ScrollViewer x:Name="PART_ContentHost"
+                                                                      Focusable="False"
+                                                                      VerticalAlignment="Center"
+                                                                      TextElement.Foreground="{TemplateBinding Foreground}"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsFocused" Value="True">
+                                                            <Setter TargetName="PwRoot" Property="BorderBrush" Value="#58A6FF"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </PasswordBox.Style>
+                            </PasswordBox>
+                            <Button Grid.Column="2"
+                                    x:Name="AiKeySifirlaBtn"
+                                    Content="Sıfırla"
+                                    Style="{StaticResource BtnStyle}"
+                                    Background="#21262D"
+                                    Foreground="#8B949E"
+                                    BorderBrush="#30363D"
+                                    Padding="14,7"
+                                    FontSize="11"
+                                    Click="AiKeySifirlaBtn_Click"/>
+                        </Grid>
+                        <TextBlock x:Name="AiKeyDurumText"
+                                   Text=""
+                                   Foreground="#8B949E"
+                                   FontFamily="Consolas"
+                                   FontSize="11"
+                                   Margin="0,-10,0,14"/>
+                        <TextBlock Text="Base URL" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="AiBaseUrlBox" Style="{StaticResource InputStyle}"/>
+                        <TextBlock Text="Model" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="AiModelBox" Style="{StaticResource InputStyle}"/>
+                        <TextBlock Text="Günlük token limiti" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="AiGunlukLimitBox" Style="{StaticResource InputStyle}"/>
+                        <TextBlock Text="Aylık token limiti" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="AiAylikLimitBox" Style="{StaticResource InputStyle}"/>
+                        <CheckBox x:Name="AiIpMaskeleBox"
+                                  Content="Yerel IP'leri maskele (gönderirken)"
+                                  Style="{StaticResource CheckStyle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0"
+                                    x:Name="AiTestBtn"
+                                    Content="Test Et"
+                                    Style="{StaticResource BtnStyle}"
+                                    Background="#0D2A4A"
+                                    Foreground="#58A6FF"
+                                    BorderBrush="#1F6FEB"
+                                    Padding="16,8"
+                                    FontSize="12"
+                                    Click="AiTestBtn_Click"/>
+                            <TextBlock Grid.Column="2"
+                                       x:Name="AiTestSonucText"
+                                       Text=""
+                                       VerticalAlignment="Center"
+                                       Foreground="#8B949E"
+                                       FontFamily="Consolas"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 

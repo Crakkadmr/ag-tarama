@@ -12,13 +12,14 @@ public sealed record AiTestResult(bool Success, string Message, int StatusCode =
 
 public static class AiClient
 {
-    private const string FixedBaseUrl = "https://openrouter.ai/api/v1";
-    private const string FixedModel = "minimax/minimax-m2.5";
     private static readonly HttpClient Http = CreateClient();
 
-    public static async Task<AiTestResult> TestConnectionAsync(AppSettings settings, CancellationToken cancellationToken = default)
+    public static async Task<AiTestResult> TestConnectionAsync(
+        AppSettings settings,
+        string? explicitApiKey = null,
+        CancellationToken cancellationToken = default)
     {
-        var apiKey = AiKeyVault.Load();
+        var apiKey = string.IsNullOrWhiteSpace(explicitApiKey) ? AiKeyVault.Load() : explicitApiKey.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
             return new AiTestResult(false, "API anahtari bulunamadi.");
 
@@ -34,7 +35,7 @@ public static class AiClient
 
         if (result.IsSuccess)
         {
-            var modelInfo = string.IsNullOrWhiteSpace(result.Model) ? FixedModel : result.Model;
+            var modelInfo = string.IsNullOrWhiteSpace(result.Model) ? ResolveModel(settings) : result.Model;
             return new AiTestResult(true, $"model: {modelInfo}", result.StatusCode, sw.ElapsedMilliseconds);
         }
 
@@ -61,9 +62,20 @@ public static class AiClient
         IReadOnlyList<AiChatMessage> messages,
         CancellationToken cancellationToken = default)
     {
+        if (!settings.AiEnabled)
+            throw new InvalidOperationException("AI ozelligi ayarlardan kapali.");
+
         var apiKey = AiKeyVault.Load();
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("API anahtari bulunamadi.");
+
+        var usage = AiUsageMeter.Load();
+        var dailyTotal = usage.DailyInputTokens + usage.DailyOutputTokens;
+        var monthlyTotal = usage.MonthlyInputTokens + usage.MonthlyOutputTokens;
+        if (settings.AiGunlukTokenLimiti > 0 && dailyTotal >= settings.AiGunlukTokenLimiti)
+            throw new InvalidOperationException($"Gunluk AI token limiti asildi ({dailyTotal:N0}/{settings.AiGunlukTokenLimiti:N0}).");
+        if (settings.AiAylikTokenLimiti > 0 && monthlyTotal >= settings.AiAylikTokenLimiti)
+            throw new InvalidOperationException($"Aylik AI token limiti asildi ({monthlyTotal:N0}/{settings.AiAylikTokenLimiti:N0}).");
 
         var result = await SendChatRequestAsync(settings, apiKey, messages, maxTokens: null, cancellationToken);
         if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Content))
@@ -82,13 +94,13 @@ public static class AiClient
         int? maxTokens,
         CancellationToken cancellationToken)
     {
-        var url = BuildChatEndpoint(FixedBaseUrl);
+        var url = BuildChatEndpoint(ResolveBaseUrl(settings));
         if (string.IsNullOrWhiteSpace(url))
             return AiRawResponse.Fail("Gecersiz AI base URL.");
 
         var payload = new Dictionary<string, object?>
         {
-            ["model"] = FixedModel,
+            ["model"] = ResolveModel(settings),
             ["messages"] = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
             ["temperature"] = 0.2
         };
@@ -182,6 +194,20 @@ public static class AiClient
     private static bool ShouldRetry(HttpStatusCode statusCode) =>
         statusCode == HttpStatusCode.TooManyRequests ||
         (int)statusCode >= 500;
+
+    private static string ResolveBaseUrl(AppSettings settings)
+    {
+        if (!string.IsNullOrWhiteSpace(settings.AiBaseUrl))
+            return settings.AiBaseUrl;
+        return AiProvider.GetById(settings.AiSaglayici).BaseUrl;
+    }
+
+    private static string ResolveModel(AppSettings settings)
+    {
+        if (!string.IsNullOrWhiteSpace(settings.AiModel))
+            return settings.AiModel;
+        return AiProvider.GetById(settings.AiSaglayici).DefaultModel;
+    }
 
     private static string BuildChatEndpoint(string? baseUrl)
     {

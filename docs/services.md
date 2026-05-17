@@ -335,14 +335,16 @@ static byte[] GenerateDeviceScanReport(IEnumerable<DeviceScanRow> rows, ReportMe
   - AES-CBC + HMAC yardımcıları ortaklaştırıldı.
 - `Services/Ai/AiClient.cs`:
   - OpenAI uyumlu `chat/completions` istemcisi.
-  - OpenRouter sabit model: `minimax/minimax-m2.5`.
+  - Model/BaseUrl `AppSettings.AiModel` / `AppSettings.AiBaseUrl` üzerinden okunur (hardcoded değil); fallback `AiProvider.GetById(settings.AiSaglayici)`.
+  - `TestConnectionAsync(settings, explicitApiKey?)` — UI'dan kaydetmeden test yapılabilir.
+  - `ChatAsync` başında `AiEnabled`, günlük/aylık token limiti kontrolü; aşılırsa `InvalidOperationException`.
 - `Services/Ai/AiKeyVault.cs`:
-  - `%APPDATA%/AgTarama/ai.vault` içinde şifreli API anahtarı saklama.
+  - `%APPDATA%/AgTarama/ai.vault` içinde şifreli API anahtarı saklama (DPAPI + AES-HMAC).
 - `Services/Ai/AiDefaultKey.cs`:
   - XOR-obfuscated varsayılan anahtar.
 - `Services/Ai/AiUsageMeter.cs`:
-  - `%APPDATA%/AgTarama/ai.usage.json` kullanım sayaçları.
+  - `%APPDATA%/AgTarama/ai.usage.json` günlük/aylık token sayaçları; gün/ay değişiminde sıfırlanır.
 - `Services/Ai/AiPrompts.cs`:
   - Sistem prompt sabitleri.
 - `Services/Ai/AiProvider.cs`:
-  - Sağlayıcı preset tanımları.
+  - Sağlayıcı preset tanımları (OpenRouter/Google/OpenAI/Custom). Default model: `minimax/minimax-m2.5`.

@@ -181,10 +181,11 @@ Kullanici `"md guncelle"` dediginde:
 
 ---
 
-## 8. AI Faz 2 Notu (2026-05-17)
+## 8. AI Faz 1+2 (2026-05-17)
 
-- Chatbot sekmesinde alt AI input barı aktif (`AiInputBox`, `AiGonderBtn`, `AiTemizleBtn`).
-- AI sohbet akışı `Partials/MainWindow.Ai.cs` üzerinden çalışır.
-- AI servisleri `Services/Ai/*` altında konumlanır.
-- Model: OpenRouter üzerinden `minimax/minimax-m2.5`.
-- Ayarlar penceresinde AI bölümü yoktur (kullanıcı isteğiyle devre dışı).
+- Chatbot sekmesi **DockPanel** düzeniyle yeniden yapılandırıldı: araç çubuğu üstte, AI input barı altta, `ChatScrollViewer` ortada tam alana yayılıyor.
+- AI sohbet akışı `Partials/MainWindow.Ai.cs` üzerinden çalışır (`AiInputBox`, `AiGonderBtn`, `AiTemizleBtn`).
+- AI servisleri `Services/Ai/*` altında; model/base URL `AppSettings` üzerinden değiştirilebilir (default: OpenRouter + `minimax/minimax-m2.5`).
+- **Ayarlar > AI bölümü** aktif: sağlayıcı dropdown, API anahtarı (vault'a şifreli kaydedilir), Test Et butonu, günlük/aylık token limiti, IP maskele.
+- `MesajEkle` + `BeklemeSatiriEkle` → `Dispatcher.InvokeAsync(..., DispatcherPriority.Loaded)` ile layout sonrası scroll.
+- **Kritik layout notu:** Kök pencere Grid'inin Row 2 mutlaka `Height="*"` olmalı — `Auto` yapılırsa tüm ScrollViewer'lar işlevsiz kalır.

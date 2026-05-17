@@ -15,7 +15,7 @@ public static class AiProvider
 
     public static readonly IReadOnlyList<AiProviderPreset> Presets =
     [
-        new(OpenRouter, "OpenRouter", "https://openrouter.ai/api/v1", "minimax/m2.5"),
+        new(OpenRouter, "OpenRouter", "https://openrouter.ai/api/v1", "minimax/minimax-m2.5"),
         new(Google, "Google AI", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.0-flash"),
         new(OpenAi, "OpenAI", "https://api.openai.com/v1", "gpt-4o-mini"),
         new(Custom, "Ozel", "", "")

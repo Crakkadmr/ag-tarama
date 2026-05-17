@@ -98,7 +98,9 @@ public partial class MainWindow
         };
         ChatPanel.Children.Add(zaman);
         if (sondaMiydi)
-            ChatScrollViewer.ScrollToEnd();
+            Dispatcher.InvokeAsync(
+                () => ChatScrollViewer.ScrollToEnd(),
+                System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private bool ChatSondaMi()

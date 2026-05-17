@@ -5,7 +5,7 @@
 **Versiyon:** v0.2.0
 
 - `WindowState="Maximized"` — uygulama tam ekran açılır
-- **3 satırlı kök Grid:** Satır 0 (Auto) = başlık kartı; Satır 1 (Auto) = `LisansBanner` (gizli, < 7 gün kaldığında görünür); Satır 2 (`*`) = iç Grid
+- **3 satırlı kök Grid:** Satır 0 (Auto) = başlık kartı; Satır 1 (Auto) = `LisansBanner` (gizli, < 7 gün kaldığında görünür); Satır 2 (`*`) = iç Grid (**önemli:** kök Grid Row 2 kesinlikle `Height="*"` olmalı; `Auto` yapılırsa tüm tab ScrollViewer'ları scrolllanamaz hale gelir)
 - **İç Grid (Grid.Row=2):** Satır 0 (`*`) = `MainTabControl`; Satır 1 (Auto) = `ConsolePanel` (F12 toggle)
 - **Toast:** `Grid.RowSpan="3"` — tüm satırları kapsar
 - **Başlık kartı** (`#161B22`, CornerRadius=12): sol — ikon + `NETWORK SNIFFER` + `StatusText`; orta — araç WrapPanel; sağ — versiyon yazısı
@@ -17,7 +17,7 @@
 
 | # | Başlık | Panel x:Name | CTS | İçerik |
 |---|---|---|---|---|
-| 0 | 💬 Chatbot | `ChatPanel` + `FavoriChipleri` | — | ChatScrollViewer; header butonları Chatbot'u kontrol eder |
+| 0 | 💬 Chatbot | `ChatPanel` + `FavoriChipleri` | — | **DockPanel** (LastChildFill): üst araç çubuğu (Dock="Top"), alt AI input barı (Dock="Bottom"), ortada `ChatScrollViewer` (fill). `AiInputBox` + `AiGonderBtn` + `AiTemizleBtn`. |
 | 1 | ◎ Cihaz Tara | `KameraPanel` | `_kameraCts` | NIC chip picker + "Derin tara" checkbox + ⟳ yenile; Subnet TextBox, Tara/Durdur, filtreler, DataGrid (Güven sütunu eklendi, Risk kaldırıldı) |
 | 2 | ◈ Ping Testi | `PingPanel` | `_pingCts` | IP giriş, chip'ler, PingResultPanel |
 | 3 | ⊞ Port Tara | `PortPanel` | `_portScanCts` | IP + port aralığı, chip'ler, PortResultPanel |

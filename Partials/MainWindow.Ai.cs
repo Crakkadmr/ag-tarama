@@ -114,7 +114,9 @@ public partial class MainWindow
 
         ChatPanel.Children.Add(satir);
         if (ChatSondaMi())
-            ChatScrollViewer.ScrollToEnd();
+            Dispatcher.InvokeAsync(
+                () => ChatScrollViewer.ScrollToEnd(),
+                System.Windows.Threading.DispatcherPriority.Loaded);
         return satir;
     }
 }

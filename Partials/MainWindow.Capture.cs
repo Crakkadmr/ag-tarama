@@ -88,7 +88,9 @@ public partial class MainWindow
         var (kart, kartGuncelle, kartTamamla, kartDurdur) = YakalamaKartiOlustur(dosyaAdi);
         ChatPanel.Children.Add(kart);
         if (ChatSondaMi())
-            ChatScrollViewer.ScrollToEnd();
+            Dispatcher.InvokeAsync(
+                () => ChatScrollViewer.ScrollToEnd(),
+                System.Windows.Threading.DispatcherPriority.Loaded);
 
         void Ilerleme(double mb, int paket, TimeSpan sure)
         {

@@ -13,6 +13,15 @@ namespace AgTarama;
 
 public partial class MainWindow
 {
+    private static readonly SolidColorBrush _aiInputFocusBorder  = new(Color.FromRgb(88,  166, 255));
+    private static readonly SolidColorBrush _aiInputNormalBorder = new(Color.FromRgb(48,  54,  61));
+
+    private void AiInputBox_GotFocus(object sender, RoutedEventArgs e)
+        => AiInputBorder.BorderBrush = _aiInputFocusBorder;
+
+    private void AiInputBox_LostFocus(object sender, RoutedEventArgs e)
+        => AiInputBorder.BorderBrush = _aiInputNormalBorder;
+
     private async void AiGonderBtn_Click(object sender, RoutedEventArgs e)
     {
         await AiSoruGonderAsync();

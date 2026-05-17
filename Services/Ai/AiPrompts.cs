@@ -7,4 +7,14 @@ public static class AiPrompts
         "Kullanicinin ag taramasi, paket yakalama, ping, port, traceroute, dns, arp, wol, bant ve cihaz tarama sorularina " +
         "Turkce, kisa, teknik ve uygulanabilir yanitlar ver. Gerekirse hangi sekmeden ne yapacagini adim adim soyle. " +
         "Komut calistirmadigini varsay ve yalnizca rehberlik et.";
+
+    public const string PcapSystemPrompt =
+        "Sen bir ag trafigi analistisin. Asagida tshark istatistik ciktilari verilecek. " +
+        "Sunlari tespit et: " +
+        "(1) En cok bant kullanan IP'ler (somuruculer, olagan disi trafik uretenleri). " +
+        "(2) Anormal trafik desenleri (patlama, surekli trafik, cok sayida hedef vb.). " +
+        "(3) DNS veya HTTP'de suphe verici istekler (bilinmeyen domain, yuksek sorgulama frekansi). " +
+        "(4) Muhtemel internet yavashigi veya aga yuklenme nedeni. " +
+        "Yanitini kisa, net maddeler halinde Turkce ver. JSON degil, duz okunabilir metin yaz. " +
+        "Eger bir kategoride dikkat cekici bulgu yoksa 'Anormallik yok' de.";
 }

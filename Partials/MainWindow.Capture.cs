@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using AgTarama.Services;
+using AgTarama.Services.Ai;
 
 namespace AgTarama;
 
@@ -315,6 +316,64 @@ public partial class MainWindow
             UygulaButonSablon(wsBtn);
             wsBtn.Click += (_, _) => WiresharkIleAc(_sonPcap);
             stack.Children.Add(wsBtn);
+
+            var aiBtn = new Button
+            {
+                Content         = "✨  AI ile analiz et",
+                FontFamily      = new FontFamily("Consolas"),
+                FontSize        = 11,
+                Padding         = new Thickness(12, 7, 12, 7),
+                Margin          = new Thickness(0, 6, 0, 0),
+                Background      = new SolidColorBrush(Color.FromRgb(13, 27, 42)),
+                Foreground      = acikMavi,
+                BorderBrush     = new SolidColorBrush(Color.FromRgb(31, 111, 235)),
+                BorderThickness = new Thickness(1),
+                Cursor          = Cursors.Hand,
+            };
+            UygulaButonSablon(aiBtn);
+            aiBtn.Click += async (_, _) =>
+            {
+                aiBtn.IsEnabled = false;
+                aiBtn.Content   = "⏳  AI düşünüyor...";
+                var pcapPath = _sonPcap;
+                try
+                {
+                    if (!_ayarlar.AiEnabled)
+                    {
+                        ToastGoster("AI özellikleri Ayarlar > AI bölümünden kapalı.", hata: true);
+                        return;
+                    }
+                    MesajEkle("sistem", $"🤖 AI pcap analizi başladı → {System.IO.Path.GetFileName(pcapPath)}");
+                    var yanit = await AiPcapAnalyzer.AnalyzeAsync(pcapPath, _ayarlar, MasterCts.Token);
+                    MesajEkle("sonuc", "🤖 AI Analizi\n\n" + yanit);
+                    HistoryService.Kaydet(
+                        "AI ANALIZ",
+                        System.IO.Path.GetFileName(pcapPath),
+                        yanit.Length > 200 ? yanit[..200] + "..." : yanit,
+                        [],
+                        new Dictionary<string, string>
+                        {
+                            ["Pcap"]  = pcapPath,
+                            ["Model"] = _ayarlar.AiModel,
+                        });
+                    if (MainTabControl.SelectedIndex == TabGecmis)
+                        GecmisPanelGuncelle();
+                }
+                catch (OperationCanceledException)
+                {
+                    MesajEkle("hata", "AI analizi iptal edildi.");
+                }
+                catch (Exception ex)
+                {
+                    MesajEkle("hata", $"AI analizi başarısız: {ex.Message}");
+                }
+                finally
+                {
+                    aiBtn.IsEnabled = true;
+                    aiBtn.Content   = "✨  AI ile analiz et";
+                }
+            };
+            stack.Children.Add(aiBtn);
         }
 
         void Durdur()

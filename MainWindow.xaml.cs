@@ -21,6 +21,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 using AgTarama.Services;
+using AgTarama.Services.Ai;
 
 namespace AgTarama;
 
@@ -83,6 +84,9 @@ public partial class MainWindow : Window
 
     // ─── Mesaj geçmişi (HTML rapor için) ─────────────────────────────
     private readonly List<(string Tur, string Metin, string Zaman)> _mesajGecmisi = new();
+    private readonly List<AiChatMessage> _aiSohbetGecmisi = new();
+    private CancellationTokenSource? _aiSohbetCts;
+    private bool _aiSohbetCalisiyor;
     private List<HistoryRecord> _gecmisKayitlari = new();
     private string _gecmisFiltreTur = "";
     private bool _gecmisdenCalistiriliyor = false;
@@ -176,6 +180,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        AiKeyVault.EnsureDefaultKey();
         _kameraSatirView = CollectionViewSource.GetDefaultView(_kameraSatirlari);
         _kameraSatirView.Filter = KameraSatirFiltredenGecer;
         KameraDataGrid.ItemsSource = _kameraSatirView;
@@ -342,6 +347,10 @@ public partial class MainWindow : Window
 
         baslat.Click += (_, _) =>
         {
+            baslat.IsEnabled = false;
+            baslat.Background = new SolidColorBrush(Color.FromRgb(22, 27, 34));
+            baslat.Foreground = new SolidColorBrush(Color.FromRgb(72, 79, 88));
+            baslat.BorderBrush = new SolidColorBrush(Color.FromRgb(48, 54, 61));
             karti.IsEnabled = false;
             tcs.TrySetResult(secili.ToList());
         };
@@ -350,7 +359,8 @@ public partial class MainWindow : Window
         stack.Children.Add(baslat);
         karti.Child = stack;
         ChatPanel.Children.Add(karti);
-        ChatScrollViewer.ScrollToEnd();
+        if (ChatSondaMi())
+            ChatScrollViewer.ScrollToEnd();
 
         return tcs.Task;
     }

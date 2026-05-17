@@ -16,13 +16,13 @@ public partial class SettingsWindow : Window
 
     private void AyarlariDoldur()
     {
-        HedefMbBox.Text     = Ayarlar.HedefMB.ToString();
-        TestSuresiBox.Text  = Ayarlar.TestSuresiSn.ToString();
+        HedefMbBox.Text = Ayarlar.HedefMB.ToString();
+        TestSuresiBox.Text = Ayarlar.TestSuresiSn.ToString();
         PingTimeoutBox.Text = Ayarlar.PingTimeoutMs.ToString();
         ConcurrencyBox.Text = Ayarlar.PortTaramaConcurrency.ToString();
         PortTimeoutBox.Text = Ayarlar.PortTaramaTimeoutMs.ToString();
         WlanRefreshBox.Text = Ayarlar.WlanAutoRefreshSeconds.ToString();
-        SesAcikBox.IsChecked   = Ayarlar.SesAcik;
+        SesAcikBox.IsChecked = Ayarlar.SesAcik;
         ToastAcikBox.IsChecked = Ayarlar.ToastAcik;
     }
 
@@ -43,6 +43,14 @@ public partial class SettingsWindow : Window
             PortTaramaConcurrency = conc,
             PortTaramaTimeoutMs = portMs,
             WlanAutoRefreshSeconds = wlanSn,
+            EvilTwinSinyalEsigi = Ayarlar.EvilTwinSinyalEsigi,
+            AiEnabled = Ayarlar.AiEnabled,
+            AiSaglayici = Ayarlar.AiSaglayici,
+            AiBaseUrl = Ayarlar.AiBaseUrl,
+            AiModel = Ayarlar.AiModel,
+            AiGunlukTokenLimiti = Ayarlar.AiGunlukTokenLimiti,
+            AiAylikTokenLimiti = Ayarlar.AiAylikTokenLimiti,
+            AiYerelIpMaskele = Ayarlar.AiYerelIpMaskele,
             SesAcik = SesAcikBox.IsChecked == true,
             ToastAcik = ToastAcikBox.IsChecked == true,
         };

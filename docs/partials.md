@@ -1,4 +1,4 @@
-# MainWindow Partial Dosya Haritası
+﻿# MainWindow Partial Dosya Haritası
 
 > Satır numaraları ±20 satır toleransla doğrudur. Kod değişiklikleri sonrası eskime olabilir.
 > "md güncelle" talimatı geldiğinde haritalar yeniden hesaplanır.
@@ -204,3 +204,18 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 | L180–L204 | `LisansKopyala_Click` — destek metni (durum, tür, bitiş, MachineId 16-char, son doğrulama, NTP) → `Clipboard.SetText` |
 
 **Yeni XAML öğeleri:** `LisansBanner` (sticky, Grid.Row=1), `LisansBannerMetin`, `LisansBannerKapatBtn`, `LisansSonDogrulamaMetin`, `LisansNtpMetin`, "📋 Lisans Bilgilerini Kopyala" butonu
+
+---
+
+## AI Faz 2 Eki (2026-05-17)
+
+- `Partials/MainWindow.Ai.cs` eklendi.
+- Sorumluluklar:
+  - `AiGonderBtn_Click`
+  - `AiInputBox_KeyDown`
+  - `AiTemizleBtn_Click`
+  - `AiSoruGonderAsync`
+- `MainWindow.xaml.cs` içindeki AI alanları:
+  - `_aiSohbetGecmisi`
+  - `_aiSohbetCts`
+  - `_aiSohbetCalisiyor`

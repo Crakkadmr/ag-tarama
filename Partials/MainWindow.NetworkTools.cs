@@ -25,6 +25,8 @@ public partial class MainWindow
     // Mesaj türleri: "sistem" | "kullanici" | "sonuc" | "hata"
     public void MesajEkle(string tur, string metin)
     {
+        var sondaMiydi = ChatSondaMi();
+
         var satir = new Border
         {
             CornerRadius = new CornerRadius(8),
@@ -95,7 +97,14 @@ public partial class MainWindow
             Margin = new Thickness(4, 0, 4, 4),
         };
         ChatPanel.Children.Add(zaman);
-        ChatScrollViewer.ScrollToEnd();
+        if (sondaMiydi)
+            ChatScrollViewer.ScrollToEnd();
+    }
+
+    private bool ChatSondaMi()
+    {
+        // Kullanici yukariya ciktiysa otomatik olarak alta ziplatma.
+        return ChatScrollViewer.ScrollableHeight - ChatScrollViewer.VerticalOffset < 16;
     }
 
     private void TaramaDurumunuAyarla(bool devamEdiyor)

@@ -779,8 +779,8 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <!-- Araç çubuğu -->
                     <Border Grid.Row="0" Background="#111827" BorderBrush="#243147" BorderThickness="1"
@@ -851,6 +851,50 @@
                                       Padding="4,4,8,4">
                             <StackPanel x:Name="ChatPanel" Margin="8,8,4,8"/>
                         </ScrollViewer>
+                    </Border>
+                    <Border Grid.Row="2"
+                            Background="#111827"
+                            BorderBrush="#243147"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="8"
+                            Margin="0,8,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox x:Name="AiInputBox"
+                                     Grid.Column="0"
+                                     Style="{StaticResource PingInputBox}"
+                                     Padding="10,8"
+                                     Height="36"
+                                     VerticalContentAlignment="Center"
+                                     KeyDown="AiInputBox_KeyDown"/>
+
+                            <Button x:Name="AiGonderBtn"
+                                    Grid.Column="2"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Height="36"
+                                    Padding="12,0"
+                                    HorizontalContentAlignment="Center"
+                                    Click="AiGonderBtn_Click">
+                                <TextBlock Text="✨ Sor" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                            </Button>
+
+                            <Button x:Name="AiTemizleBtn"
+                                    Grid.Column="4"
+                                    Style="{StaticResource ChipButton}"
+                                    Height="36"
+                                    Padding="12,0"
+                                    Click="AiTemizleBtn_Click">
+                                <TextBlock Text="Temizle" FontFamily="Consolas" FontSize="12"/>
+                            </Button>
+                        </Grid>
                     </Border>
                 </Grid>
             </TabItem>

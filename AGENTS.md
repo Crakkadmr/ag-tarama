@@ -1,4 +1,4 @@
-# AGENTS.md — Proje Master Index
+﻿# AGENTS.md — Proje Master Index
 
 > Bu dosya AI agent'larinin projeye hizli giris noktasidir.
 > Detayli referans bilgi `docs/` klasorunde konuya gore ayrilmistir.
@@ -178,3 +178,13 @@ Kullanici `"md guncelle"` dediginde:
 - `DarkCheckBox` stili (`MainWindow.xaml`): 16×16 koyu kutucuk + mavi `Path` onay işareti + hover/checked/disabled trigger'ları. `<Style TargetType="CheckBox" BasedOn="{StaticResource DarkCheckBox}"/>` ile tüm CheckBox'lar otomatik koyu tema (Derin tara, Otomatik yenile vb.).
 - `DarkChip` stili: `prim:ToggleButton` için yuvarlatılmış chip (CornerRadius=12), seçili durumda mavi vurgu, hover mavi kenar. `KameraChipOlustur` artık `Style = (Style)FindResource("DarkChip")` kullanıyor; inline renkler kaldırıldı.
 - `prim:` namespace prefix'i Window root'una eklendi.
+
+---
+
+## 8. AI Faz 2 Notu (2026-05-17)
+
+- Chatbot sekmesinde alt AI input barı aktif (`AiInputBox`, `AiGonderBtn`, `AiTemizleBtn`).
+- AI sohbet akışı `Partials/MainWindow.Ai.cs` üzerinden çalışır.
+- AI servisleri `Services/Ai/*` altında konumlanır.
+- Model: OpenRouter üzerinden `minimax/minimax-m2.5`.
+- Ayarlar penceresinde AI bölümü yoktur (kullanıcı isteğiyle devre dışı).

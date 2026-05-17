@@ -10,23 +10,23 @@
 
     <Window.Resources>
         <Style x:Key="LabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground"  Value="#8B949E"/>
-            <Setter Property="FontFamily"  Value="Consolas"/>
-            <Setter Property="FontSize"    Value="11"/>
-            <Setter Property="Margin"      Value="0,0,0,4"/>
+            <Setter Property="Foreground" Value="#8B949E"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
 
         <Style x:Key="InputStyle" TargetType="TextBox">
-            <Setter Property="Background"       Value="#161B22"/>
-            <Setter Property="Foreground"       Value="#E6EDF3"/>
-            <Setter Property="BorderBrush"      Value="#30363D"/>
-            <Setter Property="BorderThickness"  Value="1"/>
-            <Setter Property="FontFamily"       Value="Consolas"/>
-            <Setter Property="FontSize"         Value="13"/>
-            <Setter Property="CaretBrush"       Value="#58A6FF"/>
-            <Setter Property="SelectionBrush"   Value="#1F6FEB"/>
-            <Setter Property="Padding"          Value="10,7"/>
-            <Setter Property="Margin"           Value="0,0,0,14"/>
+            <Setter Property="Background" Value="#161B22"/>
+            <Setter Property="Foreground" Value="#E6EDF3"/>
+            <Setter Property="BorderBrush" Value="#30363D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CaretBrush" Value="#58A6FF"/>
+            <Setter Property="SelectionBrush" Value="#1F6FEB"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="Margin" Value="0,0,0,14"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
@@ -48,20 +48,20 @@
         </Style>
 
         <Style x:Key="CheckStyle" TargetType="CheckBox">
-            <Setter Property="Foreground"  Value="#C9D1D9"/>
-            <Setter Property="FontFamily"  Value="Consolas"/>
-            <Setter Property="FontSize"    Value="13"/>
-            <Setter Property="Margin"      Value="0,0,0,14"/>
-            <Setter Property="Cursor"      Value="Hand"/>
+            <Setter Property="Foreground" Value="#C9D1D9"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,0,0,14"/>
+            <Setter Property="Cursor" Value="Hand"/>
         </Style>
 
         <Style x:Key="BtnStyle" TargetType="Button">
-            <Setter Property="FontFamily"       Value="Consolas"/>
-            <Setter Property="FontSize"         Value="13"/>
-            <Setter Property="FontWeight"       Value="Bold"/>
-            <Setter Property="Padding"          Value="20,10"/>
-            <Setter Property="Cursor"           Value="Hand"/>
-            <Setter Property="BorderThickness"  Value="1"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -93,7 +93,6 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Başlık -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
             <TextBlock Text="⚙  AYARLAR"
                        Foreground="#58A6FF"
@@ -107,26 +106,20 @@
                        Margin="0,4,0,0"/>
         </StackPanel>
 
-        <!-- Form -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
-
-                <!-- Yakalama -->
                 <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1"
                         CornerRadius="6" Padding="14,12" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="YAKALAMA" Foreground="#484F58" FontFamily="Consolas"
                                    FontSize="10" FontWeight="Bold" Margin="0,0,0,10"/>
-
                         <TextBlock Text="Hedef dosya boyutu (MB)" Style="{StaticResource LabelStyle}"/>
                         <TextBox x:Name="HedefMbBox" Style="{StaticResource InputStyle}"/>
-
                         <TextBlock Text="Arayüz test süresi (saniye)" Style="{StaticResource LabelStyle}"/>
                         <TextBox x:Name="TestSuresiBox" Style="{StaticResource InputStyle}"/>
                     </StackPanel>
                 </Border>
 
-                <!-- Ping -->
                 <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1"
                         CornerRadius="6" Padding="14,12" Margin="0,0,0,12">
                     <StackPanel>
@@ -137,22 +130,18 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Port Tarama -->
                 <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1"
                         CornerRadius="6" Padding="14,12" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="PORT TARAMA" Foreground="#484F58" FontFamily="Consolas"
                                    FontSize="10" FontWeight="Bold" Margin="0,0,0,10"/>
-
                         <TextBlock Text="Eş zamanlı bağlantı limiti" Style="{StaticResource LabelStyle}"/>
                         <TextBox x:Name="ConcurrencyBox" Style="{StaticResource InputStyle}"/>
-
                         <TextBlock Text="Bağlantı timeout (ms)" Style="{StaticResource LabelStyle}"/>
                         <TextBox x:Name="PortTimeoutBox" Style="{StaticResource InputStyle}"/>
                     </StackPanel>
                 </Border>
 
-                <!-- Wi-Fi -->
                 <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1"
                         CornerRadius="6" Padding="14,12" Margin="0,0,0,12">
                     <StackPanel>
@@ -163,21 +152,18 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Bildirimler -->
                 <Border Background="#161B22" BorderBrush="#21262D" BorderThickness="1"
                         CornerRadius="6" Padding="14,12" Margin="0,0,0,4">
                     <StackPanel>
                         <TextBlock Text="BİLDİRİMLER" Foreground="#484F58" FontFamily="Consolas"
                                    FontSize="10" FontWeight="Bold" Margin="0,0,0,10"/>
-                        <CheckBox x:Name="SesAcikBox"   Content="Bildirim sesi" Style="{StaticResource CheckStyle}"/>
+                        <CheckBox x:Name="SesAcikBox" Content="Bildirim sesi" Style="{StaticResource CheckStyle}"/>
                         <CheckBox x:Name="ToastAcikBox" Content="Toast bildirimi (pencere içi)" Style="{StaticResource CheckStyle}" Margin="0,0,0,0"/>
                     </StackPanel>
                 </Border>
-
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Butonlar -->
         <Grid Grid.Row="2" Margin="0,16,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>

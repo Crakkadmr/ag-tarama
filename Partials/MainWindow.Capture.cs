@@ -87,7 +87,8 @@ public partial class MainWindow
 
         var (kart, kartGuncelle, kartTamamla, kartDurdur) = YakalamaKartiOlustur(dosyaAdi);
         ChatPanel.Children.Add(kart);
-        ChatScrollViewer.ScrollToEnd();
+        if (ChatSondaMi())
+            ChatScrollViewer.ScrollToEnd();
 
         void Ilerleme(double mb, int paket, TimeSpan sure)
         {

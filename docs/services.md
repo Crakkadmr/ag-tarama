@@ -1,4 +1,4 @@
-# Services Katmanı Referansı
+﻿# Services Katmanı Referansı
 
 Lisans/güvenlik servisleri için: [docs/licensing.md](licensing.md)
 NuGet bağımlılıkları: `QuestPDF 2024.12.*` (PDF), `ClosedXML 0.102.*` (XLSX)
@@ -326,3 +326,23 @@ static byte[] GenerateDeviceScanReport(IEnumerable<DeviceScanRow> rows, ReportMe
 - 11 sütunlu tablo, başlık arka planı `#0D3B66`, dönüşümlü satır renkleri `#0D1117`/`#101722`
 - Risk alanları PDF modelinden çıkarılmıştır.
 - Altbilgi: sayfa X/Y numarası
+
+---
+
+## AI Servisleri (2026-05-17)
+
+- `Services/CryptoHelper.cs`:
+  - AES-CBC + HMAC yardımcıları ortaklaştırıldı.
+- `Services/Ai/AiClient.cs`:
+  - OpenAI uyumlu `chat/completions` istemcisi.
+  - OpenRouter sabit model: `minimax/minimax-m2.5`.
+- `Services/Ai/AiKeyVault.cs`:
+  - `%APPDATA%/AgTarama/ai.vault` içinde şifreli API anahtarı saklama.
+- `Services/Ai/AiDefaultKey.cs`:
+  - XOR-obfuscated varsayılan anahtar.
+- `Services/Ai/AiUsageMeter.cs`:
+  - `%APPDATA%/AgTarama/ai.usage.json` kullanım sayaçları.
+- `Services/Ai/AiPrompts.cs`:
+  - Sistem prompt sabitleri.
+- `Services/Ai/AiProvider.cs`:
+  - Sağlayıcı preset tanımları.

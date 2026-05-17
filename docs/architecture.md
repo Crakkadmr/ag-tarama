@@ -1,4 +1,4 @@
-# Mimari ve Klasör Yapısı
+﻿# Mimari ve Klasör Yapısı
 
 ## Klasör Yapısı
 
@@ -92,3 +92,13 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 - Stil kaynakları yalnızca `MainWindow.xaml > Window.Resources`'da. `ActiveActionButton`, `ActionButton`'dan **SONRA** tanımlanmalı.
 - .NET 10 / WPF — `LetterSpacing` gibi web CSS özellikleri yoktur.
 - Harici araç başlatma: `HariciAracBaslat(exe, ad)`. Toast: `ToastGoster(mesaj, hata:bool)`.
+
+---
+
+## AI Faz 2 (2026-05-17)
+
+- Yeni partial: `Partials/MainWindow.Ai.cs`.
+- Yeni servis klasörü: `Services/Ai/`.
+- Chatbot alt satırında AI input barı bulunur; istekler `AiClient` ile OpenRouter'a gider.
+- Sabit model: `minimax/minimax-m2.5`.
+- AI ayar UI'si `SettingsWindow` içinde sunulmaz.

@@ -1,4 +1,4 @@
-# UI Referansı — MainWindow.xaml
+﻿# UI Referansı — MainWindow.xaml
 
 ## UI Düzeni
 
@@ -113,3 +113,15 @@ Yeşil:       #3FB950 (başarı), #1A4A2E (PrimaryButton bg), #238636
 Kırmızı:     #F85149 (hata), #3D1A1A (DangerButton bg), #8B1A1A
 Metin:       #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre dışı)
 ```
+
+---
+
+## AI Faz 2 UI Notu (2026-05-17)
+
+- Chatbot sekmesinde alt giriş barı bulunur:
+  - `AiInputBox`
+  - `AiGonderBtn`
+  - `AiTemizleBtn`
+- Bu bar serbest sohbet için kullanılır; yanıtlar aynı ChatPanel akışına yazılır.
+- Cihaz Tara satırında ayrı `AI Tara` butonu bulunmaz.
+- Ayarlar penceresinde AI konfigürasyon bölümü yoktur.

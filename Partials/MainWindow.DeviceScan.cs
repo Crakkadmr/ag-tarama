@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -76,6 +76,8 @@ public partial class MainWindow
         public string?   HttpFpModel      { get; set; }
         public string?   WsdTipi          { get; set; }
         public HashSet<string> KesifKaynaklari { get; } = new(StringComparer.OrdinalIgnoreCase);
+        // Sınıflandırıcı (DeviceClassifier) bu cihaz için ürettiği kanıt izini buraya yazar.
+        public KimlikKararIzi? KararIzi { get; set; }
     }
 
     private sealed class CihazKimlik
@@ -88,342 +90,29 @@ public partial class MainWindow
 
     private static readonly int[] KameraPorts = { 554, 8000, 8080, 37777, 80, 8443, 22, 23, 139, 443, 445, 3389, 9000, 34567 };
 
-    private static readonly (string Anahtar, string Marka, string Tur)[] MarkaTablosu =
-    {
-        ("hikvision",        "Hikvision",    "Kamera"),
-        ("cross web server", "Dahua",        "Kamera"),
-        ("dahua",            "Dahua",        "Kamera"),
-        ("axis",             "Axis",         "Kamera"),
-        ("reolink",          "Reolink",      "Kamera"),
-        ("bosch",            "Bosch",        "Kamera"),
-        ("hanwha",           "Hanwha",       "Kamera"),
-        ("samsung techwin",  "Hanwha",       "Kamera"),
-        ("vivotek",          "Vivotek",      "Kamera"),
-        ("pelco",            "Pelco",        "Kamera"),
-        ("flir",             "FLIR",         "Kamera"),
-        ("uniview",          "Uniview",      "Kamera"),
-        ("goahead-webs",     "IP Kamera",    "Kamera"),
-        ("mini_httpd",       "IP Kamera",    "Kamera"),
-        ("ubiquiti",         "Ubiquiti",     "Erişim Noktası"),
-        ("unifi",            "Ubiquiti",     "Erişim Noktası"),
-        ("airos",            "Ubiquiti",     "Erişim Noktası"),
-        ("ubnt",             "Ubiquiti",     "Erişim Noktası"),
-        ("mikrotik",         "MikroTik",     "Router/AP"),
-        ("routeros",         "MikroTik",     "Router/AP"),
-        ("tp-link",          "TP-Link",      "Switch/AP"),
-        ("tplink",           "TP-Link",      "Switch/AP"),
-        ("cisco",            "Cisco",        "Switch"),
-        ("d-link",           "D-Link",       "Switch/AP"),
-        ("dlink",            "D-Link",       "Switch/AP"),
-        ("netgear",          "NETGEAR",      "Switch/AP"),
-        ("zyxel",            "ZyXEL",        "Switch/AP"),
-        ("tenda",            "Tenda",        "Switch/AP"),
-        ("huawei",           "Huawei",       "Switch/AP"),
-        ("h3c",              "H3C",          "Switch"),
-        ("ruijie",           "Ruijie",       "Switch"),
-        ("asus",             "ASUS",         "Router/AP"),
-        ("witek",            "Witek",        "Kamera"),
-        ("ttec",             "TTEC",         "Kamera"),
-        ("stonet",           "Stonet",       "Kamera"),
-        ("vstarcam",         "VStarCam",     "Kamera"),
-        ("annke",            "ANNKE",        "Kamera"),
-        ("amcrest",          "Amcrest",      "Kamera"),
-        ("xmeye",            "XMeye",        "NVR/DVR"),
-        ("web service root", "XMeye",        "NVR/DVR"),
-        ("nvr",              "NVR",          "NVR/DVR"),
-        ("synology",         "Synology",     "NAS"),
-        ("qnap",             "QNAP",         "NAS"),
-        ("mycloud",          "WD",           "NAS"),
-        ("wd my",            "WD",           "NAS"),
-        ("asustor",          "Asustor",      "NAS"),
-        // Telefon / mobil
-        ("android",          "Android",      "Telefon"),
-        ("miui",             "Xiaomi",       "Telefon"),
-        ("iphone",           "Apple",        "Telefon"),
-        ("ipad",             "Apple",        "Tablet"),
-        ("oneplus",          "OnePlus",      "Telefon"),
-        ("oppo",             "OPPO",         "Telefon"),
-        ("vivo ",            "Vivo",         "Telefon"),
-        // Bilgisayar
-        ("microsoft",        "Windows",      "Bilgisayar"),
-        ("iis",              "Windows/IIS",  "Bilgisayar"),
-        ("openwrt",          "OpenWrt",      "Router/AP"),
-        ("dd-wrt",           "DD-WRT",       "Router/AP"),
-        ("pfsense",          "pfSense",      "Güvenlik Duvarı"),
-        ("fortinet",         "Fortinet",     "Güvenlik Duvarı"),
-        ("fortigate",        "Fortinet",     "Güvenlik Duvarı"),
-        ("sonicwall",        "SonicWall",    "Güvenlik Duvarı"),
-        ("aruba",            "Aruba",        "Switch/AP"),
-        ("juniper",          "Juniper",      "Switch"),
-        ("procurve",         "HP ProCurve",  "Switch"),
-        ("hpe",              "HPE",          "Switch"),
-        ("hp laserjet",      "HP",           "Yazıcı"),
-        ("laserjet",         "HP",           "Yazıcı"),
-        ("hewlett packard",  "HP",           "Yazıcı"),
-        ("seiko epson",      "Epson",        "Yazıcı"),
-        ("epson",            "Epson",        "Yazıcı"),
-        ("canon printer",    "Canon",        "Yazıcı"),
-        ("brother",          "Brother",      "Yazıcı"),
-        ("xerox",            "Xerox",        "Yazıcı"),
-        ("kyocera",          "Kyocera",      "Yazıcı"),
-        // Ek NAS / sunucu
-        ("truenas",          "TrueNAS",      "NAS"),
-        ("freenas",           "FreeNAS",      "NAS"),
-        ("unraid",           "Unraid",       "NAS"),
-        ("proxmox",          "Proxmox",      "Sunucu"),
-        ("homeassistant",    "Home Assistant","Akıllı Cihaz"),
-        ("home-assistant",   "Home Assistant","Akıllı Cihaz"),
-        // Ek güvenlik duvarı / router
-        ("opnsense",         "OPNsense",     "Güvenlik Duvarı"),
-        ("meraki",           "Meraki",       "Switch/AP"),
-        ("omada",            "TP-Link Omada","Switch/AP"),
-        ("eero",             "Eero",         "Router/AP"),
-        ("deco",             "TP-Link Deco", "Router/AP"),
-        ("orbi",             "Netgear Orbi", "Router/AP"),
-        ("velop",            "Linksys Velop","Router/AP"),
-        ("linksys",          "Linksys",      "Router/AP"),
-        // Ek IoT / akıllı cihaz
-        ("tasmota",          "Tasmota",      "Akıllı Cihaz"),
-        ("shelly",           "Shelly",       "Akıllı Cihaz"),
-        ("tuya",             "Tuya",         "Akıllı Cihaz"),
-        ("espressif",        "ESP",          "Akıllı Cihaz"),
-        ("esp-",             "ESP",          "Akıllı Cihaz"),
-        ("nest",             "Google Nest",  "Akıllı Cihaz"),
-        ("ring",             "Ring",         "Akıllı Cihaz"),
-        ("wyze",             "Wyze",         "Kamera"),
-        ("ezviz",            "EZVIZ",        "Kamera"),
-        ("tp-link kasa",     "TP-Link Kasa", "Akıllı Cihaz"),
-        ("philips hue",      "Philips Hue",  "Akıllı Cihaz"),
-        ("roborock",         "Roborock",     "Akıllı Cihaz"),
-        ("dyson",            "Dyson",        "Akıllı Cihaz"),
-        // Ek akıllı TV
-        ("lg webos",         "LG",           "Akıllı TV"),
-        ("webos",            "LG",           "Akıllı TV"),
-        ("samsung tizen",    "Samsung",      "Akıllı TV"),
-        ("tizen",            "Samsung",      "Akıllı TV"),
-        ("vizio",            "Vizio",        "Akıllı TV"),
-        ("tcl ",             "TCL",          "Akıllı TV"),
-        ("chromecast",       "Google",       "Akıllı TV"),
-        // Sunucu yazılımları
-        ("nginx",            "",             "Sunucu"),
-        ("apache",           "",             "Sunucu"),
-        ("ubuntu",           "Ubuntu",       "Sunucu"),
-        ("debian",           "Debian",       "Sunucu"),
-        ("centos",           "CentOS",       "Sunucu"),
-        ("raspberry",        "Raspberry Pi", "Linux IoT"),
-        ("raspbian",         "Raspberry Pi", "Linux IoT"),
-        // Ek Yazıcı
-        ("ricoh",            "Ricoh",        "Yazıcı"),
-        ("oki",              "OKI",          "Yazıcı"),
-        ("lexmark",          "Lexmark",      "Yazıcı"),
-        ("sharp",            "Sharp",        "Yazıcı"),
-        ("toshiba tec",      "Toshiba",      "Yazıcı"),
-    };
+    // ── Kimlik sınıflandırması: ağırlıklı kanıt skoru ──
+    // Eski MarkaTablosu + sıralı if/else heuristiği `MainWindow.DeviceClassifier.cs`
+    // içindeki KimlikBelirleV2'ye taşındı. Burası yalnız köprü.
+    private static CihazKimlik KimlikBelirle(KameraBilgi b) => KimlikBelirleV2(b);
 
-    private static CihazKimlik KimlikBelirle(KameraBilgi b)
-    {
-        var k      = new CihazKimlik();
-        var birles = $"{b.SunucuBasligi} {b.SayfaBasligi} {b.OnvifAdi} {b.OnvifHardware} {b.SsdpFriendlyName} {b.SsdpManufacturer} {b.SsdpModelName} {b.SsdpSunucu} {b.Uretici} {b.AdvancedScannerAdi} {b.SnmpSysDescr} {b.SnmpSysName} {b.UbntPlatform} {b.UbntHostname} {b.MikroTikBoard} {b.MikroTikIdentity} {b.HttpFpMarka} {b.HttpFpModel}".ToLowerInvariant();
-        var kayitCihazi    = KayitCihaziIpuclariVar(birles, b.AcikPortlar);
-        var yazici         = YaziciIpuclariVar(birles, b.AcikPortlar) ||
-                             b.WsdTipi == "Yazıcı" ||
-                             (b.SnmpSysDescr?.Contains("printer", StringComparison.OrdinalIgnoreCase) == true) ||
-                             (b.SnmpSysDescr?.Contains("laserjet", StringComparison.OrdinalIgnoreCase) == true);
-        var bilgisayarIpuclari =
-            !string.IsNullOrWhiteSpace(b.NetbiosCihazAdi) ||
-            b.AcikPortlar.Contains(3389) ||
-            ((b.AcikPortlar.Contains(139) || b.AcikPortlar.Contains(445)) && CihazAdiBilgisayarGibi(b));
-
-        // Vendor-specific yüksek güven kaynakları
-        if (!string.IsNullOrWhiteSpace(b.UbntPlatform) || !string.IsNullOrWhiteSpace(b.UbntHostname))
-        {
-            k.Marka = "Ubiquiti";
-            k.Tur = (b.UbntPlatform ?? "").Contains("ER", StringComparison.OrdinalIgnoreCase) ? "Router/AP" : "Erişim Noktası";
-        }
-        if (!string.IsNullOrWhiteSpace(b.MikroTikBoard) || !string.IsNullOrWhiteSpace(b.MikroTikIdentity))
-        {
-            k.Marka = "MikroTik";
-            k.Tur = "Router/AP";
-        }
-        if (!string.IsNullOrWhiteSpace(b.HttpFpMarka))
-        {
-            k.Marka = b.HttpFpMarka;
-            if (!string.IsNullOrWhiteSpace(b.HttpFpTur)) k.Tur = b.HttpFpTur;
-        }
-
-        // mDNS güvenilir kaynak — Ubiquiti/MikroTik/HTTP-FP yoksa uygula
-        if (!string.IsNullOrEmpty(b.MdnsTur) && k.Tur == "Cihaz")
-        {
-            k.Tur = b.MdnsTur;
-            if (!string.IsNullOrEmpty(b.MdnsMarka) && k.Marka == "Bilinmiyor") k.Marka = b.MdnsMarka;
-        }
-
-        if (yazici)
-        {
-            k.Tur = "Yazıcı";
-            if (k.Marka == "Bilinmiyor")
-            {
-                if (birles.Contains("epson")) k.Marka = "Epson";
-                else if (birles.Contains("hewlett packard") || birles.Contains("laserjet") || Regex.IsMatch(birles, @"\bhp\b")) k.Marka = "HP";
-                else if (birles.Contains("canon"))   k.Marka = "Canon";
-                else if (birles.Contains("brother")) k.Marka = "Brother";
-                else if (birles.Contains("xerox"))   k.Marka = "Xerox";
-                else if (birles.Contains("kyocera")) k.Marka = "Kyocera";
-            }
-        }
-
-        if (kayitCihazi && !yazici)
-        {
-            k.Tur = "NVR/DVR";
-            if (birles.Contains("xmeye")) k.Marka = "XMeye";
-        }
-
-        if (bilgisayarIpuclari && !kayitCihazi && !yazici)
-        {
-            k.Tur = "Bilgisayar";
-            if (k.Marka == "Bilinmiyor" && !string.IsNullOrWhiteSpace(b.NetbiosCihazAdi))
-                k.Marka = "NetBIOS";
-        }
-
-        if (k.Tur == "Cihaz")
-        {
-            foreach (var (anahtar, marka, tur) in MarkaTablosu)
-            {
-                if (!birles.Contains(anahtar)) continue;
-                k.Marka = marka; k.Tur = tur; break;
-            }
-        }
-        else
-        {
-            foreach (var (anahtar, marka, _) in MarkaTablosu)
-            {
-                if (!birles.Contains(anahtar)) continue;
-                if (k.Marka == "Bilinmiyor") k.Marka = marka;
-                break;
-            }
-        }
-
-        if (kayitCihazi && !yazici && k.Marka == "Bilinmiyor")
-        {
-            if (birles.Contains("hikvision"))    k.Marka = "Hikvision";
-            else if (birles.Contains("dahua"))   k.Marka = "Dahua";
-            else if (birles.Contains("uniview")) k.Marka = "Uniview";
-        }
-
-        if (k.Marka == "Bilinmiyor" && k.Tur == "Cihaz")
-        {
-            if (b.AcikPortlar.Contains(34567))                                        { k.Marka = "XMeye";     k.Tur = "NVR/DVR"; }
-            else if (b.AcikPortlar.Contains(9000) && b.AcikPortlar.Contains(554))    {                         k.Tur = "NVR/DVR"; }
-            else if (b.AcikPortlar.Contains(37777))                                   { k.Marka = "Dahua";     k.Tur = kayitCihazi ? "NVR/DVR" : "Kamera"; }
-            else if (b.AcikPortlar.Contains(8000) && b.AcikPortlar.Contains(554))    { k.Marka = "Hikvision"; k.Tur = kayitCihazi ? "NVR/DVR" : "Kamera"; }
-            else if (b.AcikPortlar.Contains(554))                                     {                         k.Tur = "Kamera"; }
-            else if (!string.IsNullOrWhiteSpace(b.NetbiosCihazAdi) && !b.AcikPortlar.Contains(3389) && !b.AcikPortlar.Contains(445))
-                                                                                      { k.Marka = "NetBIOS";   k.Tur = "Bilgisayar"; }
-            else if (!string.IsNullOrWhiteSpace(b.NetbiosCihazAdi))                   { k.Marka = "NetBIOS";   k.Tur = "Bilgisayar"; }
-            // SSH-only + Linux TTL → Linux IoT/Sunucu (Raspberry Pi vb.)
-            else if (b.AcikPortlar.Contains(22) && b.AcikPortlar.Count <= 2 && b.PingTtl is >= 60 and <= 70 &&
-                     string.IsNullOrWhiteSpace(b.NetbiosCihazAdi))
-                                                                                      {                         k.Tur = "Linux IoT"; }
-            else if (!string.IsNullOrWhiteSpace(b.DnsAdi) || !string.IsNullOrWhiteSpace(b.PingAdi)) {          k.Tur = "Bilgisayar"; }
-            else if (b.AcikPortlar.Contains(445) || b.AcikPortlar.Contains(3389))    {                         k.Tur = "Bilgisayar"; }
-            else if (b.AcikPortlar.Contains(23) && (b.AcikPortlar.Contains(53) || b.AcikPortlar.Contains(67)))
-                                                                                      {                         k.Tur = "Router"; }
-            else if (b.AcikPortlar.Contains(23))                                      {                         k.Tur = "Router/Switch"; }
-            // Sadece web portu açık + küçük cihaz IP olabilir
-            else if ((b.AcikPortlar.Contains(80) || b.AcikPortlar.Contains(443)) && b.AcikPortlar.Count <= 2)
-                                                                                      {                         k.Tur = "Akıllı Cihaz"; }
-        }
-
-        if (k.Tur == "Cihaz" && b.PingYanit && b.PingTtl > 0)
-        {
-            if (b.PingTtl >= 120 && b.PingTtl <= 128) k.Tur = "Bilgisayar";
-            else if (b.PingTtl >= 250)                 k.Tur = "Router/Switch";
-        }
-
-        if (k.Tur is "Cihaz" or "Bilgisayar")
-        {
-            var adlar = $"{b.DnsAdi} {b.PingAdi} {b.AdvancedScannerAdi} {b.SsdpFriendlyName}".ToLowerInvariant();
-            if (adlar.Contains("iphone"))                                            { k.Marka = "Apple";   k.Tur = "Telefon"; }
-            else if (adlar.Contains("ipad"))                                         { k.Marka = "Apple";   k.Tur = "Tablet"; }
-            else if (adlar.Contains("android-") || adlar.Contains("android_"))      {                       k.Tur = "Telefon"; }
-            else if (adlar.Contains("galaxy"))                                       { k.Marka = "Samsung"; k.Tur = "Telefon"; }
-            else if (adlar.Contains("redmi") || adlar.Contains("xiaomi") ||
-                     adlar.Contains("poco"))                                         { k.Marka = "Xiaomi";  k.Tur = "Telefon"; }
-            else if (adlar.Contains("pixel"))                                        { k.Marka = "Google";  k.Tur = "Telefon"; }
-        }
-
-        if (k.Tur == "Cihaz" && !string.IsNullOrEmpty(b.Uretici))
-        {
-            var ureticiKucuk = b.Uretici.ToLowerInvariant();
-            bool mobil = ureticiKucuk.Contains("apple") || ureticiKucuk.Contains("samsung") ||
-                         ureticiKucuk.Contains("huawei") || ureticiKucuk.Contains("xiaomi") ||
-                         ureticiKucuk.Contains("oneplus") || ureticiKucuk.Contains("oppo") ||
-                         ureticiKucuk.Contains("vivo") || ureticiKucuk.Contains("realme") ||
-                         ureticiKucuk.Contains("google") || ureticiKucuk.Contains("motorola") ||
-                         ureticiKucuk.Contains("nokia") || ureticiKucuk.Contains("sony mobile") ||
-                         ureticiKucuk.Contains("honor");
-            bool sunucuPortuYok = !b.AcikPortlar.Any(p => p is 22 or 80 or 443 or 445 or 554 or 3389 or 8080 or 8443 or 8000);
-            if (mobil && sunucuPortuYok)
-            {
-                k.Tur = "Telefon";
-                if (k.Marka == "Bilinmiyor")
-                {
-                    if (ureticiKucuk.Contains("samsung"))      k.Marka = "Samsung";
-                    else if (ureticiKucuk.Contains("apple"))   k.Marka = "Apple";
-                    else if (ureticiKucuk.Contains("huawei"))  k.Marka = "Huawei";
-                    else if (ureticiKucuk.Contains("xiaomi"))  k.Marka = "Xiaomi";
-                    else if (ureticiKucuk.Contains("google"))  k.Marka = "Google";
-                    else if (ureticiKucuk.Contains("motorola")) k.Marka = "Motorola";
-                    else if (ureticiKucuk.Contains("honor"))   k.Marka = "Honor";
-                    else                                        k.Marka = b.Uretici;
-                }
-            }
-        }
-
-        k.TurIkon = k.Tur switch
-        {
-            "Kamera"           => "◎",
-            "NVR/DVR"          => "▣",
-            "Bilgisayar"       => "▢",
-            "Linux IoT"        => "▣",
-            "NAS"              => "▦",
-            "Sunucu"           => "▤",
-            "Güvenlik Duvarı"  => "⊞",
-            "Erişim Noktası"   => "⊛",
-            "Router"           => "⊛",
-            "Router/AP"        => "⊛",
-            "Router/Switch"    => "⊛",
-            "Switch/AP"        => "◫",
-            "Switch"           => "◫",
-            "Telefon"          => "⊡",
-            "Tablet"           => "▭",
-            "Yazıcı"           => "▤",
-            "Tarayıcı"         => "▤",
-            "Akıllı TV"        => "▣",
-            "Apple TV"         => "▣",
-            "Akıllı Cihaz"     => "◈",
-            "Hoparlör"         => "◐",
-            "Müzik Cihazı"     => "◐",
-            _                  => "◈",
-        };
-
-        k.Model = IlkDolu(
-            b.HttpFpModel,
-            b.UbntPlatform,
-            b.MikroTikBoard,
-            b.SsdpModelName,
-            b.SsdpModelNumber,
-            b.OnvifHardware,
-            AnlamliSayfaBasligi(b.SayfaBasligi));
-
-        return k;
-    }
-
-    /// <summary>Tanıma güvenilirliğini 0-100 arası bir skora dönüştürür.</summary>
+    /// <summary>
+    /// Tanıma güvenilirliğini 0-100 arası bir skora dönüştürür.
+    /// V2: KameraBilgi.KararIzi içindeki en yüksek Tur skorundan türetilir; KararIzi
+    /// yoksa eski heuristik (kanıt kaynaklarının varlığına göre toplama) çalışır.
+    /// </summary>
     private static int GuvenSkoru(KameraBilgi b, CihazKimlik k)
     {
+        if (b.KararIzi is { TurSiralama: { Count: > 0 } } iz)
+        {
+            int en = iz.TurSiralama[0].Skor;
+            // Marka destekleyici kanıt varsa az bonus ekle (0-15)
+            int markaBonus = b.KararIzi.MarkaSiralama.Count > 0
+                ? Math.Min(15, b.KararIzi.MarkaSiralama[0].Skor / 4)
+                : 0;
+            return Math.Clamp(en + markaBonus, 0, 100);
+        }
+        // Fallback (KararIzi henüz yoksa)
         int skor = 0;
-        // Yüksek güvenli vendor-specific kaynaklar
         if (!string.IsNullOrWhiteSpace(b.UbntPlatform) || !string.IsNullOrWhiteSpace(b.UbntHostname)) skor += 35;
         if (!string.IsNullOrWhiteSpace(b.MikroTikBoard) || !string.IsNullOrWhiteSpace(b.MikroTikIdentity)) skor += 35;
         if (!string.IsNullOrWhiteSpace(b.HttpFpMarka)) skor += 30;
@@ -431,42 +120,12 @@ public partial class MainWindow
         if (b.OnvifBulundu) skor += 20;
         if (!string.IsNullOrEmpty(b.MdnsTur)) skor += 20;
         if (!string.IsNullOrWhiteSpace(b.WsdTipi)) skor += 15;
-        // Orta güvenli
         if (b.SsdpBulundu) skor += 15;
         if (!string.IsNullOrWhiteSpace(b.NetbiosCihazAdi)) skor += 12;
         if (!string.IsNullOrWhiteSpace(b.MacAdresi) && !string.IsNullOrWhiteSpace(b.Uretici)) skor += 10;
         if (b.AcikPortlar.Count > 0) skor += Math.Min(10, b.AcikPortlar.Count * 2);
-        // Yalnızca tür/marka bilgisi varsa baz puan
         if (k.Marka != "Bilinmiyor" && skor == 0) skor += 5;
         return Math.Min(100, skor);
-    }
-
-    private static bool CihazAdiBilgisayarGibi(KameraBilgi b)
-    {
-        var ad = $"{b.NetbiosCihazAdi} {b.DnsAdi} {b.PingAdi} {b.AdvancedScannerAdi}".ToLowerInvariant();
-        return ad.Contains("desktop-") ||
-               ad.Contains("laptop-") ||
-               Regex.IsMatch(ad, @"(^|\s)pc[-\w]*") ||
-               Regex.IsMatch(ad, @"(^|\s)win[-\w]*");
-    }
-
-    private static bool KayitCihaziIpuclariVar(string metin, ICollection<int> acikPortlar)
-    {
-        if (Regex.IsMatch(metin, @"(^|[^a-z0-9])(xvr|nvr|dvr)[a-z0-9-]*", RegexOptions.IgnoreCase)) return true;
-        if (metin.Contains("network video recorder") || metin.Contains("digital video recorder")) return true;
-        if (metin.Contains("hybrid video recorder") || metin.Contains("video recorder")) return true;
-        if (Regex.IsMatch(metin, @"\b(ds-|dh-).*(xvr|nvr|dvr|ni|hghi|hqhi|huhi|ht)", RegexOptions.IgnoreCase)) return true;
-        return acikPortlar.Contains(34567) ||
-               (acikPortlar.Contains(9000) && acikPortlar.Contains(554));
-    }
-
-    private static bool YaziciIpuclariVar(string metin, ICollection<int> acikPortlar)
-    {
-        if (metin.Contains("laserjet") || metin.Contains("hewlett packard")) return true;
-        if (metin.Contains("seiko epson") || metin.Contains("epson")) return true;
-        if (metin.Contains("canon printer") || metin.Contains("brother") || metin.Contains("xerox") || metin.Contains("kyocera")) return true;
-        if (metin.Contains("printer") || metin.Contains("multifunction") || metin.Contains("mfp")) return true;
-        return acikPortlar.Contains(9100) || acikPortlar.Contains(515) || acikPortlar.Contains(631);
     }
 
     private static string? CihazAdiSec(KameraBilgi b)
@@ -1543,8 +1202,8 @@ public partial class MainWindow
         KameraKutucugaYaz($"Hedef: {string.Join(", ", subnetler.Select(x => x.Cidr))}", "#8B949E");
         KameraKutucugaYaz($"Portlar: {string.Join(", ", KameraPorts)}", "#484F58");
         KameraKutucugaYaz(derinTara
-            ? "Kaynak: ICMP + TCP port + DNS + NetBIOS + ONVIF + WSD + SSDP + mDNS + ARP + IPScanner + Ubiquiti + MikroTik + SNMP + HTTP-FP"
-            : "Kaynak: ICMP + TCP port + DNS + NetBIOS + ONVIF + WSD + SSDP + mDNS + ARP + IPScanner", "#484F58");
+            ? "Kaynak: ICMP + TCP port + DNS + NetBIOS + ONVIF + WSD + SSDP + mDNS + ARP + IPScanner + HTTP-FP + SNMP + Ubiquiti + MikroTik"
+            : "Kaynak: ICMP + TCP port + DNS + NetBIOS + ONVIF + WSD + SSDP + mDNS + ARP + IPScanner + HTTP-FP + SNMP", "#484F58");
         if (derinTara) KameraKutucugaYaz("Derin tara aktif — ek protokoller çalışıyor", "#3FB950");
         KameraKutucugaYaz("─────────────────────────", "#30363D");
 
@@ -1652,7 +1311,7 @@ public partial class MainWindow
                                     bilgi.SayfaBasligi = baslik;
                                     break;
                                 }
-                                if (derinTara)
+                                // HTTP-FP: hızlı taramada da çalışır (yüksek isabet, <1.5s timeout).
                                 {
                                     var httpFpPort = new[] { 80, 8080, 443, 8443 }.FirstOrDefault(p => acik.Contains(p));
                                     if (httpFpPort != 0)
@@ -1664,7 +1323,7 @@ public partial class MainWindow
                                             bilgi.HttpFpTur = fp.Tur;
                                             bilgi.HttpFpModel = fp.Model;
                                             bilgi.KesifKaynaklari.Add("HTTP-FP");
-                                            logSatirlari.Add($"{ip} HTTP-FP: {fp.Marka}/{fp.Tur} {fp.Model} ({fp.Kaynak})");
+                                            logSatirlari.Add($"{ip} HTTP-FP: {fp.Marka}/{fp.Tur} {fp.Model} ({fp.Kaynak}, skor={fp.Skor})");
                                         }
                                     }
                                 }
@@ -1833,11 +1492,13 @@ public partial class MainWindow
             var netbiosSweepTask = Task.Run(() => NetbiosSweepAsync(subnet, hostStart, hostEnd, bulunanlar, logSatirlari, token), token);
 
             var ekTasks = new List<Task>();
+            // SNMP hızlı taramada da çalışır — yüksek isabet (sysDescr/sysName direkt vendor).
+            ekTasks.Add(Task.Run(() => SnmpSweepAsync(subnet, hostStart, hostEnd, bulunanlar, logSatirlari, token), token));
             if (derinTara)
             {
+                // UDP discovery (Ubiquiti UDP-10001 / MikroTik MNDP) sadece derin taramada.
                 ekTasks.Add(Task.Run(() => UbiquitiSweepAsync(subnet, bulunanlar, logSatirlari, token), token));
                 ekTasks.Add(Task.Run(() => MndpSweepAsync(subnet, bulunanlar, logSatirlari, token), token));
-                ekTasks.Add(Task.Run(() => SnmpSweepAsync(subnet, hostStart, hostEnd, bulunanlar, logSatirlari, token), token));
             }
 
             await Task.WhenAll(new[] { portTask, onvifTask, ssdpTask, pingSweepTask, mdnsTask, advancedScannerTask, netbiosSweepTask }
@@ -2226,6 +1887,7 @@ public partial class MainWindow
             Servis  = string.Join(" | ", servisler.DefaultIfEmpty(IlkDolu(bilgi.AdvancedScannerServisler, bilgi.SunucuBasligi, bilgi.SayfaBasligi, bilgi.RtspDurum) ?? "")),
             WebUrl  = KameraWebUrlSec(bilgi),
             Guven   = GuvenSkoru(bilgi, kim),
+            KararIzi = KararIziOzetle(bilgi.KararIzi),
         };
     }
 
@@ -2312,6 +1974,7 @@ public partial class MainWindow
         private string  _servis  = "";
         private string? _webUrl;
         private int     _guven   = 0;
+        private string  _kararIzi = "";
 
         public string  Ip      { get => _ip;      set => Set(ref _ip,      value); }
         public string  Ad      { get => _ad;      set => Set(ref _ad,      value); }
@@ -2327,6 +1990,8 @@ public partial class MainWindow
         public string  Servis  { get => _servis;  set => Set(ref _servis,  value); }
         public string? WebUrl  { get => _webUrl;  set => Set(ref _webUrl,  value); }
         public int     Guven   { get => _guven;   set => Set(ref _guven,   value); }
+        /// <summary>Sınıflandırıcı kanıt izi özeti — DataGrid tooltip / AI raporu.</summary>
+        public string  KararIzi { get => _kararIzi; set => Set(ref _kararIzi, value); }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -2346,6 +2011,7 @@ public partial class MainWindow
             Servis  = diger.Servis;
             WebUrl  = diger.WebUrl;
             Guven   = diger.Guven;
+            KararIzi = diger.KararIzi;
         }
 
         private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)

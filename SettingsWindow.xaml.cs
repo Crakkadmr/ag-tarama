@@ -163,6 +163,9 @@ public partial class SettingsWindow : Window
         var baseUrl = AiBaseUrlBox.Text.Trim();
         var model = AiModelBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(baseUrl)) { Hata("AI base URL boş olamaz."); return; }
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) ||
+            !baseUri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+        { Hata("AI base URL geçersiz veya HTTPS değil. Örnek: https://openrouter.ai/api/v1"); return; }
         if (string.IsNullOrWhiteSpace(model)) { Hata("AI model boş olamaz."); return; }
 
         var girilenKey = AiApiKeyBox.Password;

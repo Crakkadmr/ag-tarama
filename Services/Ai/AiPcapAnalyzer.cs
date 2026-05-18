@@ -69,23 +69,29 @@ public static class AiPcapAnalyzer
         string zFlag,
         CancellationToken ct)
     {
+        var psi = new ProcessStartInfo(Paths.TsharkExe,
+            $"-r \"{pcapPath}\" -q -z {zFlag}")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError  = true,
+            UseShellExecute        = false,
+            CreateNoWindow         = true,
+        };
+
+        Process? proc = null;
         try
         {
-            var psi = new ProcessStartInfo(Paths.TsharkExe,
-                $"-r \"{pcapPath}\" -q -z {zFlag}")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                UseShellExecute        = false,
-                CreateNoWindow         = true,
-            };
-
-            using var proc = Process.Start(psi)
+            proc = Process.Start(psi)
                 ?? throw new InvalidOperationException("tshark sureci baslatilamadi.");
 
+            // stdout ve stderr paralel okunmali; sadece stdout okunursa stderr tamponu dolup process bloklanabilir.
             var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
+            var stderrTask = proc.StandardError.ReadToEndAsync(ct);
+
             await proc.WaitForExitAsync(ct);
+
             var stdout = await stdoutTask;
+            await stderrTask; // stderr drainlendi, degeri kullanilmiyor
 
             var lines = stdout.Split('\n');
             if (lines.Length > 50)
@@ -102,6 +108,15 @@ public static class AiPcapAnalyzer
         {
             LogService.Hata($"AiPcapAnalyzer -z {zFlag}", ex);
             return $"(hata: {ex.Message})";
+        }
+        finally
+        {
+            if (proc is not null && !proc.HasExited)
+            {
+                try { proc.Kill(entireProcessTree: true); } catch { }
+                await proc.WaitForExitAsync(CancellationToken.None);
+            }
+            proc?.Dispose();
         }
     }
 

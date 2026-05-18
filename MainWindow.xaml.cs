@@ -197,6 +197,7 @@ public partial class MainWindow : Window
     {
         LogService.OturumBaslat();
         FavoriChipleriniYenile();
+        await WlanAdaptorKontrolAsync();
         if (!await NpcapKontrolVeKur()) return;
         MesajEkle("sonuc", "✔ Sistem hazır — sağ panelden taramayı başlatın.");
     }

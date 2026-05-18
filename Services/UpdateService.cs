@@ -253,7 +253,12 @@ public static class UpdateService
         error = "";
         var expectedThumbprint = Environment.GetEnvironmentVariable("AGT_UPDATE_SIGNER_THUMBPRINT");
         if (string.IsNullOrWhiteSpace(expectedThumbprint))
-            return true; // optional pinning
+        {
+            // Thumbprint pinlenmemiş — güncelleme hash doğrulamasına güveniliyor.
+            // Daha güçlü koruma için AGT_UPDATE_SIGNER_THUMBPRINT ortam değişkenini ayarlayın.
+            LogService.Kaydet("UpdateService", "VerifySignerThumbprint", ["AGT_UPDATE_SIGNER_THUMBPRINT ayarli degil — imza pinleme atlandi."]);
+            return true;
+        }
 
         try
         {

@@ -20,7 +20,15 @@ public static class AiUsageMeter
         "AgTarama",
         "ai.usage.json");
 
+    private static readonly object _lock = new();
+
     public static AiUsageSnapshot Load()
+    {
+        lock (_lock)
+            return LoadInternal();
+    }
+
+    private static AiUsageSnapshot LoadInternal()
     {
         try
         {
@@ -41,18 +49,21 @@ public static class AiUsageMeter
 
     public static void AddUsage(int inputTokens, int outputTokens)
     {
-        try
+        lock (_lock)
         {
-            var snapshot = Load();
-            snapshot.DailyInputTokens += Math.Max(0, inputTokens);
-            snapshot.DailyOutputTokens += Math.Max(0, outputTokens);
-            snapshot.MonthlyInputTokens += Math.Max(0, inputTokens);
-            snapshot.MonthlyOutputTokens += Math.Max(0, outputTokens);
-            Save(snapshot);
-        }
-        catch (Exception ex)
-        {
-            LogService.Hata("AiUsageMeter.AddUsage", ex);
+            try
+            {
+                var snapshot = LoadInternal();
+                snapshot.DailyInputTokens += Math.Max(0, inputTokens);
+                snapshot.DailyOutputTokens += Math.Max(0, outputTokens);
+                snapshot.MonthlyInputTokens += Math.Max(0, inputTokens);
+                snapshot.MonthlyOutputTokens += Math.Max(0, outputTokens);
+                Save(snapshot);
+            }
+            catch (Exception ex)
+            {
+                LogService.Hata("AiUsageMeter.AddUsage", ex);
+            }
         }
     }
 

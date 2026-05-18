@@ -31,9 +31,14 @@ public partial class MainWindow
     private void WlanPanelBaslat()
     {
         WlanGrid.ItemsSource = _wlanSatirlar;
-        _wlanAdaptorVar = WlanService.WifiAdaptorVarMi();
         WlanSayacText.Text = "";
         WlanKanalOzetText.Text = "Kanal dagilimi hazir degil.";
+        // Adaptör kontrolü UI thread'ini bloke etmemek için Loaded sonrasında async yapılıyor.
+    }
+
+    private async Task WlanAdaptorKontrolAsync()
+    {
+        _wlanAdaptorVar = await WlanService.WifiAdaptorVarMiAsync();
 
         if (!_wlanAdaptorVar)
         {

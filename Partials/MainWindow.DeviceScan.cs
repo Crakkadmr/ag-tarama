@@ -613,7 +613,7 @@ public partial class MainWindow
                 if (!int.TryParse(cidr.Groups["b"].Value, out var b) || b is < 0 or > 255) continue;
                 if (!int.TryParse(cidr.Groups["c"].Value, out var c) || c is < 0 or > 255) continue;
                 if (!int.TryParse(cidr.Groups["d"].Value, out var d) || d is < 0 or > 255) continue;
-                if (!int.TryParse(cidr.Groups["m"].Value, out var mask) || mask is < 16 or > 30) continue;
+                if (!int.TryParse(cidr.Groups["m"].Value, out var mask) || mask is < 16 or > 32) continue;
                 CidrAraligaCoz(a, b, c, d, mask, token, list, tekiller);
                 continue;
             }

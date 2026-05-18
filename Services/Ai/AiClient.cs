@@ -138,6 +138,10 @@ public static class AiClient
 
                 return AiRawResponse.Fail(FormatErrorMessage(status, body, apiKey), status);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && attempt < maxRetry)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(500 * (attempt + 1)), cancellationToken);
@@ -243,7 +247,7 @@ public static class AiClient
     private static HttpClient CreateClient()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("AgTarama-AI/0.3.0");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("AgTarama-AI/0.4.0");
         return client;
     }
 

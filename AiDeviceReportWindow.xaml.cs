@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -21,6 +22,7 @@ public partial class AiDeviceReportWindow : Window
     private readonly IReadOnlyList<CihazDto> _cihazlar;
     private readonly AppSettings             _ayarlar;
     private readonly Func<IReadOnlyList<string>, Task>? _yenidenTaraCallback;
+    private readonly CancellationTokenSource _cts = new();
 
     private string?              _sonYanit;
     private IReadOnlyList<string>? _bulunanIpler;
@@ -38,6 +40,7 @@ public partial class AiDeviceReportWindow : Window
 
         SubtitleText.Text = $"{cihazlar.Count} cihaz analiz edilecek";
         PresetChipleriniYukle();
+        Closed += (_, _) => { _cts.Cancel(); _cts.Dispose(); };
     }
 
     private void PresetChipleriniYukle()
@@ -104,7 +107,7 @@ public partial class AiDeviceReportWindow : Window
         try
         {
             var yanit = await AiDeviceAnalyzer.AnalyzeAsync(
-                _cihazlar, talep, _ayarlar);
+                _cihazlar, talep, _ayarlar, _cts.Token);
 
             _sonYanit    = yanit;
             _bulunanIpler = IpleriBul(yanit);

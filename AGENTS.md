@@ -152,6 +152,22 @@ Kullanici `"md guncelle"` dediginde:
 
 ## 7. Son Degisiklik Notu (2026-05-18) — v0.4.0
 
+**Bug düzeltmeleri (bugtest.md kapsamı):**
+
+- **P0 korundu:** `AiDefaultKey` XOR-obfuscated key yerinde; vault yoksa otomatik yükleniyor.
+- **HTTPS zorunluluğu:** `SettingsWindow` AI base URL `Uri.TryCreate` + `https` scheme zorunlu; HTTP girişi reddediliyor.
+- **Update imza log:** `AGT_UPDATE_SIGNER_THUMBPRINT` set edilmemişse `LogService.Kaydet` uyarısı yazılıyor.
+- **AiUsageMeter thread safety:** `_lock` nesnesi; `Load()` ve `AddUsage()` lock altında, race condition giderildi.
+- **AI iptal semantiği:** `AiClient` catch bloğu `OperationCanceledException` propagate ediyor (artık hata mesajına çevrilmiyor).
+- **tshark process cleanup:** `AiPcapAnalyzer.RunTsharkStatAsync` → finally + `Kill(entireProcessTree)` + stdout/stderr paralel drain.
+- **Wi-Fi UI thread fix:** `WlanService.WifiAdaptorVarMiAsync()` (async); `WlanPanelBaslat()` sync check kaldırıldı; `BaslangicAsync()` → `WlanAdaptorKontrolAsync()` ile açılışta donma önlendi.
+- **Cihaz AI modal CTS:** `AiDeviceReportWindow` `_cts` alanı + `Closed` handler; pencere kapanınca istek iptal ediliyor.
+- **F12 AI önerisi iptal:** `_aiOneriCts`; Ctrl+Tab önceki isteği iptal edip yenisini başlatıyor; Esc AI önerisini de iptal ediyor.
+- **CIDR /31-/32:** Parser sınırı `> 30` → `> 32`; tek host ve point-to-point subnet taranabiliyor.
+- **User-Agent:** `AgTarama-AI/0.3.0` → `0.4.0`.
+
+---
+
 **AI Modu tam entegrasyonu (Faz 1-4):**
 
 ### Faz 1 — Altyapı

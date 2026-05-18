@@ -181,9 +181,10 @@ static Task<AiTestResult> TestConnectionAsync(AppSettings settings, string? expl
 
 - `ChatAsync` öncesinde `AiEnabled`, günlük/aylık token limiti kontrolü yapar.
 - Retry: max 2; 429 / 5xx için `700ms * (attempt+1)` bekleme.
-- `Timeout = 60s`, `User-Agent = "AgTarama-AI/0.3.0"`.
+- `Timeout = 60s`, `User-Agent = "AgTarama-AI/0.4.0"`.
 - Hata mesajlarında API anahtarı `sk-or-***last4` formatıyla maskelenir.
 - `AiUsageMeter.AddUsage(promptTokens, completionTokens)` her başarılı çağrıdan sonra çalışır.
+- İptal semantiği: `cancellationToken` set edilmişse `OperationCanceledException` yutulmaz, çağırana propagate edilir.
 
 ---
 
@@ -192,10 +193,12 @@ static Task<AiTestResult> TestConnectionAsync(AppSettings settings, string? expl
 Günlük/aylık token sayacı. `%APPDATA%\AgTarama\ai.usage.json`.
 
 ```csharp
-static AiUsageRecord Load()
+static AiUsageSnapshot Load()
 static void AddUsage(int promptTokens, int completionTokens)
 // Periyot rollover: yeni gün/ay başında sayaçlar sıfırlanır.
 ```
+
+- `Load()` ve `AddUsage()` aynı `_lock` nesnesi altında çalışır; paralel AI isteklerinde race condition riski giderildi.
 
 ---
 
@@ -220,6 +223,7 @@ static Task<string> AnalyzeAsync(string pcapPath, AppSettings settings, Cancella
 - tshark komutları: `-z conv,ip`, `-z io,stat,1`, `-z io,phs`, `-z endpoints,ip`, `-z http,tree`, `-z dns,tree`
 - Her çıktı max 50 satıra kırpılır; toplam payload ≤ ~30KB.
 - `AiYerelIpMaskele=true` ise private IP 3. oktet → `x` (`192.168.1.42` → `192.168.x.42`).
+- Process cleanup: `WaitForExitAsync(ct)` sonrası finally bloğunda `Kill(entireProcessTree: true)` + `WaitForExitAsync(CancellationToken.None)` garantisi. stdout ve stderr paralel drainlenir (buffer dolmasından kaynaklanan blokaj önlendi).
 
 ---
 
@@ -261,6 +265,8 @@ Task IndirVeKurAsync(string indirmeUrl, IProgress<double> progress, Cancellation
 // Deterministic ZIP seçimi: AgTarama-v*-win-x64.zip + .sha256 zorunlu
 // Opsiyonel: AGT_UPDATE_SIGNER_THUMBPRINT env var ile thumbprint pinning
 ```
+
+- `AGT_UPDATE_SIGNER_THUMBPRINT` set edilmemişse imza doğrulaması atlanır ve log uyarısı yazılır.
 
 **v0.3.0 — Güvenlik sertleştirmesi:** `ZipFile.ExtractToDirectory` yerine `SafeExtractZip`:
 - Entry sayısı ≤ 5000, toplam açılmış boyut ≤ 500 MB, tek entry ≤ 200 MB.
@@ -308,12 +314,12 @@ class AppSettings {
 
 ```csharp
 static Task<List<WlanSonuc>> ScanAsync(CancellationToken ct)
-static bool WifiAdaptorVarMi()
+static Task<bool> WifiAdaptorVarMiAsync()
 // WlanSonuc: Ssid, Bssid, Auth, Encryption, Signal(%), Channel, RadioType, EvilTwin
 ```
 
 - Evil-Twin tespiti: aynı SSID, birden fazla farklı BSSID → `EvilTwin = true`
-- `WifiAdaptorVarMi()`: `netsh wlan show interfaces` çıktısında "Name" satırı arar
+- `WifiAdaptorVarMiAsync()`: async `WaitForExitAsync` kullanır; UI thread'ini bloke etmez. `WlanPanelBaslat()` sync çağrı yapmaz, adaptör kontrolü `BaslangicAsync()` → `WlanAdaptorKontrolAsync()` üzerinden yapılır.
 
 ---
 
@@ -471,10 +477,10 @@ static byte[] GenerateDeviceScanReport(IEnumerable<DeviceScanRow> rows, ReportMe
 - `Services/Ai/AiKeyVault.cs`:
   - `%APPDATA%/AgTarama/ai.vault` içinde şifreli API anahtarı saklama (DPAPI + AES-HMAC).
 - `Services/Ai/AiDefaultKey.cs`:
-  - XOR-obfuscated varsayılan anahtar.
+  - XOR-obfuscated varsayılan anahtar (yerinde, vault yoksa `EnsureDefaultKey()` otomatik yükler).
 - `Services/Ai/AiUsageMeter.cs`:
   - `%APPDATA%/AgTarama/ai.usage.json` günlük/aylık token sayaçları; gün/ay değişiminde sıfırlanır.
 - `Services/Ai/AiPrompts.cs`:
   - Sistem prompt sabitleri.
 - `Services/Ai/AiProvider.cs`:
-  - Sağlayıcı preset tanımları (OpenRouter/Google/OpenAI/Custom). Default model: `minimax/minimax-m2.5`.
+  - Sağlayıcı preset tanımları (OpenRouter/Google/OpenAI/Custom). Default model: `deepseek/deepseek-v4-flash`.

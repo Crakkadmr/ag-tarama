@@ -13,7 +13,7 @@ public class AppSettings
     public bool AiEnabled { get; set; } = true;
     public string AiSaglayici { get; set; } = "OpenRouter"; // OpenRouter|Google|OpenAI|Custom
     public string AiBaseUrl { get; set; } = "https://openrouter.ai/api/v1";
-    public string AiModel { get; set; } = "minimax/minimax-m2.5";
+    public string AiModel { get; set; } = "deepseek/deepseek-v4-flash";
     public int AiGunlukTokenLimiti { get; set; } = 200_000;
     public int AiAylikTokenLimiti { get; set; } = 5_000_000;
     public bool AiYerelIpMaskele { get; set; } = false;

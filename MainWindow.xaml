@@ -985,13 +985,15 @@
                                         Click="KameraNicYenileBtn_Click"
                                         ToolTip="Ağ arayüzlerini yeniden tara"/>
                             </Grid>
-                            <!-- Manuel subnet input + Tara/Durdur -->
+                            <!-- Manuel subnet input + Tara/Durdur + AI -->
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="112"/>
                                     <ColumnDefinition Width="46"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid Grid.Column="0">
                                     <TextBox x:Name="KameraSubnetBox" Style="{StaticResource PingInputBox}"
@@ -1009,6 +1011,15 @@
                                         Style="{StaticResource DangerButton}" Height="38"
                                         HorizontalContentAlignment="Center"
                                         Visibility="Collapsed" Click="KameraDurdurBtn_Click"/>
+                                <Button x:Name="KameraAiBtn" Grid.Column="5"
+                                        Style="{StaticResource ActionButton}"
+                                        Height="38" Padding="12,0"
+                                        IsEnabled="False"
+                                        HorizontalContentAlignment="Center"
+                                        Click="KameraAiBtn_Click"
+                                        ToolTip="Taranan cihazları AI ile analiz et (tarama tamamlandıktan sonra aktif olur)">
+                                    <TextBlock Text="✨ AI" FontFamily="Consolas" FontSize="12"/>
+                                </Button>
                             </Grid>
                         </StackPanel>
                         <Grid Grid.Row="2" Margin="0,0,0,10">

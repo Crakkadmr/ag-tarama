@@ -21,6 +21,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using ClosedXML.Excel;
 using AgTarama.Services;
+using AgTarama.Services.Ai;
 
 namespace AgTarama;
 
@@ -1286,6 +1287,36 @@ public partial class MainWindow
     private void KameraBaslatBtn_Click(object sender, RoutedEventArgs e) => _ = KameraTaramaBaslat();
     private void KameraDurdurBtn_Click(object sender, RoutedEventArgs e) => _kameraCts?.Cancel();
 
+    private void KameraAiBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_kameraSatirlari.Count == 0)
+        {
+            ToastGoster("Analiz için önce cihaz taraması yapın.", hata: true);
+            return;
+        }
+
+        if (!_ayarlar.AiEnabled)
+        {
+            ToastGoster("AI özellikleri Ayarlar > AI bölümünden kapalı.", hata: true);
+            return;
+        }
+
+        var cihazlar = _kameraSatirlari
+            .Select(s => new CihazDto(
+                s.Ip, s.Ad, s.Tur, s.Marka, s.Model,
+                s.Ping, s.Portlar, s.Kesif, s.Mac,
+                s.Uretici, s.Servis, s.Guven))
+            .ToList();
+
+        var win = new AiDeviceReportWindow(cihazlar, _ayarlar, async ips =>
+        {
+            foreach (var ip in ips)
+                await TekIpTaraAsync(ip);
+        });
+        win.Owner = this;
+        win.Show();
+    }
+
     private async Task NetbiosBilgileriniGuncelleAsync(
         string ip, KameraBilgi bilgi,
         ConcurrentDictionary<string, byte> denenenler,
@@ -1491,9 +1522,10 @@ public partial class MainWindow
         KameraFiltreSayacText.Text = "0 cihaz";
         KameraResultBorder.Visibility = Visibility.Visible;
         KameraIlerlemeText.Visibility = Visibility.Visible;
-        KameraBaslatBtn.IsEnabled = false;
+        KameraBaslatBtn.IsEnabled  = false;
         KameraDurdurBtn.Visibility = Visibility.Visible;
-        KameraIlerlemeText.Text = "Baslatiliyor...";
+        KameraAiBtn.IsEnabled      = false;
+        KameraIlerlemeText.Text    = "Baslatiliyor...";
 
         bool derinTara = KameraDerinTaraCheck?.IsChecked == true;
 
@@ -1570,8 +1602,9 @@ public partial class MainWindow
         }
         finally
         {
-            KameraBaslatBtn.IsEnabled = true;
+            KameraBaslatBtn.IsEnabled  = true;
             KameraDurdurBtn.Visibility = Visibility.Collapsed;
+            KameraAiBtn.IsEnabled      = _kameraSatirlari.Count > 0;
         }
 
         async Task TaramaYurutAsync(string subnet, int hostStart, int hostEnd)

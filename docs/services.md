@@ -102,9 +102,139 @@ Kayıt üreten akışlar: Ping, Port Tara, ARP Tablosu, Cihaz Tara, Yakalama.
 ```csharp
 static AppSettings Yukle()
 static void Kaydet(AppSettings ayarlar)
-// AppSettings: HedefMB (int), TestSuresiSn (int)
 // Yol: %APPDATA%\AgTarama\settings.json
 ```
+
+---
+
+## AppSettings.cs — Tam Alan Listesi (v0.4.0)
+
+```csharp
+class AppSettings {
+    // Genel
+    int  HedefMB                { get; set; } = 16;
+    int  TestSuresiSn           { get; set; } = 2;
+    int  PingTimeoutMs          { get; set; } = 2000;
+    int  PortTaramaConcurrency  { get; set; } = 50;
+    int  PortTaramaTimeoutMs    { get; set; } = 1000;
+    int  WlanAutoRefreshSeconds { get; set; } = 10;
+    int  EvilTwinSinyalEsigi    { get; set; } = 75;  // 50-90
+    bool SesAcik                { get; set; } = true;
+    bool ToastAcik              { get; set; } = true;
+    // AI (v0.4.0)
+    bool   AiEnabled            { get; set; } = true;
+    string AiSaglayici          { get; set; } = "OpenRouter"; // OpenRouter|Google|OpenAI|Custom
+    string AiBaseUrl            { get; set; } = "https://openrouter.ai/api/v1";
+    string AiModel              { get; set; } = "deepseek/deepseek-v4-flash";
+    int    AiGunlukTokenLimiti  { get; set; } = 200_000;
+    int    AiAylikTokenLimiti   { get; set; } = 5_000_000;
+    bool   AiYerelIpMaskele     { get; set; } = false;
+    // API anahtarı AppSettings'e ASLA yazılmaz — sadece AiKeyVault'ta.
+}
+```
+
+---
+
+## Services/Ai/ — AI Servisleri (v0.4.0)
+
+### AiProvider.cs
+
+Preset listesi:
+
+| Id | Display | BaseUrl | DefaultModel |
+|---|---|---|---|
+| OpenRouter | OpenRouter | `https://openrouter.ai/api/v1` | `deepseek/deepseek-v4-flash` |
+| Google | Google AI | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.0-flash` |
+| OpenAI | OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
+| Custom | Özel | (kullanıcı girer) | (kullanıcı girer) |
+
+```csharp
+static AiProviderPreset GetById(string? id)  // bulunamazsa Presets[0] döner
+```
+
+---
+
+### AiKeyVault.cs
+
+API anahtarını DPAPI + AES-CBC/HMAC-SHA256 (machine-bound) ile şifreli saklar.
+
+```csharp
+static void Save(string apiKey)   // %APPDATA%\AgTarama\ai.vault (binary, opak)
+static string? Load()             // null = anahtar yok / bozuk
+static void Clear()
+static bool HasKey()
+```
+
+---
+
+### AiClient.cs
+
+OpenAI-uyumlu `chat/completions` HTTP istemcisi.
+
+```csharp
+static Task<string> AskAsync(AppSettings settings, string systemPrompt, string userPrompt, CancellationToken)
+static Task<string> ChatAsync(AppSettings settings, IReadOnlyList<AiChatMessage> messages, CancellationToken)
+static Task<AiTestResult> TestConnectionAsync(AppSettings settings, string? explicitApiKey, CancellationToken)
+// AiChatMessage: record(Role, Content)
+// AiTestResult:  record(Success, Message, StatusCode, LatencyMs)
+```
+
+- `ChatAsync` öncesinde `AiEnabled`, günlük/aylık token limiti kontrolü yapar.
+- Retry: max 2; 429 / 5xx için `700ms * (attempt+1)` bekleme.
+- `Timeout = 60s`, `User-Agent = "AgTarama-AI/0.3.0"`.
+- Hata mesajlarında API anahtarı `sk-or-***last4` formatıyla maskelenir.
+- `AiUsageMeter.AddUsage(promptTokens, completionTokens)` her başarılı çağrıdan sonra çalışır.
+
+---
+
+### AiUsageMeter.cs
+
+Günlük/aylık token sayacı. `%APPDATA%\AgTarama\ai.usage.json`.
+
+```csharp
+static AiUsageRecord Load()
+static void AddUsage(int promptTokens, int completionTokens)
+// Periyot rollover: yeni gün/ay başında sayaçlar sıfırlanır.
+```
+
+---
+
+### AiPrompts.cs
+
+```csharp
+const string SohbetSystemPrompt  // Chatbot serbest sohbet — TR ağ asistanı
+const string PcapSystemPrompt    // Pcap tshark istatistik analizi — top talker, anormallik, DNS/HTTP
+const string CihazSystemPrompt   // Cihaz listesi analizi — KRITIK/ORTA/DUSUK sınıflandırma
+```
+
+---
+
+### AiPcapAnalyzer.cs (Faz 3)
+
+tshark istatistiklerini toplayıp AI'ya gönderir.
+
+```csharp
+static Task<string> AnalyzeAsync(string pcapPath, AppSettings settings, CancellationToken)
+```
+
+- tshark komutları: `-z conv,ip`, `-z io,stat,1`, `-z io,phs`, `-z endpoints,ip`, `-z http,tree`, `-z dns,tree`
+- Her çıktı max 50 satıra kırpılır; toplam payload ≤ ~30KB.
+- `AiYerelIpMaskele=true` ise private IP 3. oktet → `x` (`192.168.1.42` → `192.168.x.42`).
+
+---
+
+### AiDeviceAnalyzer.cs (Faz 4)
+
+Cihaz Tara sonuçlarını AI'ya gönderir.
+
+```csharp
+sealed record CihazDto(Ip, Ad, Tur, Marka, Model, Ping, Portlar, Kesif, Mac, Uretici, Servis, Guven)
+static Task<string> AnalyzeAsync(IReadOnlyList<CihazDto> cihazlar, string talep, AppSettings settings, CancellationToken)
+static readonly IReadOnlyList<Preset> Presetler  // 5 hazır preset
+```
+
+Hazır preset'ler: Güvenlik riski tespiti 🛡️, Kamera/NVR/DVR listesi 📷, AP/Router/Switch grubu 📡, Bilinmeyen cihaz sorguları ❓, Sonraki tarama önerisi 🔍.
+Max 50 cihaz JSON olarak gönderilir; fazlası `"...ve N daha"` notu ile belirtilir.
 
 ---
 

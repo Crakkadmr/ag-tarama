@@ -2,7 +2,7 @@
 
 > Bu dosya AI agent'larinin projeye hizli giris noktasidir.
 > Detayli referans bilgi `docs/` klasorunde konuya gore ayrilmistir.
-> Son guncelleme: 2026-05-17 (v0.3.0 — Guvenlik sertlestirmesi, gercek CIDR /16-/30 destegi, concurrency duzeltmeleri, koyu tema chip + checkbox)
+> Son guncelleme: 2026-05-18 (v0.4.0 — AI Faz 1-4: sohbet, pcap analizi, cihaz analizi + AiDeviceReportWindow; model: deepseek/deepseek-v4-flash)
 
 ---
 
@@ -16,8 +16,8 @@
 | csproj ek | `tools\**\*` ve `Req\**\*` -> `CopyToOutputDirectory=PreserveNewest` |
 | Output | `WinExe` |
 | Namespace | `AgTarama` |
-| Surum | v0.3.0 |
-| Branch | `guvenlik-guncellestirmeleri-zirtpirt` (main: `main`) |
+| Surum | v0.4.0 |
+| Branch | `bugveyeniozellikler` (main: `main`) |
 | Git user | Crakkadmr |
 | Kok yol | `C:\Projects\AG TARAMA PROGRAMI\AgTarama` |
 
@@ -35,6 +35,7 @@ Ana ozellikler:
 - Wi-Fi Tarama (SSID/BSSID/sinyal/kanal, Evil-Twin tespiti)
 - F12 komut konsolu (CommandRouter, `&&` zincirleme)
 - Favori IP, gecmis, lisanslama (Supabase)
+- **AI Modu** (OpenRouter / Google / OpenAI / Custom; deepseek/deepseek-v4-flash varsayilan): serbest sohbet, pcap analizi, cihaz analizi + `AiDeviceReportWindow` modal
 
 ---
 
@@ -149,43 +150,46 @@ Kullanici `"md guncelle"` dediginde:
 
 ---
 
-## 7. Son Degisiklik Notu (2026-05-17) — v0.3.0
+## 7. Son Degisiklik Notu (2026-05-18) — v0.4.0
 
-**Guvenlik, dogruluk ve UI temasi sertlestirmesi:**
+**AI Modu tam entegrasyonu (Faz 1-4):**
 
-**P0 — Kritik:**
-- **CIDR `/16-/30` gercekten taraniyor:** `TaramaSubneti` artik `HostStart`, `HostEnd`, `HostCount`, `OriginalCidr` aliyor. `SubnetGirdisiniCoz` /16-/23 maskeleri icin birden cok /24'e acilim yapar; /25-/30 icin sinirli host araligi hesaplar. Tum sweep'ler (`Enumerable.Range(1, 254)` yerine `Enumerable.Range(hostStart, sayi)`). `toplamHost = subnetler.Sum(s => s.HostCount)`.
-- **`UpdateService.SafeExtractZip`:** Yeni `SafeExtractZip` ile Zip Slip / path traversal koruması, entry sayısı (max 5000), toplam boyut (500 MB), tek entry boyutu (200 MB), `..`/mutlak yol reddi.
+### Faz 1 — Altyapı
+- `Services/Ai/`: `AiKeyVault` (DPAPI+AES machine-bound), `AiClient` (OpenAI-uyumlu, retry, rate-limit, key masking), `AiProvider` (OpenRouter/Google/OpenAI/Custom preset'ler), `AiUsageMeter` (günlük/aylık token sayacı), `AiPrompts`, `AiDefaultKey` (XOR-obfuscated).
+- `AppSettings` yeni alanlar: `AiEnabled`, `AiSaglayici`, `AiBaseUrl`, `AiModel` (default: `deepseek/deepseek-v4-flash`), `AiGunlukTokenLimiti` (200K), `AiAylikTokenLimiti` (5M), `AiYerelIpMaskele`.
+- Ayarlar > AI bölümü: sağlayıcı dropdown, API anahtarı PasswordBox (vault), Test Et butonu, token limitleri, IP maskele checkbox.
 
-**P1 — Concurrency / kaynak güvenliği:**
-- `BandwidthHistoryService`: tüm static buffer erişimi `lock (_sync)` altında.
-- `_wlanBilinenBssid`: `Dictionary<>` → `ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>`.
-- `InterfaceDiscoveryService`: `Process.Start(psi)!` kaldırıldı; tshark yoksa açık `InvalidOperationException`.
-- `MndpDiscoveryService` / `UbiquitiDiscoveryService`: TLV uzunlukları `& 0xFF` ile unsigned okunuyor, taşmaya dayanıklı sınır kontrolü.
-- `CancellationTokenSource` disposal pattern: `_pingCts`, `_portScanCts`, `_traceCts`, `_konsoleCts`, `UpdateWindow._cts` yeniden atanmadan önce `Dispose()` ediliyor.
-- `PingService`: `catch when (ex.GetBaseException() is not OperationCanceledException)` — AggregateException içine sarılı iptal artık yanlışlıkla loglanmıyor.
+### Faz 2 — Serbest sohbet (Chatbot sekmesi)
+- Chatbot sekmesi **DockPanel** düzeniyle: araç çubuğu üstte, AI input barı altta (`AiInputBorder` + `AiInputBox` + `AiGonderBtn` + `AiTemizleBtn`), `ChatScrollViewer` ortada.
+- `AiInputBox`: `AiInputStyle` (minimal template — sadece PART_ContentHost ScrollViewer; görsel çerçeve `AiInputBorder`'dan gelir; GotFocus/LostFocus ile border rengi code-behind'dan değişir).
+- `Partials/MainWindow.Ai.cs`: `_aiSohbetGecmisi`, `AiSoruGonderAsync`, bekleme satırı, `_aiSohbetCts`.
+- `Dispatcher.InvokeAsync(..., DispatcherPriority.Loaded)` ile layout sonrası scroll.
+- **Kritik layout notu:** Kök pencere Grid'inin Row 2 mutlaka `Height="*"` olmalı.
 
-**P2 — Veri ve UX:**
-- `HistoryService`:
-  - `Id` formatı: `yyyyMMdd_HHmmss_fff_{guid8}_{type}` (ms collision imkansız).
-  - `SonKayitlariYukle`: lazy load — önce `LastWriteTimeUtc`'ye göre sıralı listeden `Take(limit)` sonra deserialize.
-- `FavoriService`: `IPAddress.TryParse` ile normalize + `OrdinalIgnoreCase` karşılaştırma (`192.168.001.1` = `192.168.1.1`).
-- `MainWindow.History.NormalizeTip`: `İ→I, Ş→S, Ğ→G, Ü→U, Ö→O, Ç→C` — Türkçe locale `ToUpper` sorunu giderildi.
-- `AppSettings.EvilTwinSinyalEsigi` (varsayılan 75, 50-90): Evil Twin "yüksek sinyal" eşiği artık ayarlanabilir.
-- `SecurityService.Dogrula`: `#if DEBUG ... #else ... #endif` ile CS0162 uyarısı temizlendi.
+### Faz 3 — Pcap AI Analizi
+- `Services/Ai/AiPcapAnalyzer.cs`: tshark 6 istatistik komutu (conv/io/phs/endpoints/http/dns), 50 satır kırpma, özel IP maskeleme (3. oktet → x), `AiClient.AskAsync`.
+- `AiPrompts.PcapSystemPrompt`: tshark istatistiklerini yorumlayan TR sistem promptu.
+- `Partials/MainWindow.Capture.cs`: yakalama tamamlama kartına "✨ AI ile analiz et" butonu → ChatPanel + HistoryService.
 
-**UI — Koyu tema tutarlılığı:**
-- `DarkCheckBox` stili (`MainWindow.xaml`): 16×16 koyu kutucuk + mavi `Path` onay işareti + hover/checked/disabled trigger'ları. `<Style TargetType="CheckBox" BasedOn="{StaticResource DarkCheckBox}"/>` ile tüm CheckBox'lar otomatik koyu tema (Derin tara, Otomatik yenile vb.).
-- `DarkChip` stili: `prim:ToggleButton` için yuvarlatılmış chip (CornerRadius=12), seçili durumda mavi vurgu, hover mavi kenar. `KameraChipOlustur` artık `Style = (Style)FindResource("DarkChip")` kullanıyor; inline renkler kaldırıldı.
-- `prim:` namespace prefix'i Window root'una eklendi.
+### Faz 4 — Cihaz Tara AI Analizi
+- `Services/Ai/AiDeviceAnalyzer.cs`: `CihazDto` record, 5 hazır preset (güvenlik riski, kamera listesi, AP/router grubu, bilinmeyen sorgu, sonraki tarama), max 50 cihaz JSON.
+- `AiPrompts.CihazSystemPrompt`: cihaz listesi analiz promptu (KRITIK/ORTA/DUSUK sınıflandırma).
+- `AiDeviceReportWindow.xaml/.cs`: koyu temalı modal pencere; preset chip'ler + serbest metin girişi; [Kopyala] [TXT Kaydet] [Yeniden Sor] [Kapat]; AI yanıtında IP tespit edilirse "Bu IP'leri yeniden tara" butonu.
+- `Partials/MainWindow.DeviceScan.cs`: Cihaz Tara satırına `KameraAiBtn` ("✨ AI") eklendi; tarama bitmeden disabled.
+
+### UI düzeltmeleri (v0.3.0 → v0.4.0 arası)
+- Chatbot sekmesi yeniden yapılandırıldı: Grid → DockPanel LastChildFill.
+- `AiInputStyle` minimal TextBox stili (`OverridesDefaultStyle` + şeffaf background + PART_ContentHost only); metin görünürlük sorunu çözüldü.
+- Ayarlar: AI ComboBox `DarkComboBox` + CheckBox `DarkCheckBox` temasıyla uyumlu.
 
 ---
 
-## 8. AI Faz 1+2 (2026-05-17)
+## 8. v0.3.0 Gecmis Notu (2026-05-17)
 
-- Chatbot sekmesi **DockPanel** düzeniyle yeniden yapılandırıldı: araç çubuğu üstte, AI input barı altta, `ChatScrollViewer` ortada tam alana yayılıyor.
-- AI sohbet akışı `Partials/MainWindow.Ai.cs` üzerinden çalışır (`AiInputBox`, `AiGonderBtn`, `AiTemizleBtn`).
-- AI servisleri `Services/Ai/*` altında; model/base URL `AppSettings` üzerinden değiştirilebilir (default: OpenRouter + `minimax/minimax-m2.5`).
-- **Ayarlar > AI bölümü** aktif: sağlayıcı dropdown, API anahtarı (vault'a şifreli kaydedilir), Test Et butonu, günlük/aylık token limiti, IP maskele.
-- `MesajEkle` + `BeklemeSatiriEkle` → `Dispatcher.InvokeAsync(..., DispatcherPriority.Loaded)` ile layout sonrası scroll.
-- **Kritik layout notu:** Kök pencere Grid'inin Row 2 mutlaka `Height="*"` olmalı — `Auto` yapılırsa tüm ScrollViewer'lar işlevsiz kalır.
+**Guvenlik, dogruluk ve UI temasi sertlestirmesi:**
+
+- **CIDR `/16-/30`** gercekten taraniyor. `SubnetGirdisiniCoz` /16-/23 → birden cok /24; /25-/30 → sinirli host araligi.
+- **`UpdateService.SafeExtractZip`**: Zip Slip / path traversal korumasi, entry/boyut sinirlari.
+- **BandwidthHistoryService** `lock (_sync)`, **`_wlanBilinenBssid`** ConcurrentDictionary, CTS disposal pattern, PingService AggregateException filtresi.
+- **HistoryService** ms-hassas Id, lazy load. **FavoriService** IP normalizasyonu. Turkce locale ToUpper duzeltmesi. EvilTwinSinyalEsigi ayarlanabilir.
+- **DarkCheckBox** + **DarkChip** stillleri; `prim:` namespace prefix.

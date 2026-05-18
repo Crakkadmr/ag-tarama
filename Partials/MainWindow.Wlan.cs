@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using AgTarama.Services;
+using AgTarama.Services.Ai;
 
 namespace AgTarama;
 
@@ -57,6 +58,56 @@ public partial class MainWindow
         _wlanCts?.Cancel();
         WlanOtoTimerDurdur();
         WlanOtoYenileCheck.IsChecked = false;
+    }
+
+    private async void WlanAiBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_ayarlar.AiEnabled)
+        {
+            ToastGoster("AI özellikleri Ayarlar > AI bölümünden kapalı.", hata: true);
+            return;
+        }
+        if (_wlanSatirlar.Count == 0)
+        {
+            ToastGoster("Önce Wi-Fi taraması yapın.", hata: true);
+            return;
+        }
+
+        WlanAiBtn.IsEnabled = false;
+        WlanAiBtn.Content   = "⏳  AI...";
+        try
+        {
+            var wlanJson = JsonSerializer.Serialize(
+                _wlanSatirlar.Select(w => new
+                {
+                    ssid        = w.Ssid,
+                    bssid       = w.Bssid,
+                    auth        = w.Auth,
+                    encryption  = w.Encryption,
+                    signal      = w.Signal,
+                    channel     = w.Channel,
+                    radioType   = w.RadioType,
+                    evilTwin    = w.SupheliEvilTwin,
+                }),
+                new JsonSerializerOptions { WriteIndented = false });
+
+            var userPrompt = $"Wi-Fi tarama sonucu ({_wlanSatirlar.Count} ağ):\n{wlanJson}";
+            var yanit = await AiClient.AskAsync(
+                _ayarlar, AiPrompts.WlanSystemPrompt, userPrompt, MasterCts.Token);
+
+            MainTabControl.SelectedIndex = TabChatbot;
+            MesajEkle("sonuc", "📶 Wi-Fi Güvenlik Raporu\n\n" + yanit);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            ToastGoster("Wi-Fi AI raporu hatası: " + ex.Message, hata: true);
+        }
+        finally
+        {
+            WlanAiBtn.IsEnabled = _wlanSatirlar.Count > 0 && _ayarlar.AiEnabled;
+            WlanAiBtn.Content   = "✨  Rapor";
+        }
     }
 
     private void WlanOtoYenile_Changed(object sender, RoutedEventArgs e)
@@ -135,6 +186,7 @@ public partial class MainWindow
             if (supheli > 0)
                 ToastGoster($"{supheli} agda supheli Evil-Twin sinyali var.", hata: true);
 
+            WlanAiBtn.IsEnabled = sonuclar.Count > 0 && _ayarlar.AiEnabled;
             WlanTaramaGecmiseYaz(sonuclar, supheli, coklu);
         }
         catch (OperationCanceledException)

@@ -1718,6 +1718,11 @@
                                         Style="{StaticResource DangerButton}"
                                         Height="36" Padding="16,0" IsEnabled="False"
                                         Click="WlanDurdurBtn_Click"/>
+                                <Button x:Name="WlanAiBtn" Content="✨  Rapor"
+                                        Style="{StaticResource ActionButton}"
+                                        Height="36" Margin="8,0,0,0" Padding="14,0"
+                                        IsEnabled="False" Click="WlanAiBtn_Click"
+                                        ToolTip="Tarama sonuçlarını AI ile analiz et: güvenlik, Evil-Twin, kanal çakışması"/>
                             </StackPanel>
                             <!-- Otomatik Yenile -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">

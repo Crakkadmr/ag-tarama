@@ -15,6 +15,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using AgTarama.Services;
+using AgTarama.Services.Ai;
 
 namespace AgTarama;
 
@@ -529,6 +530,57 @@ public partial class MainWindow
             _gecmisdenCalistiriliyor = false;
             BildirimCal(hata: acik == 0);
             ToastGoster(acik > 0 ? $"{acik} açık port bulundu — {hedef}" : $"Açık port yok — {hedef}", hata: acik == 0);
+
+            // AI Yorumla butonu — yalnızca açık port varsa göster
+            if (acik > 0 && _ayarlar.AiEnabled)
+            {
+                var portListesi = string.Join(", ", acikPortlar.OrderBy(x => x.Port).Select(x => x.Port));
+                var aiBtn = new Button
+                {
+                    Content         = "✨  AI ile yorumla",
+                    FontFamily      = new System.Windows.Media.FontFamily("Consolas"),
+                    FontSize        = 11,
+                    Padding         = new Thickness(12, 6, 12, 6),
+                    Margin          = new Thickness(0, 8, 0, 0),
+                    Background      = new SolidColorBrush(Color.FromRgb(13, 27, 42)),
+                    Foreground      = new SolidColorBrush(Color.FromRgb(88, 166, 255)),
+                    BorderBrush     = new SolidColorBrush(Color.FromRgb(31, 111, 235)),
+                    BorderThickness = new Thickness(1),
+                    Cursor          = System.Windows.Input.Cursors.Hand,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                };
+                UygulaButonSablon(aiBtn);
+                aiBtn.Click += async (_, _) =>
+                {
+                    aiBtn.IsEnabled = false;
+                    aiBtn.Content   = "⏳  AI düşünüyor...";
+                    try
+                    {
+                        var prompt =
+                            $"{hedef} adresinde şu portlar açık: {portListesi}.\n" +
+                            "Her port için: servis adı, tipik kullanım, risk seviyesi (düşük/orta/yüksek), " +
+                            "kapatma veya sertleştirme önerisi. Türkçe, kısa, maddeler halinde.";
+                        var yanit = await AiClient.AskAsync(
+                            _ayarlar, AiPrompts.SohbetSystemPrompt, prompt, MasterCts.Token);
+                        PortKutucugaYaz("─────────────────────────", "#30363D");
+                        PortKutucugaYaz("🤖 AI Port Yorumu:", "#58A6FF");
+                        foreach (var satir in yanit.Split('\n'))
+                            if (!string.IsNullOrWhiteSpace(satir))
+                                PortKutucugaYaz(satir.Trim(), "#C9D1D9");
+                    }
+                    catch (OperationCanceledException) { }
+                    catch (Exception ex)
+                    {
+                        PortKutucugaYaz($"AI hatası: {ex.Message}", "#F85149");
+                    }
+                    finally
+                    {
+                        aiBtn.IsEnabled = false; // tek seferlik
+                        aiBtn.Content   = "✨  Yorumlandı";
+                    }
+                };
+                PortResultPanel.Children.Add(aiBtn);
+            }
         }
 
         PortBaslatBtn.IsEnabled = true;

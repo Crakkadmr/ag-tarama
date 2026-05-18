@@ -17,8 +17,8 @@
 
 | # | Başlık | Panel x:Name | CTS | İçerik |
 |---|---|---|---|---|
-| 0 | 💬 Chatbot | `ChatPanel` + `FavoriChipleri` | — | **DockPanel** (LastChildFill): üst araç çubuğu (Dock="Top"), alt AI input barı (Dock="Bottom"), ortada `ChatScrollViewer` (fill). `AiInputBox` + `AiGonderBtn` + `AiTemizleBtn`. |
-| 1 | ◎ Cihaz Tara | `KameraPanel` | `_kameraCts` | NIC chip picker + "Derin tara" checkbox + ⟳ yenile; Subnet TextBox, Tara/Durdur, filtreler, DataGrid (Güven sütunu eklendi, Risk kaldırıldı) |
+| 0 | 💬 Chatbot | `ChatPanel` + `FavoriChipleri` | — | **DockPanel** (LastChildFill): üst araç çubuğu (Dock="Top"), alt AI input barı (Dock="Bottom"), ortada `ChatScrollViewer` (fill). `AiInputBorder` (koyu çerçeve, GotFocus/LostFocus ile mavi) → `AiInputBox` (`AiInputStyle`) + `AiGonderBtn` + `AiTemizleBtn`. |
+| 1 | ◎ Cihaz Tara | `KameraPanel` | `_kameraCts` | NIC chip picker + "Derin tara" checkbox + ⟳ yenile; Subnet TextBox, Tara/Durdur, **✨ AI** (`KameraAiBtn` — tarama bitince enabled), filtreler, DataGrid (Güven sütunu, Risk kaldırıldı) |
 | 2 | ◈ Ping Testi | `PingPanel` | `_pingCts` | IP giriş, chip'ler, PingResultPanel |
 | 3 | ⊞ Port Tara | `PortPanel` | `_portScanCts` | IP + port aralığı, chip'ler, PortResultPanel |
 | 4 | ⇢ Traceroute | `TracePanel` | `_traceCts` | IP giriş, TraceResultPanel |
@@ -86,7 +86,8 @@ Sekme geçişi: `MainTabControl.SelectedIndex = TabXxx` (sabitler `MainWindow.xa
 | `ActiveActionButton` | Button | Aktif — yeşil çerçeve (#3FB950, 2px). **`ActionButton`'dan SONRA tanımlanmalı** |
 | `PrimaryButton` | Button | Yeşil "Başlat" butonu (48px, BasedOn ActionButton) |
 | `DangerButton` | Button | Kırmızı "Durdur" butonu (BasedOn ActionButton) |
-| `PingInputBox` | TextBox | IP/değer giriş kutusu |
+| `PingInputBox` | TextBox | IP/değer giriş kutusu (OverridesDefaultStyle + custom template + CornerRadius=6) |
+| `AiInputStyle` | TextBox | AI input kutusunun minimal iç stili — sadece PART_ContentHost ScrollViewer; görsel çerçeve `AiInputBorder` Border'dan gelir. v0.4.0 |
 | `ChipButton` | Button | Hızlı seçim chip'leri (CornerRadius=12) |
 | `DarkChip` | ToggleButton | Subnet NIC chip'i (CornerRadius=12, mavi seçili durumu). v0.3.0 |
 | `DarkCheckBox` | CheckBox | Koyu temalı CheckBox (16×16 kutucuk + mavi Path tik). v0.3.0 — `TargetType="CheckBox"` boş stili ile tüm CheckBox'lara otomatik uygulanır |
@@ -116,12 +117,46 @@ Metin:       #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre d
 
 ---
 
-## AI Faz 2 UI Notu (2026-05-17)
+## AI Modu UI Notları (v0.4.0)
 
-- Chatbot sekmesinde alt giriş barı bulunur:
-  - `AiInputBox`
-  - `AiGonderBtn`
-  - `AiTemizleBtn`
-- Bu bar serbest sohbet için kullanılır; yanıtlar aynı ChatPanel akışına yazılır.
-- Cihaz Tara satırında ayrı `AI Tara` butonu bulunmaz.
-- Ayarlar penceresinde AI konfigürasyon bölümü yoktur.
+### Chatbot sekmesi — AI input barı
+
+```
+DockPanel LastChildFill
+├── Border Dock="Top"       — araç çubuğu (tshark, ARP, ağ bilgisi, ayarlar…)
+├── Border Dock="Bottom"    — AI input barı (Background="#111827")
+│   └── Grid (3 sütun)
+│       ├── Border x:Name="AiInputBorder" (CornerRadius=6, GotFocus→#58A6FF, LostFocus→#30363D)
+│       │   └── TextBox x:Name="AiInputBox" Style="{StaticResource AiInputStyle}"
+│       ├── Button  x:Name="AiGonderBtn"  (PrimaryButton, "✨ Sor")
+│       └── Button  x:Name="AiTemizleBtn" (ChipButton, "Temizle")
+└── Border              — ChatScrollViewer (fill, LastChildFill)
+```
+
+`AiInputStyle`: `OverridesDefaultStyle=True`, `Background=Transparent`, `BorderThickness=0`, sadece `PART_ContentHost` ScrollViewer template. Metin rengi (#E6EDF3) style setter'dan gelir; görsel çerçeve parent `AiInputBorder`'dan.
+
+### AiDeviceReportWindow — Cihaz Tara AI Modalı
+
+`KameraAiBtn` ("✨ AI") tıklanınca açılan koyu temalı bağımsız pencere:
+
+- **Preset chip'ler:** 🛡️ Güvenlik riski, 📷 Kamera/NVR, 📡 AP/Router, ❓ Bilinmeyen, 🔍 Sonraki tarama + ✏️ Serbest metin TextBox.
+- **Analiz başlayınca:** `AnalizeBasla(talep, etiket)` → spinner → AI yanıtı `ResultText` TextBox'a yazılır.
+- **Alt butonlar:** [📋 Kopyala] [💾 TXT Kaydet] [🔁 Yeniden Sor] [Kapat].
+- **IP tespiti:** AI yanıtında IP adresi bulunursa "🔁 Bu IP'leri yeniden tara (N IP)" butonu görünür; `_yenidenTaraCallback` aracılığıyla `MainWindow.DeviceScan.cs`'deki `TekIpTaraAsync` çağrılır.
+- Stiller: `PresetChipStyle` (inline tanımlı), `DarkCheckBox`/`PingInputBox` ile uyumlu koyu tema.
+
+### Yakalama Kartı — AI Butonu
+
+`YakalamaKartiOlustur → Tamamla` delegesi:
+- Wireshark butonu altına "✨ AI ile analiz et" eklenir.
+- Tıklanınca `AiPcapAnalyzer.AnalyzeAsync(pcapPath, _ayarlar, MasterCts.Token)` → `MesajEkle("sonuc", "🤖 AI Analizi\n\n" + yanit)` + `HistoryService.Kaydet("AI ANALIZ", ...)`.
+
+### Ayarlar > AI Bölümü
+
+`SettingsWindow.xaml` AI section:
+- Sağlayıcı: `DarkComboBox` (OpenRouter / Google AI / OpenAI / Özel) — preset seçince BaseUrl + Model auto-fill.
+- API Anahtarı: `PasswordBox` koyu inline template; [Değiştir] modal, [Sıfırla] vault siler.
+- Model + Base URL metin kutuları.
+- Günlük/aylık token limiti.
+- Yerel IP maskele checkbox, AI etkinleştir checkbox.
+- [Test Et] → `AiClient.TestConnectionAsync` → "✓ model: …, 142ms" / "✗ 401: …".

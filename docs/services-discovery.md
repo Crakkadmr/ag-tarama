@@ -95,7 +95,7 @@ sealed record ScanProgress(int Taranan, int Toplam, int BulunanCihaz, string Asa
 | Sınıf | Protokol | Keşfeder |
 |---|---|---|
 | `ArpProbe` | ARP | MAC, IP, Online |
-| `IcmpProbe` | ICMP Echo | PingYanit, PingMs, PingTtl |
+| `IcmpProbe` | ICMP Echo | PingYanit, PingMs, PingTtl (opsiyonel `onHostDone` callback — progress sayacı için) |
 | `TcpPortProbe` | TCP SYN | AcikPortlar, ServisDetaylari |
 | `NetbiosProbe` | UDP 137 | NetbiosCihazAdi, NetbiosGrupAdi |
 | `LlmnrProbe` | UDP 5355 | LlmnrHostname (PTR parse; `.arpa` reddedilir) |

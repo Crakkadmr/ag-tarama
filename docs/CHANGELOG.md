@@ -86,6 +86,13 @@ Versiyon bump YAPILMAZ — `<Version>` 0.4.0 kalır (commit/release ayrı karar)
 - `MainWindow.NetworkTools.cs` 901 → 171 satır (-81%); 3 yeni partial: `Tools.Ping.cs` (157), `Tools.PortScan.cs` (217), `Tools.Misc.cs` (391 — Trace/DNS/WoL/ARP/AğBilgi).
 - `MainWindow` class hala tek partial — XAML referans bozulmadı.
 
+### Bug Fix — Cihaz Tara progress sayacı
+
+- **Sorun:** Cihaz Tara sırasında "0/254 host" göstergesi tarama bitene kadar sabit kalıyordu.
+- **Sebep:** `DeviceDiscoveryEngine.StartScanAsync` `taranan` sayacını her subnet için `WhenAll` tamamlandıktan sonra tek seferde `+= host sayısı` ile artırıyordu. Tarama esnasında `reportTimer` (250ms) hep `0/254` yayıyordu.
+- **Çözüm:** `IcmpProbe`'a `Action? onHostDone` callback eklendi (finally bloğunda invoke). Engine `BuildFastProbes(Action?)` overload'ı ile IcmpProbe instance'ına `() => Interlocked.Increment(ref taranan)` geçiriyor. Her ping bitince sayaç +1 → reportTimer gerçek zamanlı yayar.
+- **Etkilenen dosyalar:** `Services/Discovery/Probes/IcmpProbe.cs`, `Services/Discovery/DeviceDiscoveryEngine.cs`.
+
 ### Faz 5 — Finalize
 
 - `docs/partials.md` boyut tablosu güncellendi.

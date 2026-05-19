@@ -975,10 +975,22 @@
                                 <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxHeight="64">
                                     <WrapPanel x:Name="KameraSubnetChips" Orientation="Horizontal"/>
                                 </ScrollViewer>
-                                <CheckBox x:Name="KameraDerinTaraCheck" Grid.Column="1" Content="Derin tara"
-                                          Foreground="#8B949E" FontFamily="Consolas" FontSize="11"
-                                          VerticalAlignment="Center" Margin="10,0,8,0"
-                                          ToolTip="Ubiquiti, MikroTik, SNMP ve WSD ek keşif protokollerini etkinleştirir. Daha yavaş ama daha kapsamlı."/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <CheckBox x:Name="KameraDerinTaraCheck" Content="Derin tara"
+                                              Foreground="#8B949E" FontFamily="Consolas" FontSize="11"
+                                              Margin="10,0,8,0"
+                                              ToolTip="Ubiquiti, MikroTik, SNMP ve WSD ek keşif protokollerini etkinleştirir. Daha yavaş ama daha kapsamlı."/>
+                                    <CheckBox x:Name="KameraLiveCheck" Content="Sürekli izle"
+                                              Foreground="#3FB950" FontFamily="Consolas" FontSize="11"
+                                              Margin="0,0,8,0"
+                                              ToolTip="Sürekli izleme modu — ARP sweep periyodik çalışır, cihazlar çevrimiçi/çevrimdışı takip edilir."/>
+                                    <CheckBox x:Name="KameraDusukGuvenCheck" Content="Düşük güveni göster"
+                                              Foreground="#484F58" FontFamily="Consolas" FontSize="11"
+                                              Margin="0,0,8,0"
+                                              ToolTip="Güven skoru 12 altındaki ve çevrimdışı cihazları da listele. Varsayılan: gizli."
+                                              Checked="KameraDusukGuvenCheck_Changed"
+                                              Unchecked="KameraDusukGuvenCheck_Changed"/>
+                                </StackPanel>
                                 <Button x:Name="KameraNicYenileBtn" Grid.Column="2" Content="⟳"
                                         Width="34" Height="30" FontSize="14"
                                         Background="#1F2933" Foreground="#58A6FF" BorderBrush="#2F81F7" BorderThickness="1"
@@ -1155,6 +1167,21 @@
                                             <TextBlock Text="Model ⓘ" ToolTip="Algılanan model/hardware metni."/>
                                         </DataGridTextColumn.Header>
                                     </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Os}" SortMemberPath="Os" Width="90">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="OS ⓘ" ToolTip="İşletim sistemi (SSH banner, SMB veya SNMP'den algılanır)."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Durum}" SortMemberPath="Durum" Width="75">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Durum ⓘ" ToolTip="Cihazın ağdaki güncel durumu (Online / Offline)."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding SonGorulen}" SortMemberPath="SonGorulen" Width="80">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Son Görülme ⓘ" ToolTip="Cihazın son yanıt verdiği zaman."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
                                     <DataGridTextColumn Binding="{Binding Ping}" SortMemberPath="PingMs" Width="70">
                                         <DataGridTextColumn.Header>
                                             <TextBlock Text="Ping ⓘ" ToolTip="ICMP gecikme süresi (ms)."/>
@@ -1170,11 +1197,35 @@
                                             <TextBlock Text="Keşif ⓘ" ToolTip="Cihazı tanımlayan keşif protokolleri (ONVIF, mDNS, SNMP vb.)."/>
                                         </DataGridTextColumn.Header>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Binding="{Binding Guven}" SortMemberPath="Guven" Width="60">
-                                        <DataGridTextColumn.Header>
+                                    <DataGridTemplateColumn SortMemberPath="Guven" Width="60">
+                                        <DataGridTemplateColumn.Header>
                                             <TextBlock Text="Güven ⓘ" ToolTip="Cihaz tanıma güven skoru (0-100). Birden çok kaynaktan doğrulanan cihazlar yüksek skor alır."/>
-                                        </DataGridTextColumn.Header>
-                                    </DataGridTextColumn>
+                                        </DataGridTemplateColumn.Header>
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Guven}" FontFamily="Consolas" FontSize="11"
+                                                           Padding="4,2" TextAlignment="Center"
+                                                           ToolTip="{Binding KararIzi}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="#8B949E"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding GuvenRenk}" Value="Kirmizi">
+                                                                    <Setter Property="Foreground" Value="#F85149"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding GuvenRenk}" Value="Sari">
+                                                                    <Setter Property="Foreground" Value="#D29922"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding GuvenRenk}" Value="Yesil">
+                                                                    <Setter Property="Foreground" Value="#3FB950"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTextColumn Binding="{Binding Mac}" SortMemberPath="Mac" Width="130">
                                         <DataGridTextColumn.Header>
                                             <TextBlock Text="MAC ⓘ" ToolTip="Cihazın MAC adresi."/>

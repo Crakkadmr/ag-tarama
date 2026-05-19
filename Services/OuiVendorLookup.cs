@@ -63,9 +63,12 @@ internal static class OuiVendorLookup
         // Yaygın ekleri at
         string[] kes = {
             ", Ltd.", ", Ltd", " Ltd.", " Ltd",
+            " Innovation Limited", " Innovation",  // e.g. "Reolink Innovation Limited"
+            " Limited",                              // e.g. "Some Company Limited"
+            " Foundation",                           // e.g. "Raspberry Pi Foundation"
             ", Inc.", ", Inc", " Inc.", " Inc",
             ", LLC", " LLC",
-            ", Co., Ltd.", " Co., Ltd.", " Co.,Ltd.", " Co.Ltd.", " Co. Ltd.", " Co Ltd",
+            ", Co., Ltd.", " Co., Ltd.", " Co.,Ltd.", " Co.Ltd.", " Co. Ltd.", " Co Ltd", " Co.",
             " Corporation", " Corp.", " Corp",
             " GmbH & Co. KG", " GmbH", " AG", " S.A.", " S.p.A.", " B.V.", " N.V.",
             " Technology", " Technologies", " Electronics", " Electric", " Networks", " Network",
@@ -129,7 +132,7 @@ internal static class OuiVendorLookup
         ["AC:63:BE"] = "Amazon", ["44:65:0D"] = "Amazon", ["F0:D2:F1"] = "Amazon",
         ["F0:27:2D"] = "Amazon",
         ["EC:71:DB"] = "Reolink",
-        ["3C:46:D8"] = "EZVIZ",
+        ["3C:46:D8"] = "TP-Link",  // IEEE assigns this to TP-LINK, not EZVIZ
         ["10:52:1C"] = "Tuya", ["50:02:91"] = "Tuya", ["DC:4F:22"] = "Tuya",
         ["00:24:BE"] = "Sony", ["FC:0F:E6"] = "Sony",
         ["00:1F:6B"] = "LG", ["A0:39:F7"] = "LG", ["3C:CD:93"] = "LG",
@@ -138,7 +141,8 @@ internal static class OuiVendorLookup
 
     public static string? Bul(string? mac)
     {
-        var prefix = Normalize(mac);
+        if (!MacUtils.IsValidUnicast(mac)) return null; // rejects 00:00:00, broadcast, multicast
+        var prefix = MacUtils.OuiPrefix(mac);
         if (prefix == null) return null;
         var db = _csv.Value;
         if (db.Count > 0 && db.TryGetValue(prefix, out var v)) return v;
@@ -153,6 +157,12 @@ internal static class OuiVendorLookup
     {
         var vendor = Bul(mac);
         if (vendor == null) return null;
+
+        // IEEE'de bazı OUI'ler marka adı yerine ticari/eski isimle kayıtlı — normalize et.
+        if (vendor.Contains("Routerboard", StringComparison.OrdinalIgnoreCase) ||
+            vendor.Contains("Mikrotikls",  StringComparison.OrdinalIgnoreCase))
+            vendor = "MikroTik";
+
         var v = vendor.ToLowerInvariant();
         string? tur = null;
         bool mobil = false;
@@ -197,11 +207,4 @@ internal static class OuiVendorLookup
         return new OuiBilgi(vendor, tur, mobil);
     }
 
-    private static string? Normalize(string? mac)
-    {
-        if (string.IsNullOrWhiteSpace(mac)) return null;
-        var t = mac.Replace("-", ":").Replace(".", ":").Trim().ToUpperInvariant();
-        if (t.Length < 8) return null;
-        return t.Substring(0, 8);
-    }
 }

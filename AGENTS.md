@@ -150,9 +150,21 @@ Kullanici `"md guncelle"` dediginde:
 
 ---
 
-## 7. Son Degisiklik Notu (2026-05-18) — v0.4.0
+## 7. Son Degisiklik Notu (2026-05-19) — v0.4.0
 
-**Bug düzeltmeleri (bugtest.md kapsamı):**
+**Bug düzeltmeleri (phantom device + OUI + test projesi) — 2026-05-19:**
+
+- **Phantom device fix:** `SmbProbe` ve `SshBannerProbe` artık `store.GetOrAdd(ip)` yerine `store.TryGet(ip)` kullanıyor; FastProbe'ların keşfetmediği IP'ler için `DeviceInfo` oluşturulmuyor. Öncesinde 4 subnet × 254 host ≈ 1016 hayalet giriş oluşuyordu.
+- **İki fazlı tarama motoru:** `DeviceDiscoveryEngine.StartScanAsync` — Faz 1 = FastProbes + Listener'lar, Faz 2 = DeepProbes (TcpPortProbe tamamlandıktan sonra). `taranan` sayacı subnet başına bir kez artırılıyor (6 probe × N yerine).
+- **OUI kısaltma fix:** `KisaltVendor` artık " Foundation", " Limited", " Innovation Limited" eklerini kırpıyor. "Raspberry Pi Foundation" → "Raspberry Pi", "Reolink Innovation Limited" → "Reolink".
+- **OUI Routerboard normalizasyonu:** `BulDetay` "Routerboard.com" / "Mikrotikls" vendor adlarını "MikroTik"'e çeviriyor (IEEE `00:0C:42` "Routerboard.com" olarak kayıtlı).
+- **OUI fallback:** `3C:46:D8` "EZVIZ" → "TP-Link" düzeltildi (IEEE CSV'ye göre TP-LINK).
+- **DeviceClassifier:** `MarkaNormalize` "routerboard" ve "mikrotikls" içeren vendor adlarını MikroTik'e eşlemeye başladı.
+- **Test projesi `AgTarama.Tests`:** xUnit 2.9.2, net10.0-windows, 48 test — `OuiVendorLookupTests` (18 — phantom device guard, KisaltVendor, BulDetay tür ipuçları), `MacUtilsTests` (12), `DeviceStoreTests` (8), `ProbeTests` (10 — `SmbProbe_EmptyStore_CreatesNoPhantomDevices` regresyon testi dahil). `InternalsVisibleTo` `AgTarama.csproj`'a eklendi.
+
+---
+
+**Bug düzeltmeleri (v0.4.0 — 2026-05-18 — bugtest.md kapsamı):**
 
 - **P0 korundu:** `AiDefaultKey` XOR-obfuscated key yerinde; vault yoksa otomatik yükleniyor.
 - **HTTPS zorunluluğu:** `SettingsWindow` AI base URL `Uri.TryCreate` + `https` scheme zorunlu; HTTP girişi reddediliyor.

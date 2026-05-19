@@ -3,76 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using AgTarama.Services;
+using AgTarama.Services.Discovery.Classification;
+using AgTarama.Services.Discovery.Models;
 
 namespace AgTarama;
 
 /// <summary>
 /// Kanıt tabanlı + ağırlıklı skorlu cihaz sınıflandırıcı.
-/// Her keşif kaynağı (Ubiquiti UDP-10001, MikroTik MNDP, HTTP-FP, SNMP, ONVIF,
-/// WSD, SSDP, mDNS, NetBIOS, AIS, IEEE OUI MAC, port pattern, banner, TTL,
-/// DNS/Ping hostname) bağımsız olarak <see cref="TurAdayi"/> ve <see cref="MarkaAdayi"/>
-/// üretir; toplam skoru en yüksek aday seçilir. Karara giden kanıt izi
-/// <see cref="KameraBilgi.KararIzi"/>'na yazılır (tooltip + debug).
 /// </summary>
 public partial class MainWindow
 {
-    internal enum KanitKaynak
-    {
-        HttpFp, Ubiquiti, MikroTik, Snmp, Onvif, Wsd, Ssdp, Mdns,
-        Netbios, Ais, OuiMac, PortPattern, Banner, Ttl, AdHostname,
-    }
-
-    internal sealed record TurAdayi(string Tur, int Agirlik, KanitKaynak Kaynak, string Detay);
-    internal sealed record MarkaAdayi(string Marka, int Agirlik, KanitKaynak Kaynak, string Detay);
-
-    internal sealed record KimlikKararIzi(
-        IReadOnlyList<TurAdayi> TurAdaylari,
-        IReadOnlyList<MarkaAdayi> MarkaAdaylari,
-        IReadOnlyList<(string Tur, int Skor)> TurSiralama,
-        IReadOnlyList<(string Marka, int Skor)> MarkaSiralama);
-
-    // ── Ağırlık tablosu (tek nokta — kalibrasyon kolay) ──────────────────
-    private static class KanitAgirlik
-    {
-        public const int HttpFpVendorWithModel = 55;
-        public const int HttpFpProbeOnly       = 35;
-        public const int Ubiquiti              = 50;  // Tur
-        public const int UbiquitiMarka         = 60;
-        public const int MikroTik              = 50;
-        public const int MikroTikMarka         = 60;
-        public const int SnmpTur               = 45;
-        public const int SnmpMarka             = 50;
-        public const int OnvifTur              = 45;
-        public const int OnvifMarka            = 25;
-        public const int WsdTur                = 40;
-        public const int WsdMarka              = 15;
-        public const int SsdpTur               = 30;
-        public const int SsdpMarka             = 35;
-        public const int MdnsTur               = 40;
-        public const int MdnsMarka             = 30;
-        public const int NetbiosTur            = 25;
-        public const int NetbiosMarka          = 5;
-        public const int AisTur                = 20;
-        public const int AisMarka              = 35;
-        public const int OuiTur                = 10;  // OUI'den türetilen Tur ipucu zayıftır
-        public const int OuiMarka              = 40;
-        public const int PortPatternStrong     = 25;  // kombinasyon (8000+554, 9100+515)
-        public const int PortPatternWeak       = 10;  // tek port (554 yalnız)
-        public const int BannerTur             = 20;
-        public const int BannerMarka           = 25;
-        public const int TtlTur                = 5;
-        public const int AdHostnameTur         = 30;
-        public const int AdHostnameMarka       = 20;
-        public const int MinKararEsigi         = 12;  // Toplam skor bunun altındaysa Tur="Cihaz" / Marka="Bilinmiyor"
-    }
-
-    // ── Vendor adı normalizasyonu (kaynaklar arası tutarsızlığı azalt) ───
+    // ── Vendor adı normalizasyonu ────────────────────────────────────────
     private static string MarkaNormalize(string marka)
     {
         var m = marka.Trim();
         if (m.Length == 0) return "Bilinmiyor";
         var lower = m.ToLowerInvariant();
-        // Eşdeğer varyantları ortak forma topla
         if (lower.Contains("hikvision"))     return "Hikvision";
         if (lower.Contains("dahua"))         return "Dahua";
         if (lower.Contains("axis"))          return "Axis";
@@ -82,7 +28,7 @@ public partial class MainWindow
         if (lower.Contains("hanwha") || lower.Contains("samsung techwin")) return "Hanwha";
         if (lower.Contains("ubiquiti") || lower == "ubnt" || lower.Contains("unifi") || lower.Contains("airos"))
                                               return "Ubiquiti";
-        if (lower.Contains("mikrotik") || lower.Contains("routeros")) return "MikroTik";
+        if (lower.Contains("mikrotik") || lower.Contains("routeros") || lower.Contains("routerboard") || lower.Contains("mikrotikls")) return "MikroTik";
         if (lower.Contains("tp-link") || lower == "tplink") return "TP-Link";
         if (lower.Contains("d-link") || lower == "dlink")   return "D-Link";
         if (lower.Contains("netgear"))       return "NETGEAR";
@@ -115,7 +61,7 @@ public partial class MainWindow
     }
 
     // ── Ana sınıflandırma ────────────────────────────────────────────────
-    private static CihazKimlik KimlikBelirleV2(KameraBilgi b)
+    private static CihazKimlik KimlikBelirleV2(DeviceInfo b)
     {
         var turL   = new List<TurAdayi>();
         var markaL = new List<MarkaAdayi>();
@@ -129,14 +75,15 @@ public partial class MainWindow
         KanitTopla_Ssdp(b, turL, markaL);
         KanitTopla_Mdns(b, turL, markaL);
         KanitTopla_Netbios(b, turL, markaL);
-        KanitTopla_Ais(b, turL, markaL);
+        KanitTopla_Llmnr(b, turL, markaL);
+        KanitTopla_Smb(b, turL, markaL);
+        KanitTopla_Ssh(b, turL, markaL);
         KanitTopla_OuiMac(b, turL, markaL);
         KanitTopla_PortPattern(b, turL, markaL);
         KanitTopla_Banner(b, turL, markaL);
         KanitTopla_Ttl(b, turL, markaL);
         KanitTopla_AdHostname(b, turL, markaL);
 
-        // Aynı (Tur, Kaynak) için en yüksek ağırlık alınır (yinelenen kanıtlar şişirmesin).
         var turGruplu = turL
             .GroupBy(x => (x.Tur, x.Kaynak))
             .Select(g => g.OrderByDescending(x => x.Agirlik).First())
@@ -161,7 +108,7 @@ public partial class MainWindow
         if (markaSira.Count > 0 && markaSira[0].Skor >= KanitAgirlik.MinKararEsigi)
             k.Marka = markaSira[0].Marka;
 
-        k.Model = ModelSec(b);
+        k.Model   = ModelSec(b);
         k.TurIkon = TurIkonSec(k.Tur);
 
         b.KararIzi = new KimlikKararIzi(
@@ -199,7 +146,6 @@ public partial class MainWindow
         _                  => "◈",
     };
 
-    /// <summary>KameraSatir.KararIzi alanına yazılacak insan okunabilir özet.</summary>
     internal static string KararIziOzetle(KimlikKararIzi? iz)
     {
         if (iz == null) return "";
@@ -217,7 +163,7 @@ public partial class MainWindow
         return sb.ToString();
     }
 
-    private static string? ModelSec(KameraBilgi b)
+    private static string? ModelSec(DeviceInfo b)
         => IlkDolu(
             b.HttpFpModel,
             b.UbntPlatform,
@@ -227,15 +173,10 @@ public partial class MainWindow
             b.OnvifHardware,
             AnlamliSayfaBasligi(b.SayfaBasligi));
 
-    // ────────────────────────────────────────────────────────────────────
-    // Kanıt toplayıcıları
-    // ────────────────────────────────────────────────────────────────────
+    // ── Kanıt toplayıcıları ──────────────────────────────────────────────
 
-    private static void KanitTopla_HttpFp(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_HttpFp(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
-        // HttpFpMarka/HttpFpTur taraması sırasında zaten set edildi. Skoru
-        // (vendor-API + model varsa 55, yalnız probe 35) ham fingerprint
-        // bilgisinden türetiyoruz: model varsa 55.
         if (string.IsNullOrWhiteSpace(b.HttpFpMarka) && string.IsNullOrWhiteSpace(b.HttpFpTur)) return;
         int skor = !string.IsNullOrWhiteSpace(b.HttpFpModel)
             ? KanitAgirlik.HttpFpVendorWithModel
@@ -247,7 +188,7 @@ public partial class MainWindow
             markaL.Add(new MarkaAdayi(b.HttpFpMarka, skor, KanitKaynak.HttpFp, detay));
     }
 
-    private static void KanitTopla_Ubiquiti(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_Ubiquiti(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
         if (string.IsNullOrWhiteSpace(b.UbntPlatform) && string.IsNullOrWhiteSpace(b.UbntHostname)) return;
         markaL.Add(new MarkaAdayi("Ubiquiti", KanitAgirlik.UbiquitiMarka, KanitKaynak.Ubiquiti,
@@ -261,7 +202,7 @@ public partial class MainWindow
         turL.Add(new TurAdayi(tur, KanitAgirlik.Ubiquiti, KanitKaynak.Ubiquiti, b.UbntPlatform ?? ""));
     }
 
-    private static void KanitTopla_MikroTik(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_MikroTik(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
         if (string.IsNullOrWhiteSpace(b.MikroTikBoard) && string.IsNullOrWhiteSpace(b.MikroTikIdentity)) return;
         markaL.Add(new MarkaAdayi("MikroTik", KanitAgirlik.MikroTikMarka, KanitKaynak.MikroTik,
@@ -269,7 +210,6 @@ public partial class MainWindow
         turL.Add(new TurAdayi("Router/AP", KanitAgirlik.MikroTik, KanitKaynak.MikroTik, b.MikroTikBoard ?? ""));
     }
 
-    // SNMP sysDescr → (vendor, tur) regex imzaları
     private static readonly (Regex Pattern, string? Marka, string Tur)[] SnmpImzalari =
     {
         (new Regex(@"\bRouterOS\b",            RegexOptions.IgnoreCase), "MikroTik",     "Router/AP"),
@@ -288,6 +228,8 @@ public partial class MainWindow
         (new Regex(@"\bJetDirect\b",           RegexOptions.IgnoreCase), "HP",           "Yazıcı"),
         (new Regex(@"\bLaserJet\b",            RegexOptions.IgnoreCase), "HP",           "Yazıcı"),
         (new Regex(@"\b(EPSON|Brother|Canon|Kyocera|Lexmark|Ricoh|Xerox)\b", RegexOptions.IgnoreCase), null, "Yazıcı"),
+        (new Regex(@"\bDahua\b.{0,40}\b(NVR|DVR|XVR)\b|\b(NVR|DVR|XVR)\b.{0,40}\bDahua\b", RegexOptions.IgnoreCase), "Dahua",     "NVR/DVR"),
+        (new Regex(@"\b(NVR|DVR|XVR|Video\s+Recorder)\b",                                RegexOptions.IgnoreCase), null,        "NVR/DVR"),
         (new Regex(@"\bAXIS\b",                RegexOptions.IgnoreCase), "Axis",         "Kamera"),
         (new Regex(@"\bHikvision\b",           RegexOptions.IgnoreCase), "Hikvision",    "Kamera"),
         (new Regex(@"\bDahua\b",               RegexOptions.IgnoreCase), "Dahua",        "Kamera"),
@@ -298,26 +240,26 @@ public partial class MainWindow
         (new Regex(@"\bVxWorks\b",             RegexOptions.IgnoreCase), null,           "Akıllı Cihaz"),
     };
 
-    private static void KanitTopla_Snmp(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_Snmp(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
         var s = b.SnmpSysDescr;
         if (string.IsNullOrWhiteSpace(s)) return;
         foreach (var (pat, marka, tur) in SnmpImzalari)
         {
             if (!pat.IsMatch(s)) continue;
-            turL.Add(new TurAdayi(tur, KanitAgirlik.SnmpTur, KanitKaynak.Snmp, s.Length > 60 ? s.Substring(0, 60) : s));
+            var det = s.Length > 60 ? s[..60] : s;
+            turL.Add(new TurAdayi(tur, KanitAgirlik.SnmpTur, KanitKaynak.Snmp, det));
             if (marka != null)
-                markaL.Add(new MarkaAdayi(marka, KanitAgirlik.SnmpMarka, KanitKaynak.Snmp, s.Length > 60 ? s.Substring(0, 60) : s));
-            return; // İlk eşleşmeyi kullan; SNMP imzaları yukarıdan aşağıya öncelikli sıralı.
+                markaL.Add(new MarkaAdayi(marka, KanitAgirlik.SnmpMarka, KanitKaynak.Snmp, det));
+            return;
         }
     }
 
-    private static void KanitTopla_Onvif(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_Onvif(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
         if (!b.OnvifBulundu) return;
         turL.Add(new TurAdayi("Kamera", KanitAgirlik.OnvifTur, KanitKaynak.Onvif,
             $"{b.OnvifAdi} {b.OnvifHardware}".Trim()));
-        // ONVIF scope'tan hardware string'i bazen vendor adı içerir
         var hw = (b.OnvifHardware ?? "").ToLowerInvariant();
         if (hw.Length > 0)
         {
@@ -344,26 +286,23 @@ public partial class MainWindow
         ("amcrest", "Amcrest"),
     };
 
-    private static void KanitTopla_Wsd(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_Wsd(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
         var t = b.WsdTipi;
         if (string.IsNullOrWhiteSpace(t)) return;
-        // "Yazıcı" / "Tarayıcı" / "Bilgisayar" → doğrudan tür adayı
         if (t is "Yazıcı" or "Tarayıcı" or "Bilgisayar")
             turL.Add(new TurAdayi(t, KanitAgirlik.WsdTur, KanitKaynak.Wsd, t));
     }
 
-    private static void KanitTopla_Ssdp(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_Ssdp(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
-        // SSDP friendlyName/manufacturer alanları — yalnızca KENDİ alanlarına bakılır
-        var mfr = (b.SsdpManufacturer ?? "").Trim();
-        var fn  = (b.SsdpFriendlyName ?? "").Trim();
-        var mdl = (b.SsdpModelName ?? "").Trim();
-        var srv = (b.SsdpSunucu ?? "").Trim();
+        var mfr  = (b.SsdpManufacturer ?? "").Trim();
+        var fn   = (b.SsdpFriendlyName ?? "").Trim();
+        var mdl  = (b.SsdpModelName ?? "").Trim();
+        var srv  = (b.SsdpSunucu ?? "").Trim();
         var blob = $"{mfr} {fn} {mdl} {srv}".ToLowerInvariant();
         if (blob.Trim().Length == 0) return;
 
-        // Marka — manufacturer en güvenilir
         if (mfr.Length > 0)
             markaL.Add(new MarkaAdayi(mfr, KanitAgirlik.SsdpMarka, KanitKaynak.Ssdp, mfr));
         else
@@ -376,7 +315,6 @@ public partial class MainWindow
             }
         }
 
-        // Tür — UPnP deviceType / friendlyName örüntüleri
         string? tur = null;
         if (blob.Contains("urn:schemas-upnp-org:device:mediarenderer") ||
             blob.Contains("sonos") || blob.Contains("airplay")) tur = "Hoparlör";
@@ -384,18 +322,23 @@ public partial class MainWindow
         else if (blob.Contains("printer") || blob.Contains("printerservice")) tur = "Yazıcı";
         else if (blob.Contains("scanner")) tur = "Tarayıcı";
         else if (blob.Contains("camera") || blob.Contains("ipcamera")) tur = "Kamera";
-        else if (blob.Contains("nas") || blob.Contains("storage")) tur = "NAS";
+        else if (blob.Contains("nas") || blob.Contains("storage"))
+        {
+            // NVRs advertise "storage" because they store video — don't misclassify as NAS
+            bool isNvr = blob.Contains("nvr") || blob.Contains("dvr") || blob.Contains("xvr") ||
+                         blob.Contains("recorder") || blob.Contains("dahua") ||
+                         blob.Contains("hikvision") || blob.Contains("xmeye");
+            tur = isNvr ? "NVR/DVR" : "NAS";
+        }
         else if (blob.Contains("smartthings") || blob.Contains("smarttv") || blob.Contains("tv")) tur = "Akıllı TV";
         if (tur != null)
-            turL.Add(new TurAdayi(tur, KanitAgirlik.SsdpTur, KanitKaynak.Ssdp, blob.Length > 60 ? blob.Substring(0, 60) : blob));
+            turL.Add(new TurAdayi(tur, KanitAgirlik.SsdpTur, KanitKaynak.Ssdp,
+                blob.Length > 60 ? blob[..60] : blob));
         else if (b.SsdpBulundu)
-        {
-            // SSDP yanıt verdi ama tür kestiremedik; yine de zayıf "Akıllı Cihaz" ipucu
             turL.Add(new TurAdayi("Akıllı Cihaz", 8, KanitKaynak.Ssdp, "ssdp-only"));
-        }
     }
 
-    private static void KanitTopla_Mdns(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_Mdns(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
         if (!string.IsNullOrEmpty(b.MdnsTur))
             turL.Add(new TurAdayi(b.MdnsTur, KanitAgirlik.MdnsTur, KanitKaynak.Mdns, b.MdnsTur));
@@ -403,46 +346,95 @@ public partial class MainWindow
             markaL.Add(new MarkaAdayi(b.MdnsMarka, KanitAgirlik.MdnsMarka, KanitKaynak.Mdns, b.MdnsMarka));
     }
 
-    private static void KanitTopla_Netbios(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_Netbios(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
         if (string.IsNullOrWhiteSpace(b.NetbiosCihazAdi)) return;
-        // NetBIOS adı varsa muhtemelen bir Windows iş istasyonu / sunucu / NAS.
-        // Yalnız NetBIOS adı tek başına Bilgisayar demek değil — port kanıtıyla pekiştirilmeli;
-        // burası zayıf bir Bilgisayar ipucu olarak girer.
         turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.NetbiosTur, KanitKaynak.Netbios, b.NetbiosCihazAdi));
         markaL.Add(new MarkaAdayi("NetBIOS", KanitAgirlik.NetbiosMarka, KanitKaynak.Netbios, b.NetbiosCihazAdi));
     }
 
-    private static void KanitTopla_Ais(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    // Printer hostname prefixes: EPSON0SE587, BRN001A2B3C4D, CANON12345…
+    private static readonly (string Prefix, string Brand)[] _printerHostnamePrefixes =
+    [
+        ("epson",   "Epson"),
+        ("brother", "Brother"),
+        ("canon",   "Canon"),
+        ("kyocera", "Kyocera"),
+        ("ricoh",   "Ricoh"),
+        ("lexmark", "Lexmark"),
+        ("xerox",   "Xerox"),
+        ("brn",     "Brother"),  // BRN = Brother Network printer
+        ("npi",     "HP"),       // NPI = HP JetDirect hostname
+    ];
+
+    private static void KanitTopla_Llmnr(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
-        // Advanced IP Scanner alanı `Uretici` ve `AdvancedScannerAdi` üzerinden geliyor.
-        if (!string.IsNullOrWhiteSpace(b.Uretici))
-            markaL.Add(new MarkaAdayi(b.Uretici, KanitAgirlik.AisMarka, KanitKaynak.Ais, b.Uretici));
-        var ad = (b.AdvancedScannerAdi ?? "").ToLowerInvariant();
-        if (ad.Length == 0) return;
-        // AIS adı içinden tür ipucu
-        if (ad.Contains("camera")) turL.Add(new TurAdayi("Kamera", KanitAgirlik.AisTur, KanitKaynak.Ais, ad));
-        else if (ad.Contains("printer") || ad.Contains("yazici") || ad.Contains("yazıcı"))
-            turL.Add(new TurAdayi("Yazıcı", KanitAgirlik.AisTur, KanitKaynak.Ais, ad));
-        else if (ad.Contains("router") || ad.Contains("gateway"))
-            turL.Add(new TurAdayi("Router/AP", KanitAgirlik.AisTur, KanitKaynak.Ais, ad));
+        if (string.IsNullOrWhiteSpace(b.LlmnrHostname)) return;
+        var h = b.LlmnrHostname.ToLowerInvariant();
+
+        foreach (var (prefix, brand) in _printerHostnamePrefixes)
+        {
+            if (!h.StartsWith(prefix, StringComparison.Ordinal)) continue;
+            turL.Add(new TurAdayi("Yazıcı", KanitAgirlik.LlmnrHostname, KanitKaynak.Llmnr, h));
+            markaL.Add(new MarkaAdayi(brand, KanitAgirlik.LlmnrHostname, KanitKaynak.Llmnr, h));
+            return;
+        }
+
+        turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.LlmnrHostname, KanitKaynak.Llmnr, h));
     }
 
-    private static void KanitTopla_OuiMac(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_Smb(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    {
+        if (!string.IsNullOrWhiteSpace(b.SmbComputerName))
+            turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.SmbComputerName, KanitKaynak.Smb, b.SmbComputerName));
+        if (!string.IsNullOrWhiteSpace(b.SmbOs))
+        {
+            var os = b.SmbOs.ToLowerInvariant();
+            if (os.Contains("windows"))
+                turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.SmbComputerName, KanitKaynak.Smb, b.SmbOs));
+        }
+    }
+
+    private static void KanitTopla_Ssh(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    {
+        var banner = b.SshBanner;
+        if (string.IsNullOrWhiteSpace(banner)) return;
+        var low = banner.ToLowerInvariant();
+        if (low.Contains("routeros") || low.Contains("mikrotik"))
+        {
+            markaL.Add(new MarkaAdayi("MikroTik", KanitAgirlik.SshBanner, KanitKaynak.Ssh, banner));
+            turL.Add(new TurAdayi("Router/AP", KanitAgirlik.SshBanner, KanitKaynak.Ssh, banner));
+        }
+        else if (low.Contains("cisco"))
+        {
+            markaL.Add(new MarkaAdayi("Cisco", KanitAgirlik.SshBanner, KanitKaynak.Ssh, banner));
+            turL.Add(new TurAdayi("Switch", KanitAgirlik.SshBanner, KanitKaynak.Ssh, banner));
+        }
+        else
+        {
+            turL.Add(new TurAdayi("Linux IoT", KanitAgirlik.SshBanner / 2, KanitKaynak.Ssh, banner));
+        }
+    }
+
+    private static void KanitTopla_OuiMac(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
         var bilgi = OuiVendorLookup.BulDetay(b.MacAdresi);
         if (bilgi == null) return;
-        markaL.Add(new MarkaAdayi(bilgi.Vendor, KanitAgirlik.OuiMarka, KanitKaynak.OuiMac, $"OUI {b.MacAdresi}"));
+        // ARP ile aktif yanıt geldi mi? Daha güçlü kanıt.
+        int agirlik = b.KesifKaynaklari.Contains("ARP")
+            ? KanitAgirlik.ArpMacOuiActive
+            : KanitAgirlik.OuiMarka;
+        markaL.Add(new MarkaAdayi(bilgi.Vendor, agirlik, KanitKaynak.OuiMac, $"OUI {b.MacAdresi}"));
         if (!string.IsNullOrWhiteSpace(bilgi.TurIpucu))
             turL.Add(new TurAdayi(bilgi.TurIpucu!, KanitAgirlik.OuiTur, KanitKaynak.OuiMac, $"OUI {bilgi.Vendor}"));
     }
 
-    private static void KanitTopla_PortPattern(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_PortPattern(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
-        var p = b.AcikPortlar;
+        List<int> p;
+        lock (b.AcikPortlar) p = [..b.AcikPortlar];
         if (p.Count == 0) return;
 
-        // Güçlü kombinasyonlar (markayı da getirir)
         if (p.Contains(34567))
         {
             turL.Add(new TurAdayi("NVR/DVR", KanitAgirlik.PortPatternStrong, KanitKaynak.PortPattern, "tcp/34567"));
@@ -458,43 +450,26 @@ public partial class MainWindow
             turL.Add(new TurAdayi("Kamera", KanitAgirlik.PortPatternStrong, KanitKaynak.PortPattern, "tcp/8000+554"));
             markaL.Add(new MarkaAdayi("Hikvision", KanitAgirlik.PortPatternStrong, KanitKaynak.PortPattern, "tcp/8000+554"));
         }
-        // Yazıcı kombinasyonu
         bool printerPortu = p.Contains(9100) || p.Contains(515) || p.Contains(631);
         if (printerPortu)
             turL.Add(new TurAdayi("Yazıcı", KanitAgirlik.PortPatternStrong, KanitKaynak.PortPattern,
                 "tcp/" + string.Join(",", new[] { 9100, 515, 631 }.Where(p.Contains))));
-
-        // RDP — kuvvetli Bilgisayar/Sunucu sinyali
         if (p.Contains(3389))
             turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.PortPatternStrong, KanitKaynak.PortPattern, "tcp/3389"));
-
-        // SMB — Bilgisayar veya NAS. NAS adayı OUI/SSDP'den gelirse oraya kararı bırak.
         if ((p.Contains(445) || p.Contains(139)) && !p.Contains(554) && !printerPortu)
             turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.PortPatternWeak, KanitKaynak.PortPattern, "tcp/445"));
-
-        // Telnet + DNS/DHCP → router
         if (p.Contains(23) && (p.Contains(53) || p.Contains(67)))
             turL.Add(new TurAdayi("Router/AP", KanitAgirlik.PortPatternStrong, KanitKaynak.PortPattern, "tcp/23+udp/53"));
         else if (p.Contains(23))
             turL.Add(new TurAdayi("Router/Switch", KanitAgirlik.PortPatternWeak, KanitKaynak.PortPattern, "tcp/23"));
-
-        // Yalnız RTSP → Kamera (zayıf)
         if (p.Contains(554) && p.Count <= 3)
             turL.Add(new TurAdayi("Kamera", KanitAgirlik.PortPatternWeak, KanitKaynak.PortPattern, "tcp/554"));
-
-        // Yalnız SSH + Linux TTL → Linux IoT
         if (p.Contains(22) && p.Count <= 2 && b.PingTtl is >= 60 and <= 70)
             turL.Add(new TurAdayi("Linux IoT", KanitAgirlik.PortPatternWeak, KanitKaynak.PortPattern, "tcp/22"));
-
-        // Yalnız HTTP — zayıf "Akıllı Cihaz"
-        if ((p.Contains(80) || p.Contains(443)) && p.Count <= 2 &&
-            !p.Contains(554) && !printerPortu)
+        if ((p.Contains(80) || p.Contains(443)) && p.Count <= 2 && !p.Contains(554) && !printerPortu)
             turL.Add(new TurAdayi("Akıllı Cihaz", 6, KanitKaynak.PortPattern, "tcp/80"));
     }
 
-    // (anahtar, marka, tur?) — tur null ise yalnız marka ipucu olarak değerlendirilir.
-    // Banner regex tablosu (MarkaIpuclariRegex) bu alandan türetilir — bu yüzden
-    // ÖNCE deklare edilmeli (CLR field initializer'ları deklarasyon sırasında çalışır).
     private static readonly (string Anahtar, string Marka, string? Tur)[] MarkaIpuclari =
     {
         ("hikvision",        "Hikvision",      "Kamera"),
@@ -565,8 +540,6 @@ public partial class MainWindow
         ("iis/",             "Windows",        "Bilgisayar"),
     };
 
-    // Banner regex tablosu — MarkaIpuclari'den türetilir. MarkaIpuclari'dan SONRA deklare
-    // edilmeli ki static field initializer sırası NRE atmasın.
     private static readonly (Regex Pattern, string? Marka, string? Tur)[] MarkaIpuclariRegex =
         MarkaIpuclari
             .Select(x => (
@@ -575,11 +548,10 @@ public partial class MainWindow
                 x.Tur))
             .ToArray();
 
-    private static void KanitTopla_Banner(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_Banner(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
         var metin = $"{b.SunucuBasligi} {b.SayfaBasligi}";
         if (string.IsNullOrWhiteSpace(metin)) return;
-        var lower = metin.ToLowerInvariant();
 
         foreach (var (pat, marka, tur) in MarkaIpuclariRegex)
         {
@@ -588,18 +560,16 @@ public partial class MainWindow
                 markaL.Add(new MarkaAdayi(marka, KanitAgirlik.BannerMarka, KanitKaynak.Banner, pat.ToString()));
             if (tur != null)
                 turL.Add(new TurAdayi(tur, KanitAgirlik.BannerTur, KanitKaynak.Banner, pat.ToString()));
-            break; // tek banner = tek ipucu
+            break;
         }
 
-        // NVR/DVR örüntüleri
         if (Regex.IsMatch(metin, @"\b(network|digital|hybrid)\s+video\s+recorder\b", RegexOptions.IgnoreCase) ||
             Regex.IsMatch(metin, @"\b(nvr|dvr|xvr)\b", RegexOptions.IgnoreCase))
             turL.Add(new TurAdayi("NVR/DVR", KanitAgirlik.BannerTur, KanitKaynak.Banner, "nvr/dvr regex"));
     }
 
-    private static void KanitTopla_Ttl(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_Ttl(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
-        // TTL aralığı tek başına güvenilmez (router'lar TTL'yi düşürür); yalnız çok zayıf hint.
         if (!b.PingYanit || b.PingTtl <= 0) return;
         if (b.PingTtl is >= 120 and <= 128)
             turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.TtlTur, KanitKaynak.Ttl, $"ttl={b.PingTtl}"));
@@ -607,9 +577,9 @@ public partial class MainWindow
             turL.Add(new TurAdayi("Router/Switch", KanitAgirlik.TtlTur, KanitKaynak.Ttl, $"ttl={b.PingTtl}"));
     }
 
-    private static void KanitTopla_AdHostname(KameraBilgi b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    private static void KanitTopla_AdHostname(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
-        var ad = $"{b.DnsAdi} {b.PingAdi} {b.AdvancedScannerAdi} {b.SsdpFriendlyName} {b.NetbiosCihazAdi}".ToLowerInvariant();
+        var ad = $"{b.DnsAdi} {b.PingAdi} {b.LlmnrHostname} {b.SsdpFriendlyName} {b.NetbiosCihazAdi}".ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(ad)) return;
 
         if (Regex.IsMatch(ad, @"\biphone[-\w]*"))

@@ -410,16 +410,43 @@ static Task<string?> SysNameAsync(string ip, CancellationToken, int timeoutMs = 
 
 ---
 
-## OuiVendorLookup.cs (yeni — v0.2.0)
+## OuiVendorLookup.cs
 
-MAC OUI prefix → üretici eşlemesi (built-in fallback, Advanced IP Scanner DB yokken devreye girer).
+MAC OUI prefix → üretici eşlemesi. Önce `Req/oui.csv` (IEEE MA-L, ~30K giriş) lazy yüklenir; başarısız olursa built-in fallback (~100 OUI) devreye girer.
 
 ```csharp
-static string? Bul(string? mac)   // "AA:BB:CC:DD:EE:FF" → "Apple" veya null
+static string? Bul(string? mac)        // "AA:BB:CC:DD:EE:FF" → "Apple" veya null
+static OuiBilgi? BulDetay(string? mac) // vendor + tür ipucu + mobil flag
+// OuiBilgi: sealed record(Vendor, TurIpucu, Mobil)
 ```
 
-- ~100 OUI girdisi: Apple, Samsung, Xiaomi, Huawei, Google, Hikvision, Dahua, Axis, Ubiquiti, MikroTik, TP-Link, Cisco, NETGEAR, ASUS, D-Link, Synology, QNAP, Espressif, Raspberry Pi, Sonos, Amazon, Reolink, EZVIZ, Tuya, Sony, LG, VMware.
-- `ArpBilgileriniTopluGuncelleAsync` içinden `UreticiAra` sonucu `null` gelirse `OuiVendorLookup.Bul(mac)` denenir.
+**`BulDetay` tür ipuçları (`TurIpucu`):** `"Kamera"` (Hikvision, Dahua, Reolink, EZVIZ, Axis…), `"Yazıcı"` (HP Inc, Epson, Brother, Canon, Xerox…), `"Router/AP"` (Ubiquiti, MikroTik, TP-Link, Cisco…), `"NAS"` (Synology, QNAP), `"Hoparlör"` (Sonos), `"Akıllı Cihaz"` (Espressif, Tuya), `"Linux IoT"` (Raspberry Pi), `"Bilgisayar"` (VMware, Microsoft), `"Telefon"` (Mobil=true + tür yok).
+
+**Phantom device guard:** `Bul(mac)` ve `BulDetay(mac)` başında `IsValidUnicast(mac)` kontrolü yapılır — geçersiz MAC'ler (all-zero, multicast) hiçbir zaman vendor eşlemesi almaz.
+
+**`KisaltVendor`** — IEEE şirket adından kısa görünüm adı üretir. Kırpılan ekler: `, Ltd.` / ` Ltd` / ` Limited` / ` Foundation` / ` Innovation Limited` / ` Innovation` / `, Inc.` / ` LLC` / ` Corporation` / ` Corp.` / ` GmbH` / ` AG` / ` Technology` / ` Technologies` / ` Electronics` / ` Networks` / ` Communications` / ` Systems` / ` Solutions` / ` International` / `(Shenzhen)` / `(Shanghai)` vb.
+
+**Normalizasyon:** `BulDetay` içinde "Routerboard.com" / "Mikrotikls" içeren vendor adları → "MikroTik" (IEEE `00:0C:42` "Routerboard.com" olarak kayıtlı).
+
+**Fallback düzeltme (v0.4.0+):** `3C:46:D8` = "TP-Link" (daha önce yanlışlıkla "EZVIZ" yazılmıştı).
+
+**Phantom device guard:** `BulDetay(null) = null` — null MAC'li cihazlar hiçbir zaman vendor sınıflandırması almaz.
+
+---
+
+## MacUtils.cs
+
+MAC adresi normalizasyonu, OUI prefix çıkarma ve geçerlilik kontrolü.
+
+```csharp
+static string? Normalize(string? mac)     // her format → "XX:XX:XX:XX:XX:XX" (büyük harf, kolon)
+static string? OuiPrefix(string? mac)     // → "XX:XX:XX" veya null
+static bool    IsValidUnicast(string? mac)// geçerli unicast MAC mı? (null/all-zero/multicast → false)
+```
+
+- Desteklenen giriş formatları: `AA:BB:CC:DD:EE:FF`, `AA-BB-CC-DD-EE-FF`, `AABB.CCDD.EEFF` (Cisco dot), `AABBCCDDEEFF` (raw hex).
+- 12 hex digit dışı karakterler kırpılır; 12 hex'e ulaşılamazsa giriş trim edilmiş haliyle döner.
+- **`IsValidUnicast`:** `00:00:00:00:00:00`, multicast (bit0=1) ve broadcast MAC'leri reddeder. `ArpProbe` ve `OuiVendorLookup` bu guard'ı kullanarak hayalet cihaz (Xerox/00:00:00) oluşumunu önler.
 
 ---
 
@@ -444,6 +471,152 @@ static Task<HttpFingerprintSonuc?> ProbeAsync(string ip, int port, CancellationT
 | `/api/v1/status` | Ubiquiti UniFi |
 
 - Yalnızca "Derin tara" modu açıkken ve HTTP port açıkken çağrılır.
+
+---
+
+## Services/Discovery/ — Cihaz Keşif Alt Sistemi (v0.4.0+)
+
+`DeviceDiscoveryEngine` tarafından koordine edilen iki fazlı keşif motoru. Eski inline sweep kodu ve `AdvancedIpScannerService` çağrısı bu alt sistemle yerini aldı.
+
+### IDeviceDiscoveryEngine / DeviceDiscoveryEngine
+
+```csharp
+interface IDeviceDiscoveryEngine {
+    DeviceStore Store { get; }
+    bool NpcapAvailable { get; }
+    Task StartScanAsync(IReadOnlyList<(string Prefix, int Start, int End)> subnets,
+                        ScanOptions options, IProgress<ScanProgress>? progress, CancellationToken);
+    Task StartLiveAsync(IReadOnlyList<(string Prefix, int Start, int End)> subnets,
+                        ScanOptions options, CancellationToken);
+}
+```
+
+**İki fazlı tarama (`StartScanAsync`):**
+- **Faz 1:** FastProbes + Listener'lar paralel çalışır; `taranan` sayacı subnet başına bir kez artırılır.
+- **Faz 2:** DeepProbes — yalnızca `TryGet` ile mevcut host'lar işlenir; phantom device oluşmaz.
+- Tarama sonu: tüm cihazlar için `OuiVendorLookup.Bul(mac)` ile üretici tamamlama.
+
+**Sürekli izleme (`StartLiveAsync`):** Listener'lar sürekli, ArpProbe periyodik (`LiveRefreshIntervalMs`). `LiveOfflineThresholdMs` geçen cihazlar `Online=false` olarak işaretlenir.
+
+### DeviceStore
+
+```csharp
+DeviceInfo GetOrAdd(string ip)                   // yeni veya mevcut
+bool TryGet(string ip, out DeviceInfo? dev)      // keşfedilmişse true
+void NotifyChanged(DeviceInfo dev)               // LastSeen güncelle + event
+void Touch(string ip)
+void Upsert(DeviceInfo updated)
+void Clear()
+IReadOnlyList<DeviceInfo> All { get; }
+int Count { get; }
+event EventHandler<DeviceInfo>? DeviceChanged
+```
+
+`ConcurrentDictionary<string, DeviceInfo>` üzerine kurulu; `DeviceChanged` eventi UI katmanına anlık bildirim sağlar.
+
+**IP normalizasyonu:** `GetOrAdd` / `TryGet` / `Touch` / `Upsert` çağrılarında `IPAddress.TryParse` ile normalize edilir → `"192.168.001.010"` ve `"192.168.1.10"` aynı anahtara eşlenir.
+
+### ScanOptions
+
+```csharp
+bool  DeepScan              = false
+bool  LiveMode              = false
+int[] Ports                 = DefaultPorts  // 22,23,53,80,135,139,443,445,554,1900,3389,5000,5357,7547,8000,8080,8443,9000,37777
+int   ConcurrencyLimit      = 80
+int   PingTimeoutMs         = 1000
+int   PortTimeoutMs         = 800
+int   ArpTimeoutMs          = 3000
+int   ListenerDurationMs    = 8000
+int   LiveRefreshIntervalMs = 30_000
+int   LiveOfflineThresholdMs = 90_000
+```
+
+### DeviceInfo (Models/DeviceInfo.cs)
+
+Ana model sınıfı — tüm probe'lar bu nesneyi ortak günceller.
+
+**`Online` başlangıç değeri `false`** — yalnızca gerçek kanıt (ARP yanıtı, ICMP, SNMP, LLMNR, vb.) probe'u `Online = true` set eder. Bu şekilde hayalet giriş "Online" görünmez.
+
+| Alan grubu | Alanlar |
+|---|---|
+| Kimlik | `Ip`, `MacAdresi`, `Uretici` |
+| Durum | `Online` (default false), `FirstSeen`, `LastSeen`, `PingYanit`, `PingMs`, `PingTtl` |
+| Portlar | `AcikPortlar List<int>`, `ServisDetaylari Dictionary<int,string>` |
+| ONVIF/WSD | `OnvifBulundu`, `OnvifAdi`, `OnvifHardware`, `OnvifServisUrl`, `WsdTipi` |
+| SSDP | `SsdpBulundu`, `SsdpFriendlyName`, `SsdpManufacturer`, `SsdpModelName`, `SsdpSunucu` |
+| DNS/NetBIOS | `DnsAdi`, `PingAdi`, `NetbiosCihazAdi`, `NetbiosGrupAdi` |
+| SMB/SSH | `SmbComputerName`, `SmbOs`, `SshBanner` |
+| LLMNR | `LlmnrHostname` |
+| mDNS | `MdnsMarka`, `MdnsTur` |
+| Ubiquiti | `UbntPlatform`, `UbntFirmware`, `UbntHostname` |
+| MikroTik | `MikroTikBoard`, `MikroTikVersion`, `MikroTikIdentity` |
+| SNMP | `SnmpSysDescr`, `SnmpSysName` |
+| HTTP | `HttpFpMarka`, `HttpFpTur`, `HttpFpModel`, `SunucuBasligi`, `SayfaBasligi` |
+| Diğer | `RtspDurum`, `Os`, `KesifKaynaklari HashSet<string>`, `KararIzi KimlikKararIzi?` |
+
+### ScanProgress
+
+```csharp
+sealed record ScanProgress(int Taranan, int Toplam, int BulunanCihaz, string AsamaMetni, int PaketSayisi = 0)
+```
+
+### Probes
+
+**FastProbes** (Faz 1 — paralel):
+
+| Sınıf | Protokol | Keşfeder |
+|---|---|---|
+| `ArpProbe` | ARP | MAC, IP, Online |
+| `IcmpProbe` | ICMP Echo | PingYanit, PingMs, PingTtl |
+| `TcpPortProbe` | TCP SYN | AcikPortlar, ServisDetaylari |
+| `NetbiosProbe` | UDP 137 | NetbiosCihazAdi, NetbiosGrupAdi |
+| `LlmnrProbe` | UDP 5355 | LlmnrHostname (PTR parse yeniden yazıldı; `.arpa` hostname'ler reddedilir) |
+| `NdpProbe` | IPv6 NDP | IPv6 komşu keşfi |
+
+**DeepProbes** (Faz 2 — yalnızca FastProbe'un keşfettiği host'larda):
+
+| Sınıf | Protokol | Keşfeder |
+|---|---|---|
+| `SnmpProbe` | UDP 161 | SnmpSysDescr, SnmpSysName |
+| `HttpFingerprintProbe` | HTTP/HTTPS | HttpFpMarka, HttpFpTur, HttpFpModel |
+| `SmbProbe` | TCP 445 | SmbComputerName, SmbOs |
+| `SshBannerProbe` | TCP 22 | SshBanner, Os |
+
+**Phantom device guard:** DeepProbe'lar `store.TryGet(ip)` ile host'u kontrol eder; keşfedilmemişse `return` — hiç `DeviceInfo` oluşturmaz.
+
+### Listeners (broadcast/multicast dinleyiciler)
+
+| Sınıf | Protokol | Keşfeder |
+|---|---|---|
+| `OnvifWsdListener` | UDP 3702 | ONVIF WS-Discovery + WSD |
+| `SsdpListener` | UDP 1900 | SSDP/UPnP, SsdpFriendlyName |
+| `MdnsListener` | UDP 5353 | MdnsMarka, MdnsTur (25+ servis) |
+| `PassivePacketSniffer` | pcap | MAC lookup (Npcap varsa) |
+| `MndpListener` *(derin)* | UDP 5678 | MikroTikBoard, Identity |
+| `UbiquitiListener` *(derin)* | UDP 10001 | UbntPlatform, Firmware |
+
+Listener'lar `ListenerDurationMs` (varsayılan 8s) boyunca çalışır. `PassivePacketSniffer` için `PcapHelper.IsNpcapAvailable` kontrolü yapılır.
+
+### PcapHelper
+
+```csharp
+static bool IsNpcapAvailable  // npcap dll varlık kontrolü
+```
+
+---
+
+## AgTarama.Tests — Test Projesi (v0.4.0+)
+
+`AgTarama.Tests.csproj` — net10.0-windows, xUnit 2.9.2, xunit.runner.visualstudio 2.8.2, coverlet.collector 6.0.2. Ana projeye `<ProjectReference>` bağlı; `InternalsVisibleTo` ile `internal` türlere erişir.
+
+| Test sınıfı | Test sayısı | Kapsam |
+|---|---|---|
+| `OuiVendorLookupTests` | 18 | null/boş MAC → null (phantom device guard), vendor kısaltma, BulDetay tür ipuçları, routerboard normalizasyonu |
+| `MacUtilsTests` | 12 | Kolon/dash/dot/raw format, null/boş, OuiPrefix |
+| `DeviceStoreTests` | 8 | GetOrAdd, TryGet, Clear, DeviceChanged event, LastSeen güncelleme, All |
+| `ProbeTests` | 10 | `SmbProbe_EmptyStore_CreatesNoPhantomDevices`, `SshBannerProbe_EmptyStore_CreatesNoPhantomDevices` (regresyon), port gate testi, TryGet contract |
+
+Çalıştırma: `dotnet test AgTarama.Tests/AgTarama.Tests.csproj`
 
 ---
 

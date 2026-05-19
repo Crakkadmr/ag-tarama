@@ -15,10 +15,11 @@ internal sealed class DeviceDiscoveryEngine : IDeviceDiscoveryEngine
     public bool NpcapAvailable => PcapHelper.IsNpcapAvailable;
 
     // ── Probe factory'ler (per-scan instance — stateless probe'lar için güvenli) ──
-    private static IProbe[] BuildFastProbes() =>
+    // IcmpProbe progress callback'i ile her host'ta `taranan` sayacını gerçek zamanlı artırır.
+    private static IProbe[] BuildFastProbes(Action? onIcmpHostDone = null) =>
     [
         new ArpProbe(),
-        new IcmpProbe(),
+        new IcmpProbe(onIcmpHostDone),
         new TcpPortProbe(),
         new NetbiosProbe(),
         new LlmnrProbe(),
@@ -73,13 +74,14 @@ internal sealed class DeviceDiscoveryEngine : IDeviceDiscoveryEngine
                 Task.Run(() => l.StartAsync(prefix, Store, listenerCts.Token), listenerCts.Token));
 
             // Faz 1: Hızlı probe'lar + listener'lar paralel
-            var fastTasks = BuildFastProbes().Select(p =>
-                Task.Run(async () =>
-                    await p.RunRangeAsync(prefix, start, end, Store, options, token).ConfigureAwait(false),
-                token));
+            // IcmpProbe her host bitince taranan++ → reportTimer gerçek zamanlı progress yayar.
+            var fastTasks = BuildFastProbes(() => System.Threading.Interlocked.Increment(ref taranan))
+                .Select(p =>
+                    Task.Run(async () =>
+                        await p.RunRangeAsync(prefix, start, end, Store, options, token).ConfigureAwait(false),
+                    token));
 
             await Task.WhenAll(fastTasks.Concat(listenerTasks)).ConfigureAwait(false);
-            System.Threading.Interlocked.Add(ref taranan, Math.Max(0, end - start + 1));
 
             // Faz 2: Derin probe'lar — TcpPortProbe sonuçları artık mevcut
             if (options.DeepScan && !token.IsCancellationRequested)

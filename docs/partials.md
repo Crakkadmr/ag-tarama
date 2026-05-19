@@ -2,10 +2,41 @@
 
 > Satır numaraları ±20 satır toleransla doğrudur. Kod değişiklikleri sonrası eskime olabilir.
 > "md güncelle" talimatı geldiğinde haritalar yeniden hesaplanır.
-> Harita ile gerçek dosya arasında büyük sapma görülürse dosyayı `offset` yerine baştan oku ve haritayı güncelle.
+> Harita ile gerçek dosya arasında büyük sapma görülürse dosyayı baştan oku ve haritayı güncelle.
 
-`MainWindow.xaml.cs` + 11 partial dosya derleyici tarafından tek `MainWindow` sınıfında birleştirilir.
-Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` NetworkTools'ta tanımlı, her partial'dan çağrılabilir).
+`MainWindow.xaml.cs` + 12 partial derleyici tarafından tek `MainWindow` sınıfında birleştirilir.
+Cross-partial metot çağrıları sorunsuz (örn. `MesajEkle` NetworkTools'ta tanımlı, her partial'dan çağrılabilir).
+
+## Mevcut Boyut Tablosu (2026-05-19, Faz 4 sonrası)
+
+| Dosya | Satır | Sorumluluk |
+|---|---|---|
+| `MainWindow.xaml.cs` | 386 | Constructor, başlangıç, Npcap, ArayuzSecim, OuiAra |
+| `Partials/MainWindow.Ai.cs` | 131 | Chatbot AI input + sohbet |
+| `Partials/MainWindow.Bandwidth.cs` | 347 | Bant grafiği, BandwidthHistoryService |
+| `Partials/MainWindow.Capture.cs` | 413 | tshark yakalama + Wireshark açma |
+| `Partials/MainWindow.Console.cs` | 175 | F12 komut konsolu |
+| `Partials/MainWindow.DeviceClassifier.cs` | 617 | MarkaNormalize, KimlikBelirleV2 |
+| `Partials/MainWindow.DeviceScan.cs` | 693 | Cihaz Tara ana akış, KameraTaramaBaslat, datagrid handlers, TekIpTaraAsync |
+| `Partials/MainWindow.DeviceScan.Export.cs` | 224 | CSV/XLSX/PDF/TXT/JSON dışa aktarma |
+| `Partials/MainWindow.DeviceScan.Row.cs` | 208 | KameraSatirOlustur + KameraSatir view model |
+| `Partials/MainWindow.DeviceScan.SubnetPicker.cs` | 198 | NIC subnet picker + chip UI |
+| `Partials/MainWindow.Favorites.cs` | 133 | Favori IP chip + panel |
+| `Partials/MainWindow.History.cs` | 340 | Geçmiş kayıtları, tekrar çalıştır, karşılaştır |
+| `Partials/MainWindow.License.cs` | 204 | Lisans paneli, sticky banner, kopyala |
+| `Partials/MainWindow.NetworkTools.cs` | 171 | MesajEkle (chat), tab geçişi, IP/hostname/OtomatikNokta helpers |
+| `Partials/MainWindow.Tools.Ping.cs` | 157 | Ping panel + PingBaslat |
+| `Partials/MainWindow.Tools.PortScan.cs` | 217 | Port tara panel + PortTaraBaslat + AI yorumla |
+| `Partials/MainWindow.Tools.Misc.cs` | 391 | Trace/DNS/WoL/ARP/AğBilgi + HariciAracBaslat |
+| `Partials/MainWindow.UI.cs` | 148 | Ayarlar, RaporKaydet, Toast, Bildirim, DragDrop |
+| `Partials/MainWindow.Wlan.cs` | 477 | Wi-Fi tarama + Evil-Twin |
+
+**Kural:** > 600 satıra çıkan partial bölünür. DeviceScan.cs (693) sınırı hafif aşıyor; sonraki refactor turunda DataGrid handler bloğu ayrı partial'a çekilebilir.
+
+**Faz 4 sonuçları:**
+- `DeviceScan.cs`: 1414 → 693 (-51%); 3 yeni partial (Export, Row, SubnetPicker)
+- `NetworkTools.cs`: 901 → 171 (-81%); 3 yeni partial (Tools.Ping, PortScan, Misc)
+- Toplam 6 yeni partial, MainWindow class derleyici tarafından tek sınıfta birleşiyor (XAML referans bozulmadı).
 
 ---
 

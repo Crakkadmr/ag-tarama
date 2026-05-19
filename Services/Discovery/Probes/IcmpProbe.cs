@@ -8,6 +8,13 @@ namespace AgTarama.Services.Discovery.Probes;
 
 internal sealed class IcmpProbe : IProbe
 {
+    private readonly Action? _onHostDone;
+
+    public IcmpProbe(Action? onHostDone = null)
+    {
+        _onHostDone = onHostDone;
+    }
+
     public string Name => "ICMP";
 
     public async Task RunRangeAsync(
@@ -36,7 +43,11 @@ internal sealed class IcmpProbe : IProbe
                 }
             }
             catch { }
-            finally { sem.Release(); }
+            finally
+            {
+                sem.Release();
+                _onHostDone?.Invoke();
+            }
         }, token));
 
         await Task.WhenAll(tasks).ConfigureAwait(false);

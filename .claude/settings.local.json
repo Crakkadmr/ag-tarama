@@ -22,5 +22,11 @@
         ]
       }
     ]
+  },
+  "skillOverrides": {
+    "ingest": "off",
+    "wiki-ingest": "off",
+    "wiki-lint": "off",
+    "wiki-query": "off"
   }
 }

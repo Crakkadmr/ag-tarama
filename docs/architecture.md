@@ -3,41 +3,40 @@
 ## Klasör Yapısı
 
 ```
-AG TARAMA PROGRAMI/
+AG TARAMA PROGRAMI/                   ← repo kökü
+├── AgTarama.slnx                     ← .NET 10 solution (slnx format) — AgTarama + AgTarama.Tests
+├── .gitignore                        ← **/bin/, **/obj/, *.user, .vs/, captures/, TestResults/
+├── master-refactor.md                ← refactor plan özeti
 ├── AgTarama/                         ← ana WPF projesi
-│   ├── AgTarama.csproj               ← .NET 10 WPF v0.4.0; NuGet: QuestPDF 2024.12.*, ClosedXML 0.102.*
-│   ├── App.xaml / App.xaml.cs        ← Application giriş noktası (boş)
+│   ├── AgTarama.csproj               ← .NET 10 WPF v0.4.0; bkz. project.md
+│   ├── App.xaml / App.xaml.cs        ← Application giriş noktası
 │   ├── AssemblyInfo.cs               ← ThemeInfo
-│   ├── MainWindow.xaml               ← Network Sniffer UI tasarımı + stiller (~1254 satır)
-│   ├── MainWindow.xaml.cs            ← Ana partial: alanlar, başlangıç, Npcap, ArayuzSecim, UygulaButonSablon (~354 satır)
-│   ├── Partials/                     ← C# partial class dosyaları (hepsi `public partial class MainWindow`)
-│   │   ├── MainWindow.Capture.cs     ← YakalamaBaslat/Durdur, YakalamaKartiOlustur, WiresharkIleAc (351 satır)
-│   │   ├── MainWindow.NetworkTools.cs← MesajEkle, Ping, PortTara, Traceroute, DNS, WoL, ARP, AgBilgi (835 satır)
-│   │   ├── MainWindow.Bandwidth.cs   ← Bant grafiği, BandwidthHistoryService entegrasyonu, per-app trafik (347 satır)
-│   │   ├── MainWindow.Console.cs     ← F12 komut konsolu, KonsoleToggle, ConsoleInput_KeyDown
-│   │   ├── MainWindow.Favorites.cs   ← FavoriChipleriniYenile, FavorilerPanelGuncelle (133 satır)
-│   │   ├── MainWindow.History.cs     ← GecmisPanelGuncelle, Tekrar Çalıştır, Karşılaştır (235 satır)
-│   │   ├── MainWindow.UI.cs          ← BtnAyarlar, RaporKaydet, Toast, Bildirim (141 satır)
-│   │   ├── MainWindow.License.cs     ← LisansPanelGuncelle, sticky banner, MachineId, NTP, Kopyala (204 satır)
-│   │   ├── MainWindow.Wlan.cs        ← WlanPanelBaşlat, WlanTaramaBaslat, WlanSatir, Evil-Twin (~420 satır)
-│   │   ├── MainWindow.DeviceScan.cs  ← UI bağlama katmanı: KameraTaramaBaslat → _engine, KameraSatir, export (~900 satır)
-│   │   └── MainWindow.DeviceClassifier.cs ← MarkaNormalize, KimlikBelirleV2 (kanıt tabanlı sınıflandırma)
-│   ├── Paths.cs                      ← Tüm exe-relative yol sabitleri (static)
+│   ├── MainWindow.xaml               ← Network Sniffer UI + stiller (~1986 satır)
+│   ├── MainWindow.xaml.cs            ← Ana partial (~386 satır)
+│   ├── Partials/                     ← 12 partial — bkz. partials.md
+│   ├── Paths.cs                      ← exe-relative yol sabitleri (static)
 │   ├── LogService.cs                 ← %APPDATA%\AgTarama\logs\YYYYMMDD.log
-│   ├── obfuscar.xml                  ← Obfuscar yapılandırması (Release post-build)
-│   ├── Services/                     ← Bkz. docs/services.md ve docs/licensing.md
-│   │   └── Discovery/                ← DeviceDiscoveryEngine, DeviceStore, Probes/, Listeners/, Models/
-│   ├── LicenseWindow.xaml / .cs      ← Lisans aktivasyon ekranı
+│   ├── obfuscar.xml                  ← Release post-build obfuscator config
+│   ├── Services/                     ← Core servisler — bkz. services.md
+│   │   ├── Ai/                       ← AI altyapısı — bkz. services-ai.md
+│   │   └── Discovery/                ← Cihaz keşif motoru — bkz. services-discovery.md
+│   ├── LicenseWindow.xaml / .cs      ← Lisans aktivasyon
 │   ├── UpdateWindow.xaml / .cs       ← Güncelleme bildirimi + indirme
 │   ├── SettingsWindow.xaml / .cs     ← Ayarlar penceresi
-│   ├── docs/                         ← Agent referans dosyaları (bu dosya)
-│   ├── Req/npcap-1.88.exe            ← Npcap installer
+│   ├── AiDeviceReportWindow.xaml/.cs ← Cihaz AI rapor modalı
+│   ├── docs/                         ← Doc dosyaları (bu klasör)
+│   ├── Req/npcap-1.88.exe            ← Npcap installer + oui.csv
 │   ├── tools/WiresharkPortable64/    ← tshark + Wireshark
-│   ├── tools/Ip_Scanner/             ← advanced_ip_scanner + mac_interval_tree.txt
+│   ├── tools/Ip_Scanner/             ← advanced_ip_scanner
 │   ├── tools/sadp/                   ← sadptool.exe
-│   └── captures/                     ← .pcap dosyaları (otomatik oluşur)
-└── AgTarama.Tests/                   ← xUnit test projesi (net10.0-windows, 48 test)
-    └── AgTarama.Tests.csproj         ← xunit 2.9.2, InternalsVisibleTo ile internal erişim
+│   ├── tools/security/               ← hashes.allowlist.sha256 + verify script
+│   └── supabase/                     ← RLS migration SQL'leri
+└── AgTarama.Tests/                   ← xUnit test projesi (net10.0-windows)
+    ├── AgTarama.Tests.csproj         ← xunit 2.9.2 + xunit.runner.visualstudio + coverlet
+    ├── OuiVendorLookupTests.cs
+    ├── MacUtilsTests.cs
+    ├── DeviceStoreTests.cs
+    └── ProbeTests.cs
 ```
 
 **Log:** `%APPDATA%\AgTarama\logs\YYYYMMDD.log`

@@ -55,16 +55,21 @@ AG TARAMA PROGRAMI/
 
 ## Derleme ve Çalıştırma
 
-```bash
-# Proje dizinine geç
-cd "C:\Projects\AG TARAMA PROGRAMI\AgTarama"
+```powershell
+cd "C:\Projects\AG TARAMA PROGRAMI"
 
-# Debug derle ve çalıştır
-dotnet run
+# Debug build + tüm testler
+dotnet build AgTarama.slnx
+dotnet test  AgTarama.slnx
 
-# Release derle
-dotnet build -c Release
+# Çalıştır
+dotnet run --project AgTarama\AgTarama.csproj
+
+# Release build (Obfuscar + hash verify)
+dotnet build AgTarama.slnx -c Release
 ```
+
+> Geliştirici dokümantasyonu: [`AgTarama/AGENTS.md`](AgTarama/AGENTS.md) → [`AgTarama/docs/`](AgTarama/docs/).
 
 ---
 

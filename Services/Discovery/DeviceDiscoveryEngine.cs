@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 using AgTarama.Services.Discovery.Listeners;
@@ -15,12 +16,14 @@ internal sealed class DeviceDiscoveryEngine : IDeviceDiscoveryEngine
     public bool NpcapAvailable => PcapHelper.IsNpcapAvailable;
 
     // ── Probe factory'ler (per-scan instance — stateless probe'lar için güvenli) ──
-    // IcmpProbe progress callback'i ile her host'ta `taranan` sayacını gerçek zamanlı artırır.
-    private static IProbe[] BuildFastProbes(Action? onIcmpHostDone = null) =>
+    // IcmpProbe + TcpPortProbe progress callback'i; ikisi ortalama "tarama %"i belirler.
+    // ICMP hızlı biter (~3s), TCP-Port uzun sürer (~30-60s); ikisinin toplam ilerlemesi
+    // gerçek tarama yüzdesini doğru yansıtır (sadece ICMP olsa %100 erken görünür).
+    private static IProbe[] BuildFastProbes(Action? onHostDone = null) =>
     [
         new ArpProbe(),
-        new IcmpProbe(onIcmpHostDone),
-        new TcpPortProbe(),
+        new IcmpProbe(onHostDone),
+        new TcpPortProbe(onHostDone),
         new NetbiosProbe(),
         new LlmnrProbe(),
         new NdpProbe(),
@@ -41,6 +44,7 @@ internal sealed class DeviceDiscoveryEngine : IDeviceDiscoveryEngine
         new SsdpListener(),
         new MdnsListener(),
         new PassivePacketSniffer(),
+        new DhcpListener(),
         ..deep ? (IListener[])[new MndpListener(), new UbiquitiListener()] : [],
     ];
 
@@ -52,49 +56,84 @@ internal sealed class DeviceDiscoveryEngine : IDeviceDiscoveryEngine
     {
         Store.Clear();
 
-        int toplam = subnets.Sum(s => Math.Max(0, s.End - s.Start + 1));
+        // Host sayısı (gerçek subnet host kapasitesi)
+        int hostCount = subnets.Sum(s => Math.Max(0, s.End - s.Start + 1));
+        // Toplam ilerleme adımı: ICMP + TcpPortProbe iki kaynak host başına +1 attığı için 2x.
+        // Sayaç tek probe'la %100'e ulaşmaz; her iki probe da bitene kadar dolmaya devam eder.
+        int toplam  = hostCount * 2;
         int taranan = 0;
         int paket   = 0;
 
         using var reportTimer = new System.Timers.Timer(250);
         reportTimer.Elapsed += (_, _) =>
             progress?.Report(new ScanProgress(taranan, toplam, Store.Count,
-                $"{taranan}/{toplam} host • {Store.Count} cihaz", paket));
+                $"{Math.Min(taranan / 2, hostCount)}/{hostCount} host • {Store.Count} cihaz", paket));
         reportTimer.Start();
+
+        // Detay raporu yardımcısı — UI overlay'i için probe/listener bazlı bildirim.
+        void ReportDetay(string detay) =>
+            progress?.Report(new ScanProgress(taranan, toplam, Store.Count,
+                $"{Math.Min(taranan / 2, hostCount)}/{hostCount} host • {Store.Count} cihaz", paket, detay));
 
         foreach (var (prefix, start, end) in subnets)
         {
             if (token.IsCancellationRequested) break;
 
+            ReportDetay($"▶ Subnet {prefix}.0/24 başlatıldı");
+
             // Listener'lar ListenerDurationMs boyunca arka planda çalışır
             using var listenerCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             listenerCts.CancelAfter(options.ListenerDurationMs);
             var listeners = BuildListeners(options.DeepScan);
+            ReportDetay($"📡 Listener'lar açıldı ({listeners.Length} adet, {options.ListenerDurationMs / 1000}s)");
             var listenerTasks = listeners.Select(l =>
                 Task.Run(() => l.StartAsync(prefix, Store, listenerCts.Token), listenerCts.Token));
 
             // Faz 1: Hızlı probe'lar + listener'lar paralel
             // IcmpProbe her host bitince taranan++ → reportTimer gerçek zamanlı progress yayar.
-            var fastTasks = BuildFastProbes(() => System.Threading.Interlocked.Increment(ref taranan))
-                .Select(p =>
-                    Task.Run(async () =>
-                        await p.RunRangeAsync(prefix, start, end, Store, options, token).ConfigureAwait(false),
-                    token));
+            var fastProbes = BuildFastProbes(() => System.Threading.Interlocked.Increment(ref taranan));
+            ReportDetay($"⚡ Faz 1 — Hızlı probe'lar başladı ({fastProbes.Length} adet)");
+            var fastTasks = fastProbes.Select(p =>
+                Task.Run(async () =>
+                {
+                    await p.RunRangeAsync(prefix, start, end, Store, options, token).ConfigureAwait(false);
+                    ReportDetay($"✓ {p.Name} tamamlandı");
+                }, token));
 
             await Task.WhenAll(fastTasks.Concat(listenerTasks)).ConfigureAwait(false);
+            ReportDetay($"✔ Faz 1 + Listener bitti");
 
             // Faz 2: Derin probe'lar — TcpPortProbe sonuçları artık mevcut
             if (options.DeepScan && !token.IsCancellationRequested)
             {
-                var deepTasks = BuildDeepProbes().Select(p =>
+                var deepProbes = BuildDeepProbes();
+                ReportDetay($"🔍 Faz 2 — Derin probe'lar başladı ({deepProbes.Length} adet)");
+                var deepTasks = deepProbes.Select(p =>
                     Task.Run(async () =>
-                        await p.RunRangeAsync(prefix, start, end, Store, options, token).ConfigureAwait(false),
-                    token));
+                    {
+                        await p.RunRangeAsync(prefix, start, end, Store, options, token).ConfigureAwait(false);
+                        ReportDetay($"✓ {p.Name} (derin) tamamlandı");
+                    }, token));
                 await Task.WhenAll(deepTasks).ConfigureAwait(false);
+                ReportDetay($"✔ Faz 2 bitti");
             }
         }
 
         reportTimer.Stop();
+
+        // Gateway IP'leri işaretle — NIC default gateway adreslerini Store ile eşle.
+        // Bu, ilgili cihazın Tür'ünü "Router/AP" olarak zorunlu kılar (KanitTopla_Gateway).
+        var gateways = NetworkInterface.GetAllNetworkInterfaces()
+            .Where(n => n.OperationalStatus == OperationalStatus.Up)
+            .SelectMany(n => n.GetIPProperties().GatewayAddresses)
+            .Select(g => g.Address.ToString())
+            .Where(ip => !string.IsNullOrEmpty(ip) && ip != "0.0.0.0")
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var dev in Store.All)
+        {
+            if (gateways.Contains(dev.Ip)) dev.IsGateway = true;
+        }
 
         // OUI lookup for all discovered devices
         foreach (var dev in Store.All)
@@ -104,7 +143,7 @@ internal sealed class DeviceDiscoveryEngine : IDeviceDiscoveryEngine
         }
 
         progress?.Report(new ScanProgress(toplam, toplam, Store.Count,
-            $"Tamamlandı • {Store.Count} cihaz", paket));
+            $"Tamamlandı • {hostCount} host • {Store.Count} cihaz", paket));
     }
 
     public async Task StartLiveAsync(

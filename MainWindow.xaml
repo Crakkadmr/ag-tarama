@@ -949,6 +949,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0" Margin="0,0,0,14">
                             <Grid.ColumnDefinitions>
@@ -1243,6 +1244,42 @@
                                     </DataGridTextColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
+                        </Border>
+
+                        <!-- Tarama ilerleme paneli — DataGrid altı, sticky -->
+                        <Border x:Name="ScanProgressPanel" Grid.Row="5"
+                                Background="#0D1117" BorderBrush="#1F6FEB" BorderThickness="1"
+                                CornerRadius="8" Padding="14,10" Margin="0,10,0,0"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" x:Name="ScanProgressAsama"
+                                               Text="Başlatılıyor..."
+                                               Foreground="#C9D1D9"
+                                               FontFamily="Consolas" FontSize="11"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" x:Name="ScanProgressYuzde"
+                                               Text="%0"
+                                               Foreground="#58A6FF"
+                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                               VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                </Grid>
+                                <ProgressBar x:Name="ScanProgressBar"
+                                             Height="6" Minimum="0" Maximum="100" Value="0"
+                                             Foreground="#58A6FF" Background="#1C2128"
+                                             BorderThickness="0"/>
+                                <TextBlock x:Name="ScanProgressDetay"
+                                           Text=""
+                                           Foreground="#6E7681"
+                                           FontFamily="Consolas" FontSize="10"
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
                         </Border>
                     </Grid>
                 </Border>
@@ -2092,6 +2129,7 @@
                            TextWrapping="Wrap" VerticalAlignment="Center"/>
             </StackPanel>
         </Border>
+
     </Grid>
 </Window>
 

@@ -67,8 +67,9 @@ Ana model sınıfı — tüm probe'lar bu nesneyi ortak günceller.
 
 | Alan grubu | Alanlar |
 |---|---|
-| Kimlik | `Ip`, `MacAdresi`, `Uretici` |
+| Kimlik | `Ip`, `MacAdresi`, `Uretici`, `IsGateway` |
 | Durum | `Online`, `FirstSeen`, `LastSeen`, `PingYanit`, `PingMs`, `PingTtl` |
+| DHCP | `DhcpHostname`, `DhcpVendorClass`, `DhcpFingerprint` |
 | Portlar | `AcikPortlar List<int>`, `ServisDetaylari Dictionary<int,string>` |
 | ONVIF/WSD | `OnvifBulundu`, `OnvifAdi`, `OnvifHardware`, `OnvifServisUrl`, `WsdTipi` |
 | SSDP | `SsdpBulundu`, `SsdpFriendlyName`, `SsdpManufacturer`, `SsdpModelName`, `SsdpSunucu` |
@@ -85,8 +86,16 @@ Ana model sınıfı — tüm probe'lar bu nesneyi ortak günceller.
 ## ScanProgress
 
 ```csharp
-sealed record ScanProgress(int Taranan, int Toplam, int BulunanCihaz, string AsamaMetni, int PaketSayisi = 0)
+sealed record ScanProgress(int Taranan, int Toplam, int BulunanCihaz, string AsamaMetni, int PaketSayisi = 0, string? Detay = null)
 ```
+
+**Toplam = `hostCount * 2`** — ICMP + TcpPortProbe iki kaynak host başına +1 atar. Yüzde = `Taranan/Toplam`. ICMP bittiğinde %50, TCP-Port da bittiğinde %100. Tek probe'la erken %100 görünmesi engellendi.
+
+**`Detay`** opsiyonel — probe/listener başlangıç/bitiş bildirimi (UI overlay'ine son işlem satırı). Örn: `▶ Subnet 192.168.1.0/24 başlatıldı`, `📡 Listener'lar açıldı (5 adet, 8s)`, `⚡ Faz 1 — Hızlı probe'lar başladı (6 adet)`, `✓ ICMP tamamlandı`, `🔍 Faz 2 — Derin probe'lar başladı (4 adet)`.
+
+## Gateway Tespit
+
+`StartScanAsync` sonunda `NetworkInterface.GetAllNetworkInterfaces()`'den `GatewayAddresses` toplanır. Store içinde eşleşen IP'lerin `IsGateway=true` set edilir. `KanitTopla_Gateway` (DeviceClassifier) bu cihazlara `KanitAgirlik.GatewayTur=50` puan ile zorunlu `Router/AP` türü ekler — başka herhangi bir tür kanıtından ağır basar.
 
 ## Probes
 
@@ -94,9 +103,9 @@ sealed record ScanProgress(int Taranan, int Toplam, int BulunanCihaz, string Asa
 
 | Sınıf | Protokol | Keşfeder |
 |---|---|---|
-| `ArpProbe` | ARP | MAC, IP, Online |
+| `ArpProbe` | ARP | MAC, IP, Online (pcap mode sonu `arp -a` cache merge) |
 | `IcmpProbe` | ICMP Echo | PingYanit, PingMs, PingTtl (opsiyonel `onHostDone` callback — progress sayacı için) |
-| `TcpPortProbe` | TCP SYN | AcikPortlar, ServisDetaylari |
+| `TcpPortProbe` | TCP SYN | AcikPortlar, ServisDetaylari (opsiyonel `onHostDone` callback — Faz 1 yüzde sağlıklı doldurmak için) |
 | `NetbiosProbe` | UDP 137 | NetbiosCihazAdi, NetbiosGrupAdi |
 | `LlmnrProbe` | UDP 5355 | LlmnrHostname (PTR parse; `.arpa` reddedilir) |
 | `NdpProbe` | IPv6 NDP | IPv6 komşu |
@@ -118,8 +127,9 @@ sealed record ScanProgress(int Taranan, int Toplam, int BulunanCihaz, string Asa
 |---|---|---|
 | `OnvifWsdListener` | UDP 3702 | ONVIF WS-Discovery + WSD |
 | `SsdpListener` | UDP 1900 | SSDP/UPnP, SsdpFriendlyName |
-| `MdnsListener` | UDP 5353 | MdnsMarka, MdnsTur (25+ servis) |
+| `MdnsListener` | UDP 5353 | MdnsMarka, MdnsTur (25+ servis) + DNS message parse → `<host>.local` → `DnsAdi` |
 | `PassivePacketSniffer` | pcap | MAC lookup (Npcap varsa) |
+| `DhcpListener` | UDP 67/68 (pcap) | DhcpHostname, DhcpVendorClass, DhcpFingerprint (Npcap varsa). BPF: `udp port 67 or 68`. BOOTP + Options 12/55/60 parse |
 | `MndpListener` *(derin)* | UDP 5678 | MikroTikBoard, Identity |
 | `UbiquitiListener` *(derin)* | UDP 10001 | UbntPlatform, Firmware |
 
@@ -139,4 +149,6 @@ Kanıt tabanlı sınıflandırma `Partials/MainWindow.DeviceClassifier.cs`'de:
 - `MarkaNormalize(string)` — vendor normalize (Hikvision, Dahua, MikroTik, TP-Link, Apple, vb.).
 - `KimlikBelirleV2(DeviceInfo)` — `CihazKimlik { Marka, Model, Tur, TurIkon }` döner.
 
-Kanıt sırası (yüksek güven → düşük): Ubiquiti TLV → MikroTik identity → HTTP fingerprint → SNMP → ONVIF+WSD → mDNS tür → SSDP manufacturer → NetBIOS+SMB → OUI vendor → port pattern fallback.
+Kanıt sırası (yüksek güven → düşük): Gateway IP (50) → Ubiquiti TLV (50/60) → MikroTik identity (50/60) → HTTP fingerprint (35/55) → SNMP (45/50) → ONVIF+WSD (45) → DHCP vendor class (35) → mDNS tür (40) → SSDP manufacturer (30/35) → NetBIOS+SMB (25/35) → OUI vendor (40 marka / 18 tür) → port pattern fallback (10-25).
+
+`KanitAgirlik` sabitleri: `Services/Discovery/Classification/ClassificationTypes.cs`. `MinKararEsigi=12` — eşiğin altındaki kanıtlar UI'a yansımaz.

@@ -1,5 +1,50 @@
 # Değişiklik Geçmişi
 
+## v0.4.2 — Cihaz Tara Sınıflandırma + Opensource Entegrasyon (2026-05-20)
+
+### Sınıflandırma Bug Fix (Marka→Tür aktarımı)
+
+- **`KanitAgirlik.OuiTur` 10 → 18** — `MinKararEsigi=12` eşiğini geçemediği için OUI'den gelen tür ipucu (TP-Link → Router/AP, Samsung → Telefon, Hikvision → Kamera) UI'a yansımıyordu. Marka 40 puan eşiği geçiyordu, tür kalıyordu.
+- **`GatewayTur=50`** yeni ağırlık + `KanitTopla_Gateway` — NIC default gateway IP'leri zorunlu `Router/AP` türü alır. `DeviceDiscoveryEngine.StartScanAsync` sonunda `NetworkInterface.GetAllNetworkInterfaces().GatewayAddresses` ile eşleme yapılır, `DeviceInfo.IsGateway=true` set edilir.
+- **Samsung Galaxy model regex** — `KanitTopla_AdHostname`'e `SM-G/A/N` (telefon) + `SM-T` (tablet) + `samsung-sm-` pattern'leri eklendi.
+
+### Cihaz Keşif (Tier 2 — Opensource Entegrasyon)
+
+- **Wireshark `manuf` dosyası** entegre — `Req/wireshark-manuf` (3 MB, 57K kayıt). IEEE `oui.csv`'nin tamamlayıcısı (MA-M/MA-S/private allocation). Lookup sıralaması: `manuf → oui.csv → fallback`. Full vendor adı `KisaltVendor` ile temizlenir ("Reolink Innovation Limited" → "Reolink"; "Tp-Link Technologies Co.,Ltd." → "TP-Link").
+- **DHCP pasif sniff** — yeni `Services/Discovery/Listeners/DhcpListener.cs`. SharpPcap BPF `udp port 67 or 68`, BOOTP magic cookie + TLV options parse. Yakalanan alanlar:
+  - **Option 12** (Host Name) → `DeviceInfo.DhcpHostname` → `CihazAdiSec` sıralamasına eklendi.
+  - **Option 60** (Vendor Class Identifier) → `DeviceInfo.DhcpVendorClass`. İmzalar: `MSFT 5.0` → Windows/Bilgisayar, `android-dhcp-13` → Telefon, `udhcp`/`dhcpcd`/`busybox` → Linux IoT, `dahua`/`hikvision`/`axis` → Kamera, `ubiquiti`/`ubnt` → Router/AP, `apple`/`iphone` → Apple.
+  - **Option 55** (Parameter Request List) → `DhcpFingerprint` (gelecek nmap-os-db entegrasyonu için saklı).
+- **`KanitKaynak` enum** +Gateway, +Dhcp.
+- **`KanitAgirlik`** +GatewayTur=50, +DhcpHostname=22, +DhcpVendorClass=35.
+
+### Önceki Sprint İçeriği (aynı v0.4.x sprint)
+
+- **mDNS hostname parse** — `MdnsListener` DNS message parser. SRV target + A record name + PTR fallback'tan `<host>.local` extract edilir. iPhone/iPad/Mac/Chromecast/AirPlay/printer/IoT cihaz isimleri `Ad` sütununa düşer.
+- **Default port listesi 19 → 26** — 21 (FTP), 515 (LPR), 631 (IPP), 1883 (MQTT), 5060 (SIP), 9100 (HP JetDirect), 34567 (XMeye DVR). Yazıcılar artık fingerprint'siz keşfedilir (mevcut `KanitTopla_PortPattern` zaten bu portları sınıflandırıyordu — ölü dal canlandı).
+- **ARP cache merge** — `ArpProbe.TryRunWithPcapAsync` sonunda `RunWithArpCacheAsync` çağrılır. Pcap probe'a yanıt vermeyen ama Windows ARP cache'inde olan cihazlar yakalanır.
+- **Sınıflandırma pattern + SNMP imza ek** — `MarkaIpuclari` +34 kayıt (Yealink/Polycom/Grandstream SIP, Eero/Nest/Orbi/Deco mesh router, Yi/Tapo/Wyze/Ring/Arlo/Eufy/Imou kamera, OKI/Sharp yazıcı, Buffalo/WD NAS). `SnmpImzalari` +7 regex (Ubiquiti/EdgeOS/UniFi/DSM/QTS/Buffalo/My Cloud).
+- **`MarkaNormalize`** +16 satır (Yi/Wyze/Ring/Arlo/Eero/Yealink/Polycom/Grandstream/Snom/Buffalo/WD/Philips/Ecobee/OKI/Sharp/Snom).
+
+### Cihaz Tara UI
+
+- **Tarama ilerleme paneli** (`ScanProgressPanel`) — `KameraPanel` Grid.Row=5 (DataGrid altı, sticky, mavi çerçeve). Yapı:
+  - `ScanProgressAsama` (üst-sol) — aşama metni (subnet/host sayısı/faz)
+  - `ScanProgressYuzde` (üst-sağ, bold mavi) — `%67 · 8 cihaz`
+  - `ScanProgressBar` (orta, 6px) — ProgressBar yüzde değeri
+  - `ScanProgressDetay` (alt) — probe/listener bazlı son işlem (`▶ Subnet ... başlatıldı`, `📡 Listener'lar açıldı (5 adet, 8s)`, `⚡ Faz 1 — Hızlı probe'lar başladı (6 adet)`, `✓ ICMP tamamlandı`, vb.)
+- **`ScanProgress.Detay`** opsiyonel alan — engine probe/listener başlangıç/bitiş bildirimi için ek kanal.
+
+### Yüzde Sayacı Fix
+
+- **`TcpPortProbe`'a `onHostDone` callback** eklendi (`IcmpProbe` ile aynı pattern). `DeviceDiscoveryEngine.BuildFastProbes` ikisine de callback bağlar.
+- **`toplam = hostCount * 2`** — ICMP + TCP-Port iki kaynak host başına +1 atar. ICMP hızlı biter (~3s) → bar %50; TCP-Port uzun sürer (~30-60s) → bar 50→100. Önceden sadece ICMP sayıyordu → %100 erken görünüyordu, tarama devam ediyordu.
+
+### Önceki Bug Fix (aynı sprint)
+
+- **`DeviceDiscoveryEngine` host counter** — eskiden subnet başına `WhenAll` sonu tek seferde `+= 254` atılıyordu → tarama esnasında bar `0/254` sabit kalıyordu. `IcmpProbe.onHostDone` callback + `Interlocked.Increment` ile real-time progress.
+- **`DeviceStoreTests.GetOrAdd_NewIp_CreatesEntry`** fail fix — `Online` default `true` → `false` (phantom guard sonrası).
+
 ## v0.4.0 — 2026-05-19
 
 ### Bug düzeltmeleri (phantom device + OUI + test projesi)

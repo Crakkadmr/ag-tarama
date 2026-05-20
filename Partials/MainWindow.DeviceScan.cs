@@ -79,6 +79,7 @@ public partial class MainWindow
             b.SmbComputerName,
             KisaHostAdi(b.LlmnrHostname),
             KisaHostAdi(b.DnsAdi),
+            KisaHostAdi(b.DhcpHostname),
             KisaHostAdi(b.PingAdi),
             b.OnvifAdi,
             b.SsdpFriendlyName);
@@ -447,6 +448,9 @@ public partial class MainWindow
         KameraAiBtn.IsEnabled      = false;
         KameraIlerlemeText.Text    = "Baslatiliyor...";
 
+        // Tarama ilerleme overlay'i — sticky non-modal, sağ-alt köşede
+        ScanOverlayShow("Başlatılıyor...");
+
         bool derinTara = KameraDerinTaraCheck?.IsChecked == true;
         bool liveMode  = KameraLiveCheck?.IsChecked == true;
 
@@ -484,6 +488,7 @@ public partial class MainWindow
             {
                 KameraIlerlemeText.Text    = p.AsamaMetni;
                 KameraFiltreSayacText.Text = $"{p.BulunanCihaz} cihaz";
+                ScanOverlayUpdate(p);
             }));
 
         try
@@ -548,6 +553,51 @@ public partial class MainWindow
             KameraBaslatBtn.IsEnabled  = true;
             KameraDurdurBtn.Visibility = Visibility.Collapsed;
             KameraAiBtn.IsEnabled      = _kameraSatirlari.Count > 0;
+            ScanOverlayHide();
+        }
+    }
+
+    // ── Tarama ilerleme paneli (DataGrid altı, sticky) ───
+    // Progress<ScanProgress> akışından beslenir. % bar + üstünde yüzde metni + son işlem detayı.
+    private string? _scanProgressSonDetay;
+
+    private void ScanOverlayShow(string asama)
+    {
+        if (ScanProgressPanel == null) return;
+        _scanProgressSonDetay  = null;
+        ScanProgressAsama.Text = asama;
+        ScanProgressYuzde.Text = "%0";
+        ScanProgressBar.Value  = 0;
+        ScanProgressDetay.Text = "";
+        ScanProgressPanel.Visibility = Visibility.Visible;
+    }
+
+    private void ScanOverlayHide()
+    {
+        if (ScanProgressPanel == null) return;
+        ScanProgressPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private void ScanOverlayUpdate(ScanProgress p)
+    {
+        if (ScanProgressPanel == null || ScanProgressPanel.Visibility != Visibility.Visible) return;
+
+        // ProgressBar değeri + % metni (bar'ın üzerinde).
+        // Toplam = hostCount * 2 (ICMP + TcpPortProbe). UI'a sadece yüzde + cihaz sayısı.
+        double yuzde = p.Toplam > 0 ? Math.Clamp(100.0 * p.Taranan / p.Toplam, 0, 100) : 0;
+        ScanProgressBar.Value  = yuzde;
+        ScanProgressYuzde.Text = p.Toplam > 0
+            ? $"%{(int)yuzde}  ·  {p.BulunanCihaz} cihaz"
+            : $"·  {p.BulunanCihaz} cihaz";
+
+        ScanProgressAsama.Text = string.IsNullOrWhiteSpace(p.AsamaMetni) ? "İşleniyor..." : p.AsamaMetni;
+
+        // Son işlem detayı — duplicate'ı önle
+        var detay = string.IsNullOrWhiteSpace(p.Detay) ? null : p.Detay.Trim();
+        if (detay != null && detay != _scanProgressSonDetay)
+        {
+            _scanProgressSonDetay  = detay;
+            ScanProgressDetay.Text = detay;
         }
     }
 

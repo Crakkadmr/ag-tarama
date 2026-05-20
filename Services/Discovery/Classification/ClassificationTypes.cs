@@ -6,7 +6,7 @@ internal enum KanitKaynak
 {
     HttpFp, Ubiquiti, MikroTik, Snmp, Onvif, Wsd, Ssdp, Mdns,
     Netbios, OuiMac, PortPattern, Banner, Ttl, AdHostname,
-    Llmnr, Smb, Ssh, ArpActive,
+    Llmnr, Smb, Ssh, ArpActive, Gateway, Dhcp,
 }
 
 internal sealed record TurAdayi(string Tur, int Agirlik, KanitKaynak Kaynak, string Detay);
@@ -38,9 +38,12 @@ internal static class KanitAgirlik
     public const int MdnsMarka             = 30;
     public const int NetbiosTur            = 25;
     public const int NetbiosMarka          = 5;
-    public const int OuiTur                = 10;
+    public const int OuiTur                = 18;   // MinKararEsigi=12'yi geçer
     public const int OuiMarka              = 40;
     public const int ArpMacOuiActive       = 15;
+    public const int GatewayTur            = 50;   // Gateway IP zorunlu Router/AP
+    public const int DhcpHostname          = 22;
+    public const int DhcpVendorClass       = 35;
     public const int PortPatternStrong     = 25;
     public const int PortPatternWeak       = 10;
     public const int BannerTur             = 20;

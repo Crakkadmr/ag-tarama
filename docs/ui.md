@@ -54,6 +54,8 @@ DataGrid sütunları: IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif (130px),
 
 Sağ tık menüsü: Web Arayüzü Aç, Ping Testi, Port Tara, Traceroute, DNS Lookup, IP Kopyala, Favorilere Ekle, **Bu cihazı yeniden tara**, Export (Excel/PDF/TXT/CSV/JSON).
 
+**Tarama ilerleme paneli (`ScanProgressPanel`, Grid.Row=5 — DataGrid altı):** Tarama süresince görünür sticky panel (mavi `#1F6FEB` çerçeve). `ScanProgressAsama` (aşama + host sayısı), `ScanProgressYuzde` (sağ-üst bold, `%67 · 8 cihaz`), `ScanProgressBar` (6px ProgressBar), `ScanProgressDetay` (probe/listener bazlı son işlem). `ScanOverlayShow/Update/Hide` (`MainWindow.DeviceScan.cs`) `Progress<ScanProgress>` akışından beslenir. Tarama bitince Collapsed.
+
 **TabItem stili:** Consolas 12pt, `#8B949E` fg, transparent. Seçilince alt kenarlık `#2F81F7` (2px), bg `#0D1F2F`, metin `#58A6FF`. Hover: bg `#161B22`, metin `#C9D1D9`. CornerRadius=6,6,0,0.
 
 Sekme geçişi: `MainTabControl.SelectedIndex = TabXxx` (sabitler `MainWindow.xaml.cs`'de).

@@ -5,4 +5,5 @@ internal sealed record ScanProgress(
     int Toplam,
     int BulunanCihaz,
     string AsamaMetni,
-    int PaketSayisi = 0);
+    int PaketSayisi = 0,
+    string? Detay = null);

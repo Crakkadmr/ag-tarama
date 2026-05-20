@@ -13,7 +13,40 @@ internal static class OuiVendorLookup
 {
     public sealed record OuiBilgi(string Vendor, string? TurIpucu, bool Mobil);
 
-    private static readonly Lazy<Dictionary<string, string>> _csv = new(YukleCsv);
+    private static readonly Lazy<Dictionary<string, string>> _csv   = new(YukleCsv);
+    private static readonly Lazy<Dictionary<string, string>> _manuf = new(YukleManuf);
+
+    // Wireshark `manuf` formatı: MAC<TAB>short-vendor<TAB>full-vendor # comment
+    // IEEE oui.csv'nin tamamlayıcısı; private allocation + temizlenmiş kısa isimler içerir.
+    // Yalnız /24 (24-bit MA-L) prefix'leri yüklüyoruz; /28 ve /36 MA-M/MA-S formatları ileride.
+    private static Dictionary<string, string> YukleManuf()
+    {
+        var sonuc = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var yol = Path.Combine(AppContext.BaseDirectory, "Req", "wireshark-manuf");
+            if (!File.Exists(yol)) return sonuc;
+            foreach (var raw in File.ReadLines(yol))
+            {
+                var line = raw;
+                if (line.Length == 0 || line[0] == '#') continue;
+                var hashIdx = line.IndexOf('#');
+                if (hashIdx > 0) line = line[..hashIdx].TrimEnd();
+                var parts = line.Split('\t', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (parts.Length < 2) continue;
+                var prefix = parts[0];
+                // Sadece XX:XX:XX (8 char) /24 prefix'leri kabul et; /28 ve /36 atla.
+                if (prefix.Length != 8 || prefix[2] != ':' || prefix[5] != ':') continue;
+                // Tercih: 3. kolondaki full vendor adı → KisaltVendor ile temizle ("Reolink Innovation Limited" → "Reolink").
+                // 3. kolon yoksa 2. kolondaki Wireshark kısa adı (max 12 char, kesik olabilir).
+                var vendor = parts.Length >= 3 ? KisaltVendor(parts[2]) : parts[1].Trim();
+                if (vendor.Length == 0) continue;
+                sonuc[prefix.ToUpperInvariant()] = vendor;
+            }
+        }
+        catch { /* manuf dosyası bozuksa sessiz fallback */ }
+        return sonuc;
+    }
 
     private static Dictionary<string, string> YukleCsv()
     {
@@ -144,6 +177,9 @@ internal static class OuiVendorLookup
         if (!MacUtils.IsValidUnicast(mac)) return null; // rejects 00:00:00, broadcast, multicast
         var prefix = MacUtils.OuiPrefix(mac);
         if (prefix == null) return null;
+        // Sıralama: Wireshark manuf (temizlenmiş isim) → IEEE oui.csv → built-in fallback.
+        var manuf = _manuf.Value;
+        if (manuf.Count > 0 && manuf.TryGetValue(prefix, out var w)) return w;
         var db = _csv.Value;
         if (db.Count > 0 && db.TryGetValue(prefix, out var v)) return v;
         return Fallback.TryGetValue(prefix, out var f) ? f : null;

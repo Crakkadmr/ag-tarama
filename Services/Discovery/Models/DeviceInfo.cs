@@ -59,4 +59,12 @@ internal sealed class DeviceInfo
     public DateTime  FirstSeen       { get; set; } = DateTime.Now;
     public DateTime  LastSeen        { get; set; } = DateTime.Now;
     public bool      Online          { get; set; } = false;
+
+    // Gateway tespit (Tier 1 — DeviceDiscoveryEngine NIC GatewayAddresses ile set eder)
+    public bool      IsGateway       { get; set; } = false;
+
+    // DHCP pasif sniff (Tier 2 — DhcpListener Option 12/55/60 parse eder)
+    public string?   DhcpHostname    { get; set; }
+    public string?   DhcpVendorClass { get; set; }
+    public string?   DhcpFingerprint { get; set; }
 }

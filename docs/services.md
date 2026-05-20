@@ -253,7 +253,11 @@ static Task<IReadOnlyList<MndpKaydi>> TaraAsync(string subnet, CancellationToken
 
 ## OuiVendorLookup.cs
 
-MAC OUI prefix → üretici. Önce `Req/oui.csv` (IEEE MA-L, ~30K), başarısız ise built-in fallback (~100).
+MAC OUI prefix → üretici. Lookup sıralaması:
+
+1. **`Req/wireshark-manuf`** (~57K kayıt, MA-L/MA-M/MA-S, Wireshark resmi listesi — full vendor adı `KisaltVendor` ile temizlenir)
+2. **`Req/oui.csv`** (IEEE MA-L, ~30K)
+3. **Built-in fallback** (~100 yaygın OUI)
 
 ```csharp
 static string? Bul(string? mac)
@@ -261,6 +265,8 @@ static OuiBilgi? BulDetay(string? mac)   // sealed record(Vendor, TurIpucu, Mobi
 ```
 
 **Phantom guard:** `Bul`/`BulDetay` `IsValidUnicast(mac)` kontrolü — geçersiz MAC (all-zero, multicast) vendor eşlemesi almaz.
+
+**Wireshark manuf:** GPL'li Wireshark projesinin OUI veri kaynağı. https://www.wireshark.org/download/automated/data/manuf adresinden manuel indirilir, `Req/wireshark-manuf` olarak kaydedilir. IEEE listesinin temizlenmiş kısa adlarını + private allocation (MA-M/MA-S) kayıtlarını içerir. Format: `<MAC-prefix>\t<short-vendor>\t<full-vendor> # opsiyonel yorum`. Yalnız /24 (8 char "XX:XX:XX") prefix'leri yüklenir; /28 ve /36 atlanır.
 
 **`KisaltVendor`** — IEEE şirket adından kısa form. Kırpılan: `, Ltd.` ` Ltd` ` Limited` ` Foundation` ` Innovation Limited` ` Innovation` `, Inc.` ` LLC` ` Corporation` ` Corp.` ` GmbH` ` AG` ` Technology` ` Technologies` ` Electronics` ` Networks` ` Communications` ` Systems` ` Solutions` ` International` `(Shenzhen)` `(Shanghai)`.
 

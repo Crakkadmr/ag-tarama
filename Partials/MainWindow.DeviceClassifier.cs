@@ -55,6 +55,21 @@ public partial class MainWindow
         if (lower.Contains("raspberry"))     return "Raspberry Pi";
         if (lower.Contains("espressif"))     return "Espressif";
         if (lower.Contains("vmware"))        return "VMware";
+        if (lower.Contains("yi technology") || lower == "yi") return "Yi";
+        if (lower.Contains("wyze"))          return "Wyze";
+        if (lower.Contains("ring"))          return "Ring";
+        if (lower.Contains("arlo"))          return "Arlo";
+        if (lower.Contains("eero"))          return "Eero";
+        if (lower.Contains("yealink"))       return "Yealink";
+        if (lower.Contains("polycom"))       return "Polycom";
+        if (lower.Contains("grandstream"))   return "Grandstream";
+        if (lower.Contains("snom"))          return "Snom";
+        if (lower.Contains("buffalo"))       return "Buffalo";
+        if (lower.Contains("western digital") || lower.Contains("wd my cloud")) return "WD";
+        if (lower.Contains("philips"))       return "Philips";
+        if (lower.Contains("ecobee"))        return "Ecobee";
+        if (lower.Contains("oki"))           return "OKI";
+        if (lower.Contains("sharp"))         return "Sharp";
         if (lower.Contains("microsoft") || lower.Contains("iis") || lower.Contains("windows"))
                                               return "Windows";
         return m;
@@ -66,6 +81,8 @@ public partial class MainWindow
         var turL   = new List<TurAdayi>();
         var markaL = new List<MarkaAdayi>();
 
+        KanitTopla_Gateway(b, turL, markaL);   // Gateway IP → zorunlu Router/AP (yüksek öncelik)
+        KanitTopla_Dhcp(b, turL, markaL);      // DHCP Option 12/60 → hostname + vendor class
         KanitTopla_HttpFp(b, turL, markaL);
         KanitTopla_Ubiquiti(b, turL, markaL);
         KanitTopla_MikroTik(b, turL, markaL);
@@ -238,6 +255,14 @@ public partial class MainWindow
         (new Regex(@"\bLinux\b",               RegexOptions.IgnoreCase), null,           "Linux IoT"),
         (new Regex(@"Hardware:.*Windows",      RegexOptions.IgnoreCase), "Windows",      "Bilgisayar"),
         (new Regex(@"\bVxWorks\b",             RegexOptions.IgnoreCase), null,           "Akıllı Cihaz"),
+        (new Regex(@"\bUbiquiti\b",            RegexOptions.IgnoreCase), "Ubiquiti",     "Router/AP"),
+        (new Regex(@"\bEdgeOS\b",              RegexOptions.IgnoreCase), "Ubiquiti",     "Router/AP"),
+        (new Regex(@"\bUniFi\b",               RegexOptions.IgnoreCase), "Ubiquiti",     "Erişim Noktası"),
+        (new Regex(@"\bDSM\b",                 RegexOptions.IgnoreCase), "Synology",     "NAS"),
+        (new Regex(@"\bQTS\b",                 RegexOptions.IgnoreCase), "QNAP",         "NAS"),
+        (new Regex(@"\bBuffalo\b",             RegexOptions.IgnoreCase), "Buffalo",      "NAS"),
+        (new Regex(@"\bTrueNAS\b",             RegexOptions.IgnoreCase), "TrueNAS",      "NAS"),
+        (new Regex(@"\bMy Cloud\b|\bWD My Cloud\b", RegexOptions.IgnoreCase), "WD",      "NAS"),
     };
 
     private static void KanitTopla_Snmp(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
@@ -538,6 +563,50 @@ public partial class MainWindow
         ("tizen",            "Samsung",        "Akıllı TV"),
         ("microsoft-iis",    "Windows",        "Bilgisayar"),
         ("iis/",             "Windows",        "Bilgisayar"),
+
+        // ─── IP Telefon (SIP) ───
+        ("yealink",          "Yealink",        "Telefon"),
+        ("polycom",          "Polycom",        "Telefon"),
+        ("grandstream",      "Grandstream",    "Telefon"),
+        ("cisco ip phone",   "Cisco",          "Telefon"),
+        ("snom",             "Snom",           "Telefon"),
+        ("avaya",            "Avaya",          "Telefon"),
+
+        // ─── Mesh / Modern Router ───
+        ("eero",             "Eero",           "Router/AP"),
+        ("google nest",      "Google",         "Router/AP"),
+        ("nest wifi",        "Google",         "Router/AP"),
+        ("orbi",             "NETGEAR",        "Router/AP"),
+        ("deco",             "TP-Link",        "Router/AP"),
+        ("aruba instant",    "Aruba",          "Erişim Noktası"),
+
+        // ─── Kamera ek ───
+        ("yi technology",    "Yi",             "Kamera"),
+        ("yitechnology",     "Yi",             "Kamera"),
+        ("tapo",             "TP-Link",        "Kamera"),
+        ("wyze",             "Wyze",           "Kamera"),
+        ("nest cam",         "Google",         "Kamera"),
+        ("ring",             "Ring",           "Kamera"),
+        ("arlo",             "Arlo",           "Kamera"),
+        ("eufy",             "Eufy",           "Kamera"),
+        ("imou",             "Imou",           "Kamera"),
+
+        // ─── Akıllı Cihaz ek ───
+        ("philips hue",      "Philips",        "Akıllı Cihaz"),
+        ("ecobee",           "Ecobee",         "Akıllı Cihaz"),
+        ("nest learning",    "Google",         "Akıllı Cihaz"),
+        ("smartthings",      "Samsung",        "Akıllı Cihaz"),
+
+        // ─── Yazıcı ek ───
+        ("oki data",         "OKI",            "Yazıcı"),
+        ("sharp",            "Sharp",          "Yazıcı"),
+        ("toshiba e-studio", "Toshiba",        "Yazıcı"),
+
+        // ─── NAS ek ───
+        ("buffalo",          "Buffalo",        "NAS"),
+        ("wd my cloud",      "WD",             "NAS"),
+        ("western digital",  "WD",             "NAS"),
+        ("seagate ironwolf", "Seagate",        "NAS"),
     };
 
     private static readonly (Regex Pattern, string? Marka, string? Tur)[] MarkaIpuclariRegex =
@@ -609,9 +678,78 @@ public partial class MainWindow
             markaL.Add(new MarkaAdayi("Google", KanitAgirlik.AdHostnameMarka, KanitKaynak.AdHostname, "pixel"));
             turL.Add(new TurAdayi("Telefon", KanitAgirlik.AdHostnameTur, KanitKaynak.AdHostname, "pixel"));
         }
+        // Samsung Galaxy model kodları — SM-G991, SM-A526, SM-N986 (telefon); SM-T970 (tablet)
+        else if (Regex.IsMatch(ad, @"\bsm-t\d+", RegexOptions.IgnoreCase))
+        {
+            markaL.Add(new MarkaAdayi("Samsung", KanitAgirlik.AdHostnameMarka, KanitKaynak.AdHostname, "sm-tablet"));
+            turL.Add(new TurAdayi("Tablet", KanitAgirlik.AdHostnameTur, KanitKaynak.AdHostname, "sm-tablet"));
+        }
+        else if (Regex.IsMatch(ad, @"\bsm-[a-z]\d+", RegexOptions.IgnoreCase) ||
+                 Regex.IsMatch(ad, @"\bsamsung-sm-", RegexOptions.IgnoreCase))
+        {
+            markaL.Add(new MarkaAdayi("Samsung", KanitAgirlik.AdHostnameMarka, KanitKaynak.AdHostname, "sm-model"));
+            turL.Add(new TurAdayi("Telefon", KanitAgirlik.AdHostnameTur, KanitKaynak.AdHostname, "sm-model"));
+        }
         else if (Regex.IsMatch(ad, @"\b(desktop|laptop)-\w+"))
             turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.AdHostnameTur, KanitKaynak.AdHostname, "desktop-/laptop-"));
         else if (Regex.IsMatch(ad, @"\b(pc|win)-\w+"))
             turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.AdHostnameTur - 10, KanitKaynak.AdHostname, "pc-/win-"));
+    }
+
+    // ── Gateway IP zorunlu Router/AP ───
+    private static void KanitTopla_Gateway(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    {
+        if (!b.IsGateway) return;
+        turL.Add(new TurAdayi("Router/AP", KanitAgirlik.GatewayTur, KanitKaynak.Gateway, "gateway-ip"));
+    }
+
+    // ── DHCP Option 12 (hostname) + Option 60 (vendor class) ───
+    private static void KanitTopla_Dhcp(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    {
+        var vc = (b.DhcpVendorClass ?? "").ToLowerInvariant();
+        var hn = (b.DhcpHostname ?? "").ToLowerInvariant();
+        if (vc.Length == 0 && hn.Length == 0) return;
+
+        // Vendor Class Identifier imzaları (RFC 2131 Option 60)
+        if (vc.StartsWith("msft", StringComparison.Ordinal))
+        {
+            markaL.Add(new MarkaAdayi("Windows",   KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+            turL.Add(new TurAdayi("Bilgisayar",    KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+        }
+        else if (vc.StartsWith("android-dhcp", StringComparison.Ordinal))
+        {
+            turL.Add(new TurAdayi("Telefon", KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+        }
+        else if (vc.Contains("udhcp", StringComparison.Ordinal) ||
+                 vc.Contains("dhcpcd", StringComparison.Ordinal) ||
+                 vc.Contains("busybox", StringComparison.Ordinal))
+        {
+            turL.Add(new TurAdayi("Linux IoT", KanitAgirlik.DhcpVendorClass - 5, KanitKaynak.Dhcp, vc));
+        }
+        else if (vc.Contains("dahua", StringComparison.Ordinal) || hn.Contains("dahua", StringComparison.Ordinal))
+        {
+            markaL.Add(new MarkaAdayi("Dahua", KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+            turL.Add(new TurAdayi("Kamera",   KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+        }
+        else if (vc.Contains("hikvision", StringComparison.Ordinal) || hn.Contains("hikvision", StringComparison.Ordinal))
+        {
+            markaL.Add(new MarkaAdayi("Hikvision", KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+            turL.Add(new TurAdayi("Kamera",        KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+        }
+        else if (vc.Contains("axis", StringComparison.Ordinal))
+        {
+            markaL.Add(new MarkaAdayi("Axis", KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+            turL.Add(new TurAdayi("Kamera",  KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+        }
+        else if (vc.Contains("ubiquiti", StringComparison.Ordinal) || vc.Contains("ubnt", StringComparison.Ordinal))
+        {
+            markaL.Add(new MarkaAdayi("Ubiquiti", KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+            turL.Add(new TurAdayi("Router/AP",    KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+        }
+        else if (vc.Contains("apple", StringComparison.Ordinal) || hn.Contains("iphone", StringComparison.Ordinal))
+        {
+            markaL.Add(new MarkaAdayi("Apple", KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
+        }
+        // Hostname → CihazAdiSec sıralaması üzerinden UI'a düşer; DhcpHostname=22 ek küçük tür ağırlığı yok.
     }
 }

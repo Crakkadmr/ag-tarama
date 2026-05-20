@@ -106,6 +106,11 @@ internal sealed class ArpProbe : IProbe
             bilgi.KesifKaynaklari.Add("ARP");
             store.NotifyChanged(bilgi);
         }
+
+        // Pcap probe sonrası Windows ARP cache'inde olan ekstra cihazları merge et.
+        // Pcap'in yanıtsız bıraktığı (örn. cihaz başka subnet aracılığıyla daha önce konuşmuş) MAC'ler buradan gelir.
+        // store.GetOrAdd idempotent — pcap yanıtıyla çakışma yok.
+        await RunWithArpCacheAsync(subnet, store, token).ConfigureAwait(false);
         return true;
     }
 

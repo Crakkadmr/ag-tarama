@@ -9,6 +9,13 @@ namespace AgTarama.Services.Discovery.Probes;
 
 internal sealed class TcpPortProbe : IProbe
 {
+    private readonly Action? _onHostDone;
+
+    public TcpPortProbe(Action? onHostDone = null)
+    {
+        _onHostDone = onHostDone;
+    }
+
     public string Name => "TCP-Port";
 
     public async Task RunRangeAsync(
@@ -48,6 +55,8 @@ internal sealed class TcpPortProbe : IProbe
                 bilgi.KesifKaynaklari.Add("Port");
                 store.NotifyChanged(bilgi);
             }
+
+            _onHostDone?.Invoke();
         }, token));
 
         await Task.WhenAll(tasks).ConfigureAwait(false);

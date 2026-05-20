@@ -62,6 +62,17 @@
 - **`licenses_view` security_invoker** — `docs/licensing.md`'de düzeltme yazıyor ama Supabase canlı durumu lokal doğrulanmadı. RLS bypass riski olabilir.
 - **`generate_license_key()`, `insert_license_*()`** — fonksiyonlarda `search_path` mutable (Supabase advisor WARN).
 
+## Opensource Veri Entegrasyonları
+
+| Kaynak | Durum | Kullanım |
+|---|---|---|
+| **IEEE OUI CSV** (`Req/oui.csv`) | Aktif | MA-L vendor lookup (~30K kayıt) |
+| **Wireshark manuf** (`Req/wireshark-manuf`) | Aktif (v0.4.2) | IEEE'nin tamamlayıcısı, temizlenmiş isimler + private allocation (~57K kayıt). Manuel update: https://www.wireshark.org/download/automated/data/manuf |
+| **DHCP fingerprint** (lokal parse) | Aktif (v0.4.2) | RFC 2131 Option 12/55/60 — SharpPcap + PacketDotNet ile. `DhcpListener` |
+| **fingerbank.org API** | Aday | Cihaz fingerprint cloud DB. Free tier 10k req/ay, API key + internet bağlantısı. Opt-in Settings entegrasyonu. |
+| **Nmap nmap-os-db** | Aday | Pasif TCP/IP fingerprint (TTL+window+options). PassivePacketSniffer'a entegre edilebilir. ~10K imza, kompleks parser. |
+| **IANA Private Enterprise Numbers** | Aday | SNMP sysObjectID prefix → vendor. ~30K kayıt, plain text. `SnmpFingerprintService`'e ek `sysObjectID` query. |
+
 ## Gelecek Karar Bekleyenler
 
 - Process adapter pattern uygula? (Test edilebilirlik kazancı vs. boilerplate maliyeti.)

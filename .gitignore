@@ -4,3 +4,4 @@ binpublish/
 captures/
 *.user
 .vs/
+.superpowers/

@@ -100,6 +100,9 @@ public partial class MainWindow
         KanitTopla_Banner(b, turL, markaL);
         KanitTopla_Ttl(b, turL, markaL);
         KanitTopla_AdHostname(b, turL, markaL);
+        KanitTopla_Telnet(b, turL, markaL);
+        KanitTopla_Rtsp(b, turL, markaL);
+        KanitTopla_Mqtt(b, turL, markaL);
 
         var turGruplu = turL
             .GroupBy(x => (x.Tur, x.Kaynak))
@@ -751,5 +754,35 @@ public partial class MainWindow
             markaL.Add(new MarkaAdayi("Apple", KanitAgirlik.DhcpVendorClass, KanitKaynak.Dhcp, vc));
         }
         // Hostname → CihazAdiSec sıralaması üzerinden UI'a düşer; DhcpHostname=22 ek küçük tür ağırlığı yok.
+    }
+
+    private static void KanitTopla_Telnet(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    {
+        if (string.IsNullOrWhiteSpace(b.TelnetBanner)) return;
+        var (marka, tur) = AgTarama.Services.Discovery.Probes.TelnetBannerProbe.AyrıştırBanner(b.TelnetBanner);
+        turL.Add(new TurAdayi(tur, KanitAgirlik.TelnetBanner, KanitKaynak.Telnet, b.TelnetBanner[..Math.Min(b.TelnetBanner.Length, 60)]));
+        if (marka != null)
+            markaL.Add(new MarkaAdayi(marka, KanitAgirlik.TelnetBanner, KanitKaynak.Telnet, marka));
+    }
+
+    private static void KanitTopla_Rtsp(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    {
+        if (string.IsNullOrWhiteSpace(b.RtspServerHeader)) return;
+        var srv = b.RtspServerHeader.ToLowerInvariant();
+        turL.Add(new TurAdayi("Kamera", KanitAgirlik.RtspServer, KanitKaynak.Rtsp, b.RtspServerHeader));
+        foreach (var (anahtar, marka, _) in MarkaIpuclari)
+        {
+            if (srv.Contains(anahtar, StringComparison.OrdinalIgnoreCase))
+            {
+                markaL.Add(new MarkaAdayi(marka, KanitAgirlik.RtspServer, KanitKaynak.Rtsp, b.RtspServerHeader));
+                break;
+            }
+        }
+    }
+
+    private static void KanitTopla_Mqtt(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
+    {
+        if (!b.MqttBulundu) return;
+        turL.Add(new TurAdayi("Akıllı Cihaz", KanitAgirlik.MqttDevice, KanitKaynak.Mqtt, "mqtt-connack"));
     }
 }

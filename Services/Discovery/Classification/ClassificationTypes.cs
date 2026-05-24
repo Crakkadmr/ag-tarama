@@ -7,6 +7,7 @@ internal enum KanitKaynak
     HttpFp, Ubiquiti, MikroTik, Snmp, Onvif, Wsd, Ssdp, Mdns,
     Netbios, OuiMac, PortPattern, Banner, Ttl, AdHostname,
     Llmnr, Smb, Ssh, ArpActive, Gateway, Dhcp,
+    Telnet, Rtsp, Mqtt,
 }
 
 internal sealed record TurAdayi(string Tur, int Agirlik, KanitKaynak Kaynak, string Detay);
@@ -55,4 +56,7 @@ internal static class KanitAgirlik
     public const int SmbComputerName       = 35;
     public const int SshBanner             = 25;
     public const int MinKararEsigi         = 12;
+    public const int TelnetBanner          = 30;   // Router/switch OS tespiti
+    public const int RtspServer            = 35;   // Kamera RTSP sunucu doğrulaması
+    public const int MqttDevice            = 20;   // IoT/akıllı ev MQTT broker yanıtı
 }

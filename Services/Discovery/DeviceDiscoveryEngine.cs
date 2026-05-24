@@ -35,6 +35,9 @@ internal sealed class DeviceDiscoveryEngine : IDeviceDiscoveryEngine
         new HttpFingerprintProbe(),
         new SmbProbe(),
         new SshBannerProbe(),
+        new TelnetBannerProbe(),
+        new RtspProbe(),
+        new MqttProbe(),
     ];
 
     // ── Listener'lar (broadcast/multicast dinleyiciler) ───────────────

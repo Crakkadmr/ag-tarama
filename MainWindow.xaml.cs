@@ -60,6 +60,7 @@ public partial class MainWindow : Window
     private const int TabGecmis    = 9;
     private const int TabWlan      = 10;
     private const int TabLisans    = 11;
+    private const int TabHarita    = 12;
 
     // ─── Ping paneli ─────────────────────────────────────────────────
     private CancellationTokenSource? _pingCts;

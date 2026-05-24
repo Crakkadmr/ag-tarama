@@ -2045,6 +2045,105 @@
                 </Border>
             </TabItem>
 
+            <!-- ═══ Sekme 12: Harita ═══ -->
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Text="◫  Harita"/>
+                </TabItem.Header>
+                <DockPanel LastChildFill="True">
+                    <!-- Araç çubuğu -->
+                    <Border DockPanel.Dock="Top"
+                            Background="#111827" BorderBrush="#243147" BorderThickness="1"
+                            CornerRadius="8" Padding="10,6" Margin="0,0,0,8">
+                        <WrapPanel>
+                            <Button x:Name="HaritaYenileBtn" Style="{StaticResource PrimaryButton}"
+                                    Height="36" Padding="14,0" Margin="0,2,6,2"
+                                    HorizontalContentAlignment="Center" Click="HaritaYenileBtn_Click"
+                                    ToolTip="Son Cihaz Tara sonucunu haritaya çizer.">
+                                <TextBlock Text="🔄  Tara / Yenile" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                            </Button>
+                            <Button x:Name="HaritaZoomSifirlaBtn" Style="{StaticResource ActionButton}"
+                                    Height="36" Padding="12,0" Margin="0,2,6,2"
+                                    HorizontalContentAlignment="Center" Click="HaritaZoomSifirlaBtn_Click"
+                                    ToolTip="Yakınlaştırma ve kaydırmayı sıfırlar.">
+                                <TextBlock Text="⊙  Görünümü Sıfırla" FontFamily="Consolas" FontSize="12"/>
+                            </Button>
+                            <Button x:Name="HaritaPngBtn" Style="{StaticResource ActionButton}"
+                                    Height="36" Padding="12,0" Margin="0,2,6,2"
+                                    HorizontalContentAlignment="Center" Click="HaritaPngBtn_Click"
+                                    ToolTip="Haritayı PNG görüntüsü olarak kaydeder.">
+                                <TextBlock Text="▤  PNG" FontFamily="Consolas" FontSize="12"/>
+                            </Button>
+                            <Button x:Name="HaritaPdfBtn" Style="{StaticResource ActionButton}"
+                                    Height="36" Padding="12,0" Margin="0,2,0,2"
+                                    HorizontalContentAlignment="Center" Click="HaritaPdfBtn_Click"
+                                    ToolTip="Haritayı PDF raporu olarak kaydeder.">
+                                <TextBlock Text="▦  PDF" FontFamily="Consolas" FontSize="12"/>
+                            </Button>
+                        </WrapPanel>
+                    </Border>
+
+                    <!-- Harita alanı + detay paneli -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Çizim tuvali -->
+                        <Border Grid.Column="0" Background="#0B1220" BorderBrush="#243147"
+                                BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+                            <Grid>
+                                <Canvas x:Name="HaritaCanvas" Background="Transparent"
+                                        MouseWheel="HaritaCanvas_MouseWheel"
+                                        MouseLeftButtonDown="HaritaCanvas_MouseLeftButtonDown"
+                                        MouseMove="HaritaCanvas_MouseMove"
+                                        MouseLeftButtonUp="HaritaCanvas_MouseLeftButtonUp">
+                                    <Canvas.RenderTransform>
+                                        <TransformGroup>
+                                            <ScaleTransform x:Name="HaritaScale" ScaleX="1" ScaleY="1"/>
+                                            <TranslateTransform x:Name="HaritaPan" X="0" Y="0"/>
+                                        </TransformGroup>
+                                    </Canvas.RenderTransform>
+                                </Canvas>
+                                <TextBlock x:Name="HaritaBosMesaj"
+                                           Text="Önce 'Cihaz Tara' sekmesinde bir tarama çalıştırın, sonra burada Tara / Yenile'ye basın."
+                                           Foreground="#8B949E" FontFamily="Consolas" FontSize="13"
+                                           TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="Visible"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Detay paneli (başta gizli) -->
+                        <Border x:Name="HaritaDetayPanel" Grid.Column="1" Width="280"
+                                Background="#161B22" BorderBrush="#243147" BorderThickness="1"
+                                CornerRadius="10" Margin="8,0,0,0" Padding="12"
+                                Visibility="Collapsed">
+                            <DockPanel LastChildFill="True">
+                                <Grid DockPanel.Dock="Top">
+                                    <TextBlock x:Name="HaritaDetayBaslik" Text="" FontFamily="Consolas"
+                                               FontSize="14" FontWeight="Bold" Foreground="#58A6FF"
+                                               TextWrapping="Wrap" Margin="0,0,24,8"/>
+                                    <Button Content="✕" Width="22" Height="22"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Style="{StaticResource ChipButton}"
+                                            Click="HaritaDetayKapat_Click"/>
+                                </Grid>
+                                <Button x:Name="HaritaDetayAiBtn" DockPanel.Dock="Bottom"
+                                        Style="{StaticResource PrimaryButton}" Height="34" Margin="0,8,0,0"
+                                        HorizontalContentAlignment="Center" Click="HaritaDetayAiBtn_Click">
+                                    <TextBlock Text="🤖 AI Rapor" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                                </Button>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel x:Name="HaritaDetayIcerik"/>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </DockPanel>
+            </TabItem>
+
         </TabControl>
 
         <!-- ═══ F12 Komut Konsolu ═══ -->

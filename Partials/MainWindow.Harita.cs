@@ -17,6 +17,9 @@ public partial class MainWindow
     private const double HaritaDugumBoyut = 46;
     private IReadOnlyList<MapNode> _haritaDugumler = Array.Empty<MapNode>();
     private DeviceInfo? _haritaSecili;
+    private bool _haritaPanAktif;
+    private Point _haritaPanBaslangic;
+    private double _haritaPanX0, _haritaPanY0;
 
     private void HaritaYenileBtn_Click(object sender, RoutedEventArgs e) => HaritaCiz();
 
@@ -179,7 +182,44 @@ public partial class MainWindow
         HaritaDetayAiBtn.IsEnabled = _ayarlar.AiEnabled;
         HaritaDetayPanel.Visibility = Visibility.Visible;
     }
-    private void HaritaZoomSifirlaBtn_Click(object sender, RoutedEventArgs e) { }
+    private void HaritaZoomSifirlaBtn_Click(object sender, RoutedEventArgs e)
+    {
+        HaritaScale.ScaleX = 1; HaritaScale.ScaleY = 1;
+        HaritaPan.X = 0; HaritaPan.Y = 0;
+    }
+
+    private void HaritaCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        double faktor = e.Delta > 0 ? 1.1 : 1.0 / 1.1;
+        double yeni = Math.Clamp(HaritaScale.ScaleX * faktor, 0.3, 3.0);
+        HaritaScale.ScaleX = yeni;
+        HaritaScale.ScaleY = yeni;
+        e.Handled = true;
+    }
+
+    private void HaritaCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _haritaPanAktif = true;
+        _haritaPanBaslangic = e.GetPosition(this);
+        _haritaPanX0 = HaritaPan.X;
+        _haritaPanY0 = HaritaPan.Y;
+        HaritaCanvas.CaptureMouse();
+    }
+
+    private void HaritaCanvas_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_haritaPanAktif) return;
+        var p = e.GetPosition(this);
+        HaritaPan.X = _haritaPanX0 + (p.X - _haritaPanBaslangic.X);
+        HaritaPan.Y = _haritaPanY0 + (p.Y - _haritaPanBaslangic.Y);
+    }
+
+    private void HaritaCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        _haritaPanAktif = false;
+        HaritaCanvas.ReleaseMouseCapture();
+    }
+
     private void HaritaPngBtn_Click(object sender, RoutedEventArgs e) { }
     private void HaritaPdfBtn_Click(object sender, RoutedEventArgs e) { }
     private void HaritaDetayKapat_Click(object sender, RoutedEventArgs e)
@@ -220,8 +260,4 @@ public partial class MainWindow
         };
         win.Show();
     }
-    private void HaritaCanvas_MouseWheel(object sender, MouseWheelEventArgs e) { }
-    private void HaritaCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) { }
-    private void HaritaCanvas_MouseMove(object sender, MouseEventArgs e) { }
-    private void HaritaCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) { }
 }

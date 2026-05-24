@@ -128,7 +128,56 @@ public partial class MainWindow
         }
     }
 
-    private void HaritaDetayGoster(DeviceInfo dev) { }
+    private void HaritaDetayGoster(DeviceInfo dev)
+    {
+        _haritaSecili = dev;
+        var kimlik = KimlikBelirle(dev);
+
+        HaritaDetayBaslik.Text = $"{kimlik.TurIkon}  {kimlik.Marka} · {kimlik.Tur}";
+        HaritaDetayIcerik.Children.Clear();
+
+        void Satir(string etiket, string? deger)
+        {
+            if (string.IsNullOrWhiteSpace(deger)) return;
+            var sp = new StackPanel { Margin = new Thickness(0, 2, 0, 2) };
+            sp.Children.Add(new TextBlock
+            {
+                Text = etiket,
+                FontFamily = new FontFamily("Consolas"), FontSize = 9,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x8B, 0x94, 0x9E)),
+            });
+            sp.Children.Add(new TextBlock
+            {
+                Text = deger,
+                FontFamily = new FontFamily("Consolas"), FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromRgb(0xC9, 0xD1, 0xD9)),
+                TextWrapping = TextWrapping.Wrap,
+            });
+            HaritaDetayIcerik.Children.Add(sp);
+        }
+
+        Satir("IP", dev.Ip);
+        Satir("Ad", CihazAdiSec(dev));
+        Satir("Model", kimlik.Model);
+        Satir("MAC", dev.MacAdresi);
+        Satir("Üretici", dev.Uretici);
+        Satir("Durum", dev.Online ? "● Online" : "○ Offline");
+        Satir("Ping", dev.PingYanit ? $"{dev.PingMs} ms (TTL {dev.PingTtl})" : null);
+
+        List<int> portlar;
+        lock (dev.AcikPortlar) portlar = dev.AcikPortlar.OrderBy(p => p).ToList();
+        Satir("Açık Portlar", portlar.Count > 0 ? string.Join(", ", portlar) : null);
+
+        Satir("Keşif", dev.KesifKaynaklari.Count > 0 ? string.Join(", ", dev.KesifKaynaklari) : null);
+        Satir("SNMP", dev.SnmpSysDescr);
+        Satir("HTTP", dev.HttpFpMarka is null ? null : $"{dev.HttpFpMarka} {dev.HttpFpModel}".Trim());
+        Satir("mDNS", string.IsNullOrEmpty(dev.MdnsTur) ? null : dev.MdnsTur);
+        Satir("ONVIF", dev.OnvifBulundu ? (dev.OnvifAdi ?? "Bulundu") : null);
+        Satir("SSDP", dev.SsdpFriendlyName);
+
+        HaritaDetayAiBtn.IsEnabled = _ayarlar.AiEnabled;
+        HaritaDetayPanel.Visibility = Visibility.Visible;
+    }
     private void HaritaZoomSifirlaBtn_Click(object sender, RoutedEventArgs e) { }
     private void HaritaPngBtn_Click(object sender, RoutedEventArgs e) { }
     private void HaritaPdfBtn_Click(object sender, RoutedEventArgs e) { }

@@ -18,6 +18,7 @@
 | GitHub Release prosedürü | [release.md](release.md) |
 | Versiyon değişiklik geçmişi | [CHANGELOG.md](CHANGELOG.md) |
 | XAML, stil, renk, sekme | [ui.md](ui.md) |
+| Ağ Haritası sekmesi (topoloji, algoritma, pan/zoom, detay paneli, PNG/PDF) | [harita.md](harita.md) |
 | MainWindow partial dosya haritası | [partials.md](partials.md) |
 | Servisler — core (capture, network, history, settings, OUI…) | [services.md](services.md) |
 | AI servisleri (AiClient, AiKeyVault, AiUsageMeter, prompts, analyzer'lar) | [services-ai.md](services-ai.md) |

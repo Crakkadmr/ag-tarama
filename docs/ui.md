@@ -29,6 +29,7 @@
 | 9 | ◷ Geçmiş | `GecmisPanel` | — | JSON geçmiş kayıtları, aç/tekrar çalıştır/karşılaştır |
 | 10 | 📶 Wi-Fi | `WlanPanel` | `_wlanCts` | Tara/Durdur, otomatik yenile (10s), DataGrid (SSID/BSSID/Sinyal/Kanal/Kimlik/Şifreleme/Radyo/Durum), Evil-Twin göstergesi; Wi-Fi adaptörü yoksa `WlanTab.IsEnabled=false` |
 | 11 | ⊙ Lisans | `LisansPanel` | — | Lisans durumu, kalan süre (renk kodlu), son online doğrulama UTC, NTP zamanı, MachineId (8 char), sticky banner (< 7 gün), kopyala butonu |
+| 12 | ◫ Harita | `HaritaCanvas` | — | Gateway-merkezli topoloji haritası. Düğümlere tıklayınca detay paneli. Detay için [harita.md](harita.md). |
 
 **Cihaz Tara sekme detayı (v0.2.0):**
 

@@ -10,6 +10,15 @@
       "mcp__3f2fd874-d4b5-4373-8016-6b3bf08352a9__list_tables"
     ]
   },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ],
+  "skillOverrides": {
+    "ingest": "off",
+    "wiki-ingest": "off",
+    "wiki-lint": "off",
+    "wiki-query": "off"
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -23,10 +32,5 @@
       }
     ]
   },
-  "skillOverrides": {
-    "ingest": "off",
-    "wiki-ingest": "off",
-    "wiki-lint": "off",
-    "wiki-query": "off"
-  }
+  "enableAllProjectMcpServers": true
 }

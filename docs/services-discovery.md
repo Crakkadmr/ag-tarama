@@ -15,9 +15,10 @@ interface IDeviceDiscoveryEngine {
 }
 ```
 
-### İki Fazlı Tarama (`StartScanAsync`)
+### Üç Fazlı Tarama (`StartScanAsync`)
 
-- **Faz 1:** FastProbes + Listener'lar paralel. `taranan` sayacı subnet başına bir kez artırılır.
+- **Faz 0:** `ArpProbe` tek başına çalışır, store'a online host'ları yazar. (`SkipDeadHosts=true` bu adımı tamamlandıktan sonra devreye girer.)
+- **Faz 1:** `BuildFastProbesWithoutArp` + Listener'lar paralel. `taranan` sayacı subnet başına bir kez artırılır.
 - **Faz 2:** DeepProbes — yalnızca `TryGet` ile mevcut host'lar işlenir; phantom device oluşmaz.
 - **Sonu:** Tüm cihazlar için `OuiVendorLookup.Bul(mac)` ile üretici tamamlama.
 
@@ -48,11 +49,12 @@ event EventHandler<DeviceInfo>? DeviceChanged
 ```csharp
 bool  DeepScan              = false
 bool  LiveMode              = false
+bool  SkipDeadHosts         = true   // ARP Faz 0'da görülmeyenleri TCP'de atla
 int[] Ports                 = DefaultPorts
 // DefaultPorts: 22,23,53,80,135,139,443,445,554,1900,3389,5000,5357,7547,8000,8080,8443,9000,37777
 int   ConcurrencyLimit      = 80
-int   PingTimeoutMs         = 1000
-int   PortTimeoutMs         = 800
+int   PingTimeoutMs         = 600    // (eski: 1000)
+int   PortTimeoutMs         = 450    // (eski: 800)
 int   ArpTimeoutMs          = 3000
 int   ListenerDurationMs    = 8000
 int   LiveRefreshIntervalMs = 30_000
@@ -81,6 +83,7 @@ Ana model sınıfı — tüm probe'lar bu nesneyi ortak günceller.
 | MikroTik | `MikroTikBoard`, `MikroTikVersion`, `MikroTikIdentity` |
 | SNMP | `SnmpSysDescr`, `SnmpSysName` |
 | HTTP | `HttpFpMarka`, `HttpFpTur`, `HttpFpModel`, `SunucuBasligi`, `SayfaBasligi` |
+| Telnet/RTSP/MQTT | `TelnetBanner string?`, `RtspServerHeader string?`, `MqttBulundu bool` |
 | Diğer | `RtspDurum`, `Os`, `KesifKaynaklari HashSet<string>`, `KararIzi KimlikKararIzi?` |
 
 ## ScanProgress
@@ -99,15 +102,18 @@ sealed record ScanProgress(int Taranan, int Toplam, int BulunanCihaz, string Asa
 
 ## Probes
 
-### FastProbes (Faz 1 — paralel)
+### Faz 0 — ARP ön tarama
+
+`ArpProbe` tek başına çalışır, store'a online host'ları yazar. `SkipDeadHosts=true` olduğunda Faz 1 `TcpPortProbe`, burada görülmeyen IP'lere TCP denemez (store boşsa kural dışı).
+
+### FastProbes (Faz 1 — paralel, ARP hariç)
 
 | Sınıf | Protokol | Keşfeder |
 |---|---|---|
-| `ArpProbe` | ARP | MAC, IP, Online (pcap mode sonu `arp -a` cache merge) |
 | `IcmpProbe` | ICMP Echo | PingYanit, PingMs, PingTtl (opsiyonel `onHostDone` callback — progress sayacı için) |
-| `TcpPortProbe` | TCP SYN | AcikPortlar, ServisDetaylari (opsiyonel `onHostDone` callback — Faz 1 yüzde sağlıklı doldurmak için) |
+| `TcpPortProbe` | TCP SYN | AcikPortlar, ServisDetaylari (`SkipDeadHosts`: store'da olmayan IP'yi atlar; `onHostDone` callback — yüzde için) |
 | `NetbiosProbe` | UDP 137 | NetbiosCihazAdi, NetbiosGrupAdi |
-| `LlmnrProbe` | UDP 5355 | LlmnrHostname (PTR parse; `.arpa` reddedilir) |
+| `LlmnrProbe` | UDP 5355 | LlmnrHostname (PTR parse; `.arpa` reddedilir; 2s timeout) |
 | `NdpProbe` | IPv6 NDP | IPv6 komşu |
 
 ### DeepProbes (Faz 2 — yalnızca keşfedilmiş host'larda)
@@ -118,6 +124,9 @@ sealed record ScanProgress(int Taranan, int Toplam, int BulunanCihaz, string Asa
 | `HttpFingerprintProbe` | HTTP/HTTPS | HttpFpMarka, HttpFpTur, HttpFpModel |
 | `SmbProbe` | TCP 445 | SmbComputerName, SmbOs |
 | `SshBannerProbe` | TCP 22 | SshBanner, Os |
+| `TelnetBannerProbe` | TCP 23 | TelnetBanner; banner'dan router/switch OS + marka çıkarımı |
+| `RtspProbe` | TCP 554 | RtspServerHeader; RTSP OPTIONS ile kamera Server header doğrulaması |
+| `MqttProbe` | TCP 1883 | MqttBulundu; MQTT 3.1.1 CONNACK ile IoT broker onayı |
 
 **Phantom device guard:** DeepProbe'lar `store.TryGet(ip)` ile host kontrol eder; keşfedilmemişse `return` — `DeviceInfo` oluşturmaz.
 
@@ -149,6 +158,8 @@ Kanıt tabanlı sınıflandırma `Partials/MainWindow.DeviceClassifier.cs`'de:
 - `MarkaNormalize(string)` — vendor normalize (Hikvision, Dahua, MikroTik, TP-Link, Apple, vb.).
 - `KimlikBelirleV2(DeviceInfo)` — `CihazKimlik { Marka, Model, Tur, TurIkon }` döner.
 
-Kanıt sırası (yüksek güven → düşük): Gateway IP (50) → Ubiquiti TLV (50/60) → MikroTik identity (50/60) → HTTP fingerprint (35/55) → SNMP (45/50) → ONVIF+WSD (45) → DHCP vendor class (35) → mDNS tür (40) → SSDP manufacturer (30/35) → NetBIOS+SMB (25/35) → OUI vendor (40 marka / 18 tür) → port pattern fallback (10-25).
+Kanıt sırası (yüksek güven → düşük): Gateway IP (50) → Ubiquiti TLV (50/60) → MikroTik identity (50/60) → HTTP fingerprint (35/55) → SNMP (45/50) → ONVIF+WSD (45) → DHCP vendor class (35) → mDNS tür (40) → RTSP server header (35) → SSDP manufacturer (30/35) → Telnet banner (30) → AdHostname / SMB (25-35) → NetBIOS (25) → MQTT CONNACK (20) → OUI vendor (40 marka / 18 tür) → port pattern fallback (10-25).
 
 `KanitAgirlik` sabitleri: `Services/Discovery/Classification/ClassificationTypes.cs`. `MinKararEsigi=12` — eşiğin altındaki kanıtlar UI'a yansımaz.
+
+**WIN- hostname notu:** Windows default hostname (`WIN-XXXX`) `KanitTopla_AdHostname`'de `AdHostnameTur=30` ağırlık alır (eski: -10 penaltı). LLMNR(15)+AdHostname(30)=45 → mDNS Amazon/IoT sinyali (40) üzerinde kalır.

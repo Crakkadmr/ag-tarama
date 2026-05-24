@@ -1,5 +1,37 @@
 # Değişiklik Geçmişi
 
+## Geliştirme Dalı (bugveyeniozellikler) — 2026-05-24
+
+### Tarama Hızı (~3-5x iyileştirme)
+
+- **`ScanOptions.SkipDeadHosts = true`** (yeni default) — `TcpPortProbe` ARP'ta görülmeyen host'lara TCP denemez; mevcut store boşsa devre dışı (geriye dönük uyumlu).
+- **`TcpPortProbe.ShouldSkip(ip, store, options)`** static helper — `store.Count > 0 && !store.TryGet(ip, out _)` koşulunu tek yerde merkezileştirir.
+- **Engine Faz 0 — ARP ön tarama** — `StartScanAsync` hızlı probe'lardan önce `ArpProbe` ayrıca çalıştırır; store'a online host'ları yazar, ardından `BuildFastProbesWithoutArp` listesiyle FastProbes başlar. Faz 0 öncesinde store boşken `SkipDeadHosts` kural dışı bırakılmaz çünkü ARP tamamlanmadan port denemesi yapılmaz.
+- **`BuildFastProbes` → `BuildFastProbesWithoutArp`** — ARP Faz 0'a taşındığı için hızlı listeden çıkarıldı; isim değişikliği kasıtlı.
+- **Timeout azaltma** — `PingTimeoutMs` 1000→**600 ms**, `PortTimeoutMs` 800→**450 ms**, `LlmnrProbe.CancelAfter` 4000→**2000 ms**.
+
+### Yeni Derin Probe'lar
+
+- **`TelnetBannerProbe`** (port 23, `Services/Discovery/Probes/`) — `SemaphoreSlim(32)`, port açıksa TCP bağlan, 1s içinde banner al, IAC baytlarını (`0xFF`) sızdırmadan filtrele. `AyrıştırBanner(string)` → (Marka?, Tur) döner: MikroTik / Cisco / HP-ProCurve / Juniper / Aruba / Fortinet / pfSense / OPNsense / OpenWrt / DD-WRT / ZyXEL / BusyBox eşlemesi; fallback Router veya Switch.
+- **`RtspProbe`** (port 554, `Services/Discovery/Probes/`) — `OPTIONS rtsp://<ip>/ RTSP/1.0` isteği gönderir, `Server:` header'ını çıkarır. `RtspYanitiMi(string)` — `"RTSP/"` prefix'ini doğrular. `AyrıştırSunucu(string)` case-insensitive header arama.
+- **`MqttProbe`** (port 1883, `Services/Discovery/Probes/`) — MQTT 3.1.1 CONNECT paketi gönderir (14 bayt, protocol name "MQTT", clean session). `ConnackMi(byte[])` — `buf[0]==0x20 && buf[1]==0x02` CONNACK doğrulaması. IoT cihaz/broker onayı.
+- **`DeviceInfo` yeni alanlar** — `TelnetBanner string?`, `RtspServerHeader string?`, `MqttBulundu bool`.
+
+### Sınıflandırma Entegrasyonu
+
+- **`KanitKaynak`** +Telnet, +Rtsp, +Mqtt.
+- **`KanitAgirlik`** — `TelnetBanner=30`, `RtspServer=35`, `MqttDevice=20`.
+- **`KanitTopla_Telnet`** — banner varsa `TelnetBannerProbe.AyrıştırBanner` çağırır, tür+marka ağırlık 30 ekler.
+- **`KanitTopla_Rtsp`** — RTSP sunucu header'ından "Kamera" türü (ağırlık 35) + `MarkaIpuclari` üzerinden marka çıkarımı.
+- **`KanitTopla_Mqtt`** — CONNACK varsa "Akıllı Cihaz" türü (ağırlık 20).
+- **`DeepProbes`** güncel liste: `SnmpProbe, HttpFingerprintProbe, SmbProbe, SshBannerProbe, TelnetBannerProbe, RtspProbe, MqttProbe`.
+
+### Sınıflandırma Bug Fix — WIN- hostname
+
+- **Root cause** — Amazon/diğer arka plan yazılımları mDNS üzerinden servis kaydı yayınlıyor (`_amzn-wplay._tcp.local` → "Amazon"/"Akıllı TV", ağırlık 40). Windows default hostname "WIN-XXXX" yalnızca LLMNR (15) + `AdHostname` `win-` pattern (eski: `AdHostnameTur-10=20`) üretiyordu → toplam 35 < mDNS 40 → "Cihaz"/"Akıllı TV" kazanıyordu.
+- **Fix 1** — `KanitTopla_AdHostname` `win-`/`pc-` pattern ağırlığı `AdHostnameTur-10` → **`AdHostnameTur`** (30). Yeni toplam: LLMNR(15)+AdHostname(30) = **45** > mDNS(40).
+- **Fix 2** — `KanitTopla_AdHostname` `ad` string'ine `b.DhcpHostname` eklendi; sadece DHCP kanalıyla gelen "WIN-" hostname'ler de sınıflandırmaya dahil olur.
+
 ## v0.4.2 — Cihaz Tara Sınıflandırma + Opensource Entegrasyon (2026-05-20)
 
 ### Sınıflandırma Bug Fix (Marka→Tür aktarımı)

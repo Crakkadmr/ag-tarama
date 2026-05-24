@@ -651,7 +651,7 @@ public partial class MainWindow
 
     private static void KanitTopla_AdHostname(DeviceInfo b, List<TurAdayi> turL, List<MarkaAdayi> markaL)
     {
-        var ad = $"{b.DnsAdi} {b.PingAdi} {b.LlmnrHostname} {b.SsdpFriendlyName} {b.NetbiosCihazAdi}".ToLowerInvariant();
+        var ad = $"{b.DnsAdi} {b.PingAdi} {b.LlmnrHostname} {b.SsdpFriendlyName} {b.NetbiosCihazAdi} {b.DhcpHostname}".ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(ad)) return;
 
         if (Regex.IsMatch(ad, @"\biphone[-\w]*"))
@@ -696,7 +696,7 @@ public partial class MainWindow
         else if (Regex.IsMatch(ad, @"\b(desktop|laptop)-\w+"))
             turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.AdHostnameTur, KanitKaynak.AdHostname, "desktop-/laptop-"));
         else if (Regex.IsMatch(ad, @"\b(pc|win)-\w+"))
-            turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.AdHostnameTur - 10, KanitKaynak.AdHostname, "pc-/win-"));
+            turL.Add(new TurAdayi("Bilgisayar", KanitAgirlik.AdHostnameTur, KanitKaynak.AdHostname, "pc-/win-"));
     }
 
     // ── Gateway IP zorunlu Router/AP ───

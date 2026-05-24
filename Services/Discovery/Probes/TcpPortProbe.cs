@@ -18,6 +18,11 @@ internal sealed class TcpPortProbe : IProbe
 
     public string Name => "TCP-Port";
 
+    // ARP tarafından doldurulmuş store kullanılarak ölü host'ların atlanıp atlanmaması gerektiğini belirler.
+    // Store boşsa (Npcap yok, ARP sonuç vermedi) geriye uyum için tam tarama yapılır.
+    internal static bool ShouldSkip(string ip, DeviceStore store, ScanOptions options)
+        => options.SkipDeadHosts && store.Count > 0 && !store.TryGet(ip, out _);
+
     public async Task RunRangeAsync(
         string subnetPrefix, int hostStart, int hostEnd,
         DeviceStore store, ScanOptions options, CancellationToken token)
@@ -28,6 +33,13 @@ internal sealed class TcpPortProbe : IProbe
         var tasks = Enumerable.Range(hostStart, count).Select(i => Task.Run(async () =>
         {
             var ip = $"{subnetPrefix}.{i}";
+
+            if (ShouldSkip(ip, store, options))
+            {
+                _onHostDone?.Invoke();
+                return;
+            }
+
             var acik = new List<int>();
 
             foreach (var port in options.Ports)

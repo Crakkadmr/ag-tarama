@@ -38,7 +38,7 @@ internal sealed class LlmnrProbe : IProbe
             }
 
             using var cts2 = CancellationTokenSource.CreateLinkedTokenSource(token);
-            cts2.CancelAfter(4000);
+            cts2.CancelAfter(2000);
             while (!cts2.Token.IsCancellationRequested)
             {
                 UdpReceiveResult res;

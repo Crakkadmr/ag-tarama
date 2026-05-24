@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -17,8 +18,8 @@ internal sealed class TelnetBannerProbe : IProbe
     {
         using var sem = new SemaphoreSlim(32);
 
-        var tasks = System.Linq.Enumerable.Range(hostStart, Math.Max(0, hostEnd - hostStart + 1))
-            .Select(i => System.Threading.Tasks.Task.Run(async () =>
+        var tasks = Enumerable.Range(hostStart, Math.Max(0, hostEnd - hostStart + 1))
+            .Select(i => Task.Run(async () =>
             {
                 var ip = $"{subnetPrefix}.{i}";
                 if (!store.TryGet(ip, out var bilgi)) return;
@@ -40,7 +41,7 @@ internal sealed class TelnetBannerProbe : IProbe
                 finally { sem.Release(); }
             }, token));
 
-        await System.Threading.Tasks.Task.WhenAll(tasks).ConfigureAwait(false);
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
     private static async Task<string?> BannerOkuAsync(string ip, CancellationToken token)
@@ -60,7 +61,7 @@ internal sealed class TelnetBannerProbe : IProbe
             var sb = new StringBuilder();
             for (int i = 0; i < read; i++)
             {
-                if (buf[i] == 0xFF) { i += 2; continue; }  // IAC + cmd + option
+                if (buf[i] == 0xFF) { i = Math.Min(i + 2, read - 1); continue; }  // IAC + cmd + option
                 if (buf[i] >= 0x20 || buf[i] == '\n' || buf[i] == '\r')
                     sb.Append((char)buf[i]);
             }

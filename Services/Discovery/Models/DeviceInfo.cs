@@ -58,6 +58,7 @@ internal sealed class DeviceInfo
     public string?   SshBanner       { get; set; }
     public string?   TelnetBanner    { get; set; }
     public string?   RtspServerHeader { get; set; }
+    public bool      MqttBulundu     { get; set; }
     public DateTime  FirstSeen       { get; set; } = DateTime.Now;
     public DateTime  LastSeen        { get; set; } = DateTime.Now;
     public bool      Online          { get; set; } = false;

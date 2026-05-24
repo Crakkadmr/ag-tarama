@@ -64,6 +64,46 @@ internal static class NetworkMapLayout
             sonuc.Add(new MapNode(g, gx, gy, tur, ikon, g.Online, true));
         }
 
+        var gruplar = sirali
+            .Where(d => !d.IsGateway)
+            .Select(d => { var (tur, ikon) = turCozumleyici(d); return (Dev: d, Tur: tur, Ikon: ikon, Kume: KumeyeAta(tur)); })
+            .GroupBy(x => x.Kume)
+            .OrderBy(g =>
+            {
+                int idx = Array.IndexOf(KumeSirasi, g.Key);
+                return idx >= 0 ? idx : int.MaxValue;
+            })
+            .ToList();
+
+        int kumeSayisi = gruplar.Count;
+        if (kumeSayisi == 0) return sonuc;
+
+        double rKume = Math.Min(genislik, yukseklik) * 0.34;
+        for (int k = 0; k < kumeSayisi; k++)
+        {
+            double aci = 2 * Math.PI * k / kumeSayisi - Math.PI / 2.0;
+            double kcx = cx + rKume * Math.Cos(aci);
+            double kcy = cy + rKume * Math.Sin(aci);
+
+            var uyeler = gruplar[k].OrderBy(x => x.Dev.Ip, StringComparer.Ordinal).ToList();
+            int n = uyeler.Count;
+            double rIc = 16 + 10 * n;
+
+            for (int j = 0; j < n; j++)
+            {
+                double nx, ny;
+                if (n == 1) { nx = kcx; ny = kcy; }
+                else
+                {
+                    double a2 = 2 * Math.PI * j / n;
+                    nx = kcx + rIc * Math.Cos(a2);
+                    ny = kcy + rIc * Math.Sin(a2);
+                }
+                var u = uyeler[j];
+                sonuc.Add(new MapNode(u.Dev, nx, ny, u.Tur, u.Ikon, u.Dev.Online, false));
+            }
+        }
+
         return sonuc;
     }
 }

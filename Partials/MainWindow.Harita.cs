@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using AgTarama.Services;
+using AgTarama.Services.Ai;
 using AgTarama.Services.Discovery.Models;
 
 namespace AgTarama;
@@ -183,7 +184,42 @@ public partial class MainWindow
     private void HaritaPdfBtn_Click(object sender, RoutedEventArgs e) { }
     private void HaritaDetayKapat_Click(object sender, RoutedEventArgs e)
         => HaritaDetayPanel.Visibility = Visibility.Collapsed;
-    private void HaritaDetayAiBtn_Click(object sender, RoutedEventArgs e) { }
+    private void HaritaDetayAiBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_haritaSecili is not { } dev) return;
+        if (!_ayarlar.AiEnabled)
+        {
+            ToastGoster("AI özellikleri Ayarlar > AI bölümünden kapalı.", hata: true);
+            return;
+        }
+
+        var kimlik = KimlikBelirle(dev);
+        List<int> portlar;
+        lock (dev.AcikPortlar) portlar = dev.AcikPortlar.OrderBy(p => p).ToList();
+        string servis;
+        lock (dev.ServisDetaylari)
+            servis = string.Join("; ", dev.ServisDetaylari.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));
+
+        var dto = new CihazDto(
+            dev.Ip,
+            CihazAdiSec(dev) ?? "",
+            kimlik.Tur,
+            kimlik.Marka,
+            kimlik.Model ?? "",
+            dev.PingYanit ? $"{dev.PingMs} ms" : "-",
+            string.Join(", ", portlar),
+            string.Join(", ", dev.KesifKaynaklari),
+            dev.MacAdresi ?? "",
+            dev.Uretici ?? "",
+            servis,
+            GuvenSkoru(dev, kimlik));
+
+        var win = new AiDeviceReportWindow(new[] { dto }, _ayarlar)
+        {
+            Owner = this,
+        };
+        win.Show();
+    }
     private void HaritaCanvas_MouseWheel(object sender, MouseWheelEventArgs e) { }
     private void HaritaCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) { }
     private void HaritaCanvas_MouseMove(object sender, MouseEventArgs e) { }

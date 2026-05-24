@@ -19,9 +19,9 @@ internal sealed class DeviceDiscoveryEngine : IDeviceDiscoveryEngine
     // IcmpProbe + TcpPortProbe progress callback'i; ikisi ortalama "tarama %"i belirler.
     // ICMP hızlı biter (~3s), TCP-Port uzun sürer (~30-60s); ikisinin toplam ilerlemesi
     // gerçek tarama yüzdesini doğru yansıtır (sadece ICMP olsa %100 erken görünür).
-    private static IProbe[] BuildFastProbes(Action? onHostDone = null) =>
+    // ARP çıkarıldı — Faz 0'da ayrı çalıştırılır; böylece TcpPortProbe store'u bilir.
+    private static IProbe[] BuildFastProbesWithoutArp(Action? onHostDone = null) =>
     [
-        new ArpProbe(),
         new IcmpProbe(onHostDone),
         new TcpPortProbe(onHostDone),
         new NetbiosProbe(),
@@ -89,9 +89,14 @@ internal sealed class DeviceDiscoveryEngine : IDeviceDiscoveryEngine
             var listenerTasks = listeners.Select(l =>
                 Task.Run(() => l.StartAsync(prefix, Store, listenerCts.Token), listenerCts.Token));
 
-            // Faz 1: Hızlı probe'lar + listener'lar paralel
-            // IcmpProbe her host bitince taranan++ → reportTimer gerçek zamanlı progress yayar.
-            var fastProbes = BuildFastProbes(() => System.Threading.Interlocked.Increment(ref taranan));
+            // Faz 0: ARP önce — store'u hızla doldur; TcpPortProbe bunu SkipDeadHosts için kullanır.
+            var arp = new ArpProbe();
+            ReportDetay("🔎 Faz 0 — ARP ön tarama başladı");
+            await arp.RunRangeAsync(prefix, start, end, Store, options, token).ConfigureAwait(false);
+            ReportDetay($"✓ ARP tamamlandı ({Store.Count} cihaz bulundu)");
+
+            // Faz 1: Kalan hızlı probe'lar + listener'lar paralel
+            var fastProbes = BuildFastProbesWithoutArp(() => System.Threading.Interlocked.Increment(ref taranan));
             ReportDetay($"⚡ Faz 1 — Hızlı probe'lar başladı ({fastProbes.Length} adet)");
             var fastTasks = fastProbes.Select(p =>
                 Task.Run(async () =>

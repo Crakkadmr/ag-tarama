@@ -202,19 +202,27 @@ public partial class MainWindow
 
     private void HaritaCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        _haritaPanAktif = true;
+        // Capture etme — yalnızca gerçek sürükleme başlayınca capture alınır (MouseMove'de).
+        // Erken capture, child Border'ların MouseLeftButtonUp olayını yutardı.
         _haritaPanBaslangic = e.GetPosition(this);
         _haritaPanX0 = HaritaPan.X;
         _haritaPanY0 = HaritaPan.Y;
-        HaritaCanvas.CaptureMouse();
     }
 
     private void HaritaCanvas_MouseMove(object sender, MouseEventArgs e)
     {
-        if (!_haritaPanAktif) return;
+        if (e.LeftButton != MouseButtonState.Pressed) return;
         var p = e.GetPosition(this);
-        HaritaPan.X = _haritaPanX0 + (p.X - _haritaPanBaslangic.X);
-        HaritaPan.Y = _haritaPanY0 + (p.Y - _haritaPanBaslangic.Y);
+        double dx = p.X - _haritaPanBaslangic.X;
+        double dy = p.Y - _haritaPanBaslangic.Y;
+        if (!_haritaPanAktif)
+        {
+            if (Math.Abs(dx) < 5 && Math.Abs(dy) < 5) return;
+            _haritaPanAktif = true;
+            HaritaCanvas.CaptureMouse();
+        }
+        HaritaPan.X = _haritaPanX0 + dx;
+        HaritaPan.Y = _haritaPanY0 + dy;
     }
 
     private void HaritaCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)

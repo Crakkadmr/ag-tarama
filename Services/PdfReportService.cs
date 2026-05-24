@@ -108,4 +108,41 @@ public static class PdfReportService
         }).GeneratePdf();
     }
 
+    public static byte[] GenerateMapReport(byte[] pngBytes, ReportMetadata meta)
+    {
+        return Document.Create(doc =>
+        {
+            doc.Page(page =>
+            {
+                page.Size(PageSizes.A4.Landscape());
+                page.MarginHorizontal(16);
+                page.MarginVertical(12);
+                page.DefaultTextStyle(x => x.FontSize(8));
+
+                page.Header().Height(36).Row(r =>
+                {
+                    r.RelativeItem().Column(col =>
+                    {
+                        col.Item().Text("NETWORK SNIFFER - AG HARITASI").Bold().FontSize(12).FontColor("#58A6FF");
+                        col.Item().Text($"Tarih: {DateTime.Now:dd.MM.yyyy HH:mm} | Operator: {meta.Operator}")
+                           .FontSize(8).FontColor("#8B949E");
+                    });
+                });
+
+                page.Content().PaddingVertical(4).AlignCenter().AlignMiddle()
+                    .Image(pngBytes).FitArea();
+
+                page.Footer().Height(16).Row(r =>
+                {
+                    r.RelativeItem().Text("Network Sniffer - made by demircan").FontSize(7).FontColor("#484F58");
+                    r.RelativeItem().AlignRight().Text(t =>
+                    {
+                        t.Span("Sayfa ").FontSize(7).FontColor("#484F58");
+                        t.CurrentPageNumber().FontSize(8).FontColor("#8B949E");
+                    });
+                });
+            });
+        }).GeneratePdf();
+    }
+
 }

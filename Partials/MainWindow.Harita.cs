@@ -275,7 +275,29 @@ public partial class MainWindow
         File.WriteAllBytes(dlg.FileName, png);
         ToastGoster($"Harita kaydedildi: {System.IO.Path.GetFileName(dlg.FileName)}");
     }
-    private void HaritaPdfBtn_Click(object sender, RoutedEventArgs e) { }
+    private void HaritaPdfBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var png = HaritaPngBytes();
+        if (png == null) { ToastGoster("Önce haritayı çizin (Tara / Yenile).", hata: true); return; }
+
+        var dlg = new SaveFileDialog
+        {
+            Filter = "PDF rapor (*.pdf)|*.pdf",
+            FileName = $"ag-haritasi-{DateTime.Now:yyyyMMdd-HHmm}.pdf",
+        };
+        if (dlg.ShowDialog(this) != true) return;
+
+        try
+        {
+            var pdf = PdfReportService.GenerateMapReport(png, new ReportMetadata());
+            File.WriteAllBytes(dlg.FileName, pdf);
+            ToastGoster($"PDF kaydedildi: {System.IO.Path.GetFileName(dlg.FileName)}");
+        }
+        catch (Exception ex)
+        {
+            ToastGoster($"PDF hatası: {ex.Message}", hata: true);
+        }
+    }
     private void HaritaDetayKapat_Click(object sender, RoutedEventArgs e)
         => HaritaDetayPanel.Visibility = Visibility.Collapsed;
     private void HaritaDetayAiBtn_Click(object sender, RoutedEventArgs e)

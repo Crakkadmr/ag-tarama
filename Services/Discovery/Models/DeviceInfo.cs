@@ -56,6 +56,7 @@ internal sealed class DeviceInfo
     public string?   SmbComputerName { get; set; }
     public string?   SmbOs           { get; set; }
     public string?   SshBanner       { get; set; }
+    public string?   TelnetBanner    { get; set; }
     public DateTime  FirstSeen       { get; set; } = DateTime.Now;
     public DateTime  LastSeen        { get; set; } = DateTime.Now;
     public bool      Online          { get; set; } = false;

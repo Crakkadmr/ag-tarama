@@ -44,6 +44,26 @@ internal static class NetworkMapLayout
     {
         var sonuc = new List<MapNode>();
         if (cihazlar == null || cihazlar.Count == 0) return sonuc;
+
+        double cx = genislik / 2.0, cy = yukseklik / 2.0;
+
+        var sirali = cihazlar.OrderBy(d => d.Ip, StringComparer.Ordinal).ToList();
+        var gatewayler = sirali.Where(d => d.IsGateway).ToList();
+
+        for (int i = 0; i < gatewayler.Count; i++)
+        {
+            var g = gatewayler[i];
+            var (tur, ikon) = turCozumleyici(g);
+            double gx = cx, gy = cy;
+            if (gatewayler.Count > 1)
+            {
+                double a = 2 * Math.PI * i / gatewayler.Count;
+                gx = cx + 34 * Math.Cos(a);
+                gy = cy + 34 * Math.Sin(a);
+            }
+            sonuc.Add(new MapNode(g, gx, gy, tur, ikon, g.Online, true));
+        }
+
         return sonuc;
     }
 }

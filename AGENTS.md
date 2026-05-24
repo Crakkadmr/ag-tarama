@@ -15,7 +15,7 @@
 | Hedef | `net10.0-windows`, `UseWPF=true`, `Nullable=enable`, `ImplicitUsings=enable` |
 | Output | `WinExe` |
 | Namespace | `AgTarama` |
-| Sürüm | v0.4.0 |
+| Sürüm | v0.5.0 |
 | Solution | `C:\Projects\AG TARAMA PROGRAMI\AgTarama.slnx` |
 | Branch | `bugveyeniozellikler` (main: `main`) |
 | Git user | Crakkadmr |

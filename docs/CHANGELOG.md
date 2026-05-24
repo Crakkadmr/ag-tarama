@@ -1,6 +1,6 @@
 # Değişiklik Geçmişi
 
-## Geliştirme Dalı (bugveyeniozellikler) — 2026-05-24
+## v0.5.0 — Ağ Haritası + Tarama İyileştirme (2026-05-24)
 
 ### Tarama Hızı (~3-5x iyileştirme)
 

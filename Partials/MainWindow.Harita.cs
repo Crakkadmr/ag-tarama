@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Windows;
+using Microsoft.Win32;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using AgTarama.Services;
 using AgTarama.Services.Ai;
@@ -220,7 +223,58 @@ public partial class MainWindow
         HaritaCanvas.ReleaseMouseCapture();
     }
 
-    private void HaritaPngBtn_Click(object sender, RoutedEventArgs e) { }
+    private RenderTargetBitmap? HaritaBitmapUret()
+    {
+        if (_haritaDugumler.Count == 0) return null;
+
+        double w = HaritaCanvas.ActualWidth  > 10 ? HaritaCanvas.ActualWidth  : 1000;
+        double h = HaritaCanvas.ActualHeight > 10 ? HaritaCanvas.ActualHeight : 650;
+
+        var eskiTransform = HaritaCanvas.RenderTransform;
+        HaritaCanvas.RenderTransform = Transform.Identity;
+        HaritaCanvas.UpdateLayout();
+
+        var bmp = new RenderTargetBitmap((int)w, (int)h, 96, 96, PixelFormats.Pbgra32);
+        var dv = new DrawingVisual();
+        using (var dc = dv.RenderOpen())
+        {
+            dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(0x0B, 0x12, 0x20)),
+                null, new Rect(0, 0, w, h));
+            dc.DrawRectangle(new VisualBrush(HaritaCanvas) { Stretch = Stretch.None },
+                null, new Rect(0, 0, w, h));
+        }
+        bmp.Render(dv);
+
+        HaritaCanvas.RenderTransform = eskiTransform;
+        HaritaCanvas.UpdateLayout();
+        return bmp;
+    }
+
+    private byte[]? HaritaPngBytes()
+    {
+        var bmp = HaritaBitmapUret();
+        if (bmp == null) return null;
+        var enc = new PngBitmapEncoder();
+        enc.Frames.Add(BitmapFrame.Create(bmp));
+        using var ms = new MemoryStream();
+        enc.Save(ms);
+        return ms.ToArray();
+    }
+
+    private void HaritaPngBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var png = HaritaPngBytes();
+        if (png == null) { ToastGoster("Önce haritayı çizin (Tara / Yenile).", hata: true); return; }
+
+        var dlg = new SaveFileDialog
+        {
+            Filter = "PNG görüntü (*.png)|*.png",
+            FileName = $"ag-haritasi-{DateTime.Now:yyyyMMdd-HHmm}.png",
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        File.WriteAllBytes(dlg.FileName, png);
+        ToastGoster($"Harita kaydedildi: {System.IO.Path.GetFileName(dlg.FileName)}");
+    }
     private void HaritaPdfBtn_Click(object sender, RoutedEventArgs e) { }
     private void HaritaDetayKapat_Click(object sender, RoutedEventArgs e)
         => HaritaDetayPanel.Visibility = Visibility.Collapsed;

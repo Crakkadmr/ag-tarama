@@ -20,6 +20,22 @@ internal sealed record MapNode(
 /// </summary>
 internal static class NetworkMapLayout
 {
+    internal static readonly string[] KumeSirasi =
+        { "Kamera", "Bilgisayar", "Mobil/IoT", "Ağ", "Diğer" };
+
+    internal static string KumeyeAta(string tur) => tur switch
+    {
+        "Kamera" or "NVR/DVR"                                  => "Kamera",
+        "Bilgisayar" or "Sunucu" or "NAS"                      => "Bilgisayar",
+        "Telefon" or "Tablet" or "Akıllı TV" or "Apple TV"
+            or "Akıllı Cihaz" or "Hoparlör" or "Müzik Cihazı"
+            or "Linux IoT"                                     => "Mobil/IoT",
+        "Router" or "Router/AP" or "Router/Switch" or "Switch"
+            or "Switch/AP" or "Erişim Noktası"
+            or "Güvenlik Duvarı"                               => "Ağ",
+        _                                                      => "Diğer",
+    };
+
     public static IReadOnlyList<MapNode> Hesapla(
         IReadOnlyList<DeviceInfo> cihazlar,
         Func<DeviceInfo, (string Tur, string Ikon)> turCozumleyici,

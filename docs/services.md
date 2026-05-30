@@ -1,11 +1,11 @@
-# Services Katmanı Referansı
+# Core Services (`Services/`)
 
-Lisans/güvenlik servisleri için: [docs/licensing.md](licensing.md)
-NuGet bağımlılıkları: `QuestPDF 2024.12.*` (PDF), `ClosedXML 0.102.*` (XLSX)
+> AI servisleri: [services-ai.md](services-ai.md)
+> Cihaz keşif alt sistemi: [services-discovery.md](services-discovery.md)
+> Lisans + güvenlik + update: [licensing.md](licensing.md)
+> NuGet: `QuestPDF 2024.12.*` (PDF), `ClosedXML 0.102.*` (XLSX), `SharpPcap 6.3.0` + `PacketDotNet 1.4.7` (pasif sniff)
 
----
-
-## InterfaceDiscoveryService.cs (71 satır)
+## InterfaceDiscoveryService.cs
 
 `tshark -D` çıktısını parse eder, aktif arayüzleri döner.
 
@@ -14,9 +14,9 @@ Task<List<ArayuzBilgi>> TumunuGetirAsync()
 Task<int> PaketSayisiAsync(ArayuzBilgi, CancellationToken)
 ```
 
----
+tshark yoksa `TumunuGetirAsync` → `InvalidOperationException("tshark başlatılamadı: ...")`. `PaketSayisiAsync` null process → 0.
 
-## CaptureService.cs (80 satır)
+## CaptureService.cs
 
 tshark process yönetimi, progress callback.
 
@@ -25,143 +25,146 @@ Task YakalaAsync(List<int> arayuzNolar, string pcapYolu,
     int hedefKB, Action<double,int,TimeSpan> onProgress, CancellationToken)
 ```
 
----
-
-## PingService.cs (48 satır)
+## PingService.cs
 
 ```csharp
 IAsyncEnumerable<PingSonuc> PingleAsync(string hedef, CancellationToken)
 // PingSonuc: Basarili, RoundtripMs, Ttl, Hata
 ```
 
-4 ping, TTL, hata sarmalı akış.
+4 ping, TTL, hata sarmalı. Exception filter `catch (Exception ex) when (ex.GetBaseException() is not OperationCanceledException)` — `AggregateException` içine sarılı iptal yanlışlıkla loglanmıyor.
 
----
-
-## PortScanService.cs (73 satır)
+## PortScanService.cs
 
 ```csharp
-static int[] Parse(string aralik)          // "1-1024" veya "80,443,22"
+static int[] Parse(string aralik)            // "1-1024" veya "80,443,22"
 Task TaraAsync(string ip, int[] portlar,
     Func<int,Task> acikCallback, CancellationToken)
 // SemaphoreSlim(50), 1000ms timeout
 ```
 
----
+## NetbiosService.cs
 
-## NetbiosService.cs (241 satır)
-
-UDP 137 NetBIOS Node Status + reverse DNS + `ping -a` + `nbtstat -A`.
-**Not:** `nbtstat`/`ping` çıktısı için `ProcessStartInfo.StandardOutputEncoding = Encoding.GetEncoding(OEMCodePage)` zorunlu (Türkçe karakter sorunu düzeltildi).
+UDP 137 Node Status + reverse DNS + `ping -a` + `nbtstat -A`.
 
 ```csharp
 Task<NetbiosSonuc> SorgulaAsync(string ip, CancellationToken)
 // NetbiosSonuc: CihazAdi, GrupAdi, DnsAdi, PingAdi
 ```
 
----
+**Not:** `nbtstat`/`ping` çıktısı için `ProcessStartInfo.StandardOutputEncoding = Encoding.GetEncoding(OEMCodePage)` zorunlu (Türkçe karakter).
 
-## AdvancedIpScannerService.cs (137 satır)
+## HistoryService.cs
 
-`tools\Ip_Scanner\advanced_ip_scanner_console.exe /r:<subnet>.1-254 /f:<temp> /v2` çalıştırır, çıktıyı parse eder.
-
-```csharp
-Task<List<AisSonuc>> TaraAsync(string subnet, CancellationToken)
-// AisSonuc: Ip, Ad, Mac, Uretici, Servisler
-```
-
----
-
-## HistoryService.cs (88 satır)
-
-`%APPDATA%\AgTarama\history\*.json` altında geçmiş kayıtları.
+`%APPDATA%\AgTarama\history\*.json` altında geçmiş.
 
 ```csharp
 static void Kaydet(string tur, string hedef, string ozet,
     List<string> satirlar, Dictionary<string,string>? meta = null)
 static List<HistoryRecord> YukleHepsi()
+static List<HistoryRecord> SonKayitlariYukle(int limit)
 static void Sil(string id)
 static void TumunuSil()
 // HistoryRecord: Id, CreatedAt, Type, Target, Summary, Lines, Metadata
 ```
 
-Kayıt üreten akışlar: Ping, Port Tara, ARP Tablosu, Cihaz Tara, Yakalama.
+- `Id` formatı: `yyyyMMdd_HHmmss_fff_{guid8}_{type}` — ms collision yok.
+- `SonKayitlariYukle(limit)` dosyaları `LastWriteTimeUtc`'ye göre sıralayıp sadece ilk `limit` deserialize eder.
 
----
+Kayıt üreten akışlar: Ping, Port Tara, ARP Tablosu, Cihaz Tara, Yakalama, AI Analiz.
 
-## SettingsService.cs (30 satır)
+## SettingsService.cs
 
 ```csharp
 static AppSettings Yukle()
 static void Kaydet(AppSettings ayarlar)
-// AppSettings: HedefMB (int), TestSuresiSn (int)
 // Yol: %APPDATA%\AgTarama\settings.json
 ```
 
----
-
-## FavoriService.cs (47 satır)
+## AppSettings.cs (v0.4.0)
 
 ```csharp
-static void Ekle(string ip)
-static void Sil(string ip)
-static List<string> YukleHepsi()
-// Yol: %APPDATA%\AgTarama\favoriler.json
+class AppSettings {
+    // Genel
+    int  HedefMB                = 16;
+    int  TestSuresiSn           = 2;
+    int  PingTimeoutMs          = 2000;
+    int  PortTaramaConcurrency  = 50;
+    int  PortTaramaTimeoutMs    = 1000;
+    int  WlanAutoRefreshSeconds = 10;
+    int  EvilTwinSinyalEsigi    = 75;     // 50-90 clamp
+    bool SesAcik                = true;
+    bool ToastAcik              = true;
+
+    // AI — detay services-ai.md
+    bool   AiEnabled            = true;
+    string AiSaglayici          = "OpenRouter";
+    string AiBaseUrl            = "https://openrouter.ai/api/v1";
+    string AiModel              = "deepseek/deepseek-v4-flash";
+    int    AiGunlukTokenLimiti  = 200_000;
+    int    AiAylikTokenLimiti   = 5_000_000;
+    bool   AiYerelIpMaskele     = false;
+    // API anahtarı ASLA AppSettings'e yazılmaz — sadece AiKeyVault.
+}
 ```
 
----
+## FavoriService.cs
 
-## UpdateService.cs (254 satır)
+```csharp
+static bool Ekle(string ip)         // false = zaten var
+static void Sil(string ip)
+static List<string> YukleHepsi()
+// Yol: %APPDATA%\AgTarama\favorites.json
+```
 
-GitHub Releases API kontrolü, ZIP indirme, PowerShell self-update.
+IP normalize edilerek saklanır (`IPAddress.TryParse` → kanonik form). Karşılaştırma `OrdinalIgnoreCase`.
+
+## UpdateService.cs
+
+GitHub Releases API + ZIP indirme + PowerShell self-update.
 
 ```csharp
 Task<UpdateBilgi?> GuncellemeyiKontrolEtAsync()
 Task IndirVeKurAsync(string indirmeUrl, IProgress<double> progress, CancellationToken)
-// Deterministic ZIP seçimi: AgTarama-v*-win-x64.zip + .sha256 zorunlu
-// Opsiyonel: AGT_UPDATE_SIGNER_THUMBPRINT env var ile thumbprint pinning
 ```
 
----
+- Deterministic ZIP seçimi: `AgTarama-v*-win-x64.zip` + `.sha256` zorunlu.
+- **`SafeExtractZip`:** entry ≤ 5000, toplam ≤ 500 MB, tek entry ≤ 200 MB. Mutlak yol/sürücü harfi/`..` reddedilir. Canonical hedef path `extractTo` altında doğrulanır (Zip Slip).
+- `AGT_UPDATE_SIGNER_THUMBPRINT` env var set edilmemişse imza doğrulaması atlanır + log uyarısı.
 
-## SecurityService.cs (90 satır)
+Detay: [licensing.md](licensing.md).
 
-Debugger + analiz aracı tespiti. Release-only (DEBUG'da no-op).
+## SecurityService.cs
+
+Debugger + analiz aracı tespiti. Release-only (`#if DEBUG ... #else ... #endif`).
 
 ```csharp
-static void Dogrula()  // App_Startup'tan çağrılır; tespit edilirse uygulama kapanır
+static void Dogrula()  // App_Startup'tan; tespit edilirse uygulama kapanır
 ```
 
----
+## CryptoHelper.cs
 
-## AppSettings.cs
+AES-CBC + HMAC yardımcıları (ortak).
 
-Model sınıfı:
-```csharp
-class AppSettings {
-    int HedefMB      { get; set; } = 100;
-    int TestSuresiSn { get; set; } = 2;
-}
-```
+## CommandRouter.cs
 
----
-
-## WlanService.cs
-
-`netsh wlan show networks mode=bssid` çıktısını parse eder.
+F12 konsol komut yönlendiricisi.
 
 ```csharp
-static Task<List<WlanSonuc>> ScanAsync(CancellationToken ct)
-static bool WifiAdaptorVarMi()
-// WlanSonuc: Ssid, Bssid, Auth, Encryption, Signal(%), Channel, RadioType, EvilTwin
+static void Register(string name, Func<string[], CancellationToken, Task<string>> handler)
+static Task<string> ExecuteAsync(string line, CancellationToken ct)
+static void PushHistory(string cmd)
+static List<string> GetHistory()
+static List<string> GetCommandNames()
 ```
 
-- Evil-Twin tespiti: aynı SSID, birden fazla farklı BSSID → `EvilTwin = true`
-- `WifiAdaptorVarMi()`: `netsh wlan show interfaces` çıktısında "Name" satırı arar
+- `ExecuteAsync` `&&` zincirini `Regex.Split` ile destekler.
+- Kayıtlı: `help`, `clear`, `history`, `ping`, `dns`, `port`, `traceroute`, `arp`, `wol`, `scan`, `ssl`, `banner`, `web`, `smb`, `snmp`.
+- `snmp` — dahili ASN.1 DER kodlama (NuGet yok). OID alias: `sysName`, `sysDescr`, `sysUpTime`, `sysLocation`, `sysContact`.
+- `"\x00CLEAR"` → console temizler.
+- Geçmiş: son 50.
 
----
-
-## BandwidthHistoryService.cs (yeni — #10)
+## BandwidthHistoryService.cs
 
 In-memory dairesel buffer, bant genişliği zaman serisi.
 
@@ -172,127 +175,121 @@ static (double PeakRx, double PeakTx, double AvgRx, double AvgTx,
         long TotalRxMB, long TotalTxMB) Stats(int seconds)
 ```
 
-- Kapasite: 3600 örnek (1 saat), dairesel `_head` işaretçi ile
-- `GetAggregate(sn)` → son `sn` saniyelik örnekleri kronolojik sırada döner
+- Kapasite: 3600 örnek (1 saat), dairesel `_head`.
+- `_rxBuf`, `_txBuf`, `_head`, `_count` — `lock (_sync)` altında (data race yok).
 
----
+## WlanService.cs
 
-## CommandRouter.cs (yeni — #13)
-
-F12 konsol için komut yönlendirici; tüm servisleri tek API yüzeyi üzerinden çağırır.
+`netsh wlan show networks mode=bssid` çıktısını parse eder.
 
 ```csharp
-static void Register(string name, Func<string[], CancellationToken, Task<string>> handler)
-static Task<string> ExecuteAsync(string line, CancellationToken ct)
-static void PushHistory(string cmd)
-static List<string> GetHistory()
-static List<string> GetCommandNames()
+static Task<List<WlanSonuc>> ScanAsync(CancellationToken)
+static Task<bool> WifiAdaptorVarMiAsync()
+// WlanSonuc: Ssid, Bssid, Auth, Encryption, Signal(%), Channel, RadioType, EvilTwin
 ```
 
-- `ExecuteAsync` `&&` zincirini `Regex.Split` ile destekler
-- Kayıtlı komutlar: `help`, `clear`, `history`, `ping`, `dns`, `port`, `traceroute`, `arp`, `wol`, `scan`, `ssl`, `banner`, `web`, `smb`, `snmp`
-- `snmp` komutu dahili ASN.1 DER kodlama/çözümleme kullanır (NuGet yok); OID takma adları: sysName, sysDescr, sysUpTime, sysLocation, sysContact
-- `"\x00CLEAR"` dönüş değeri konsol çıktısını temizler
-- Geçmiş: son 50 komut, yineleme önlemeli
+- Evil-Twin: aynı SSID, birden fazla BSSID → `EvilTwin = true`.
+- `WifiAdaptorVarMiAsync()` async `WaitForExitAsync` — UI thread bloke etmez.
 
----
+## AdvancedIpScannerService.cs
 
-## UbiquitiDiscoveryService.cs (yeni — v0.2.0)
-
-UDP 10001 üzerinden Ubiquiti UniFi AP / EdgeRouter / AirOS cihazlarını keşfeder.
+`tools\Ip_Scanner\advanced_ip_scanner_console.exe /r:<subnet>.1-254 /f:<temp> /v2` çalıştırır.
 
 ```csharp
-internal sealed record UbiquitiKaydi(string Ip, string? Mac, string? Hostname,
-    string? Platform, string? Firmware, string? ModelKodu);
-static Task<IReadOnlyList<UbiquitiKaydi>> TaraAsync(string subnet, CancellationToken, int dinlemeMs = 2500)
+Task<List<AisSonuc>> TaraAsync(string subnet, CancellationToken)
+// AisSonuc: Ip, Ad, Mac, Uretici, Servisler
 ```
 
-- v1 probe: `{0x01,0x00,0x00,0x00}` + v2 probe: `{0x02,0x08,0x00,0x00}` → subnet broadcast + global broadcast.
-- TLV parser: `0x01`=MAC, `0x02`=MAC+IP, `0x03`=firmware, `0x0B`=hostname, `0x0C`=platform, `0x14`=modelCode.
-- Sonuç: `Marka=Ubiquiti`, `Model=<platform>`, `Tur=Erişim Noktası` veya `Router/AP`.
-
----
-
-## MndpDiscoveryService.cs (yeni — v0.2.0)
-
-MikroTik Neighbor Discovery Protocol (UDP 5678) — aktif probe + pasif broadcast dinleme.
+## HttpFingerprintService.cs
 
 ```csharp
-internal sealed record MndpKaydi(string Ip, string? Mac, string? Identity,
-    string? Version, string? Platform, string? Board, string? SoftwareId);
-static Task<IReadOnlyList<MndpKaydi>> TaraAsync(string subnet, CancellationToken, int dinlemeMs = 3000)
-```
-
-- Probe: `{0x00,0x00,0x00,0x00}` → broadcast; UDP 5678'e bind ederek ~30s aralıklı broadcast'ları da yakalar.
-- TLV: `0x01`=MAC, `0x05`=identity, `0x07`=version, `0x08`=platform, `0x0B`=softId, `0x0C`=board.
-- Sonuç: `Marka=MikroTik`, `Model=<board>`, `Tur=Router/AP`.
-
----
-
-## SnmpFingerprintService.cs (yeni — v0.2.0)
-
-SNMP v1/v2c `sysDescr` / `sysName` probe (UDP 161, community `public`). Manuel ASN.1 DER kodlama (NuGet bağımlılığı yok).
-
-```csharp
-static Task<string?> SysDescrAsync(string ip, CancellationToken, int timeoutMs = 1500)
-static Task<string?> SysNameAsync(string ip, CancellationToken, int timeoutMs = 1500)
-```
-
-- OID: `sysDescr = 1.3.6.1.2.1.1.1.0`, `sysName = 1.3.6.1.2.1.1.5.0`.
-- Yalnızca port 161 açık tespit edildiğinde `ServisDetaylariniGuncelleAsync` içinden çağrılır.
-- Yanıt örnekleri: `"Cisco IOS..."` → Switch; `"HP ETHERNET..."` → Yazıcı; `"RouterOS RB951..."` → MikroTik.
-
----
-
-## OuiVendorLookup.cs (yeni — v0.2.0)
-
-MAC OUI prefix → üretici eşlemesi (built-in fallback, Advanced IP Scanner DB yokken devreye girer).
-
-```csharp
-static string? Bul(string? mac)   // "AA:BB:CC:DD:EE:FF" → "Apple" veya null
-```
-
-- ~100 OUI girdisi: Apple, Samsung, Xiaomi, Huawei, Google, Hikvision, Dahua, Axis, Ubiquiti, MikroTik, TP-Link, Cisco, NETGEAR, ASUS, D-Link, Synology, QNAP, Espressif, Raspberry Pi, Sonos, Amazon, Reolink, EZVIZ, Tuya, Sony, LG, VMware.
-- `ArpBilgileriniTopluGuncelleAsync` içinden `UreticiAra` sonucu `null` gelirse `OuiVendorLookup.Bul(mac)` denenir.
-
----
-
-## HttpFingerprintService.cs (yeni — v0.2.0)
-
-Açık HTTP/HTTPS portuna vendor-specific endpoint'leri paralel deneyerek marka/model belirler.
-
-```csharp
-internal sealed record HttpFingerprintSonuc(string? Marka, string? Tur, string? Model, string? Kaynak);
+sealed record HttpFingerprintSonuc(string? Marka, string? Tur, string? Model, string? Kaynak)
 static Task<HttpFingerprintSonuc?> ProbeAsync(string ip, int port, CancellationToken, int timeoutMs = 1500)
 ```
 
-- Paralel `Task.WhenAll`, ilk başarılı yanıt kazanır.
-- Endpoint → vendor eşlemesi:
+Paralel `Task.WhenAll`, ilk başarılı yanıt kazanır.
 
 | Endpoint | Vendor |
 |---|---|
 | `/ISAPI/System/deviceInfo` | Hikvision |
 | `/cgi-bin/magicBox.cgi?action=getSystemInfo` | Dahua |
 | `/api.cgi?cmd=GetDevInfo` | Reolink |
-| `/onvif/device_service` | ONVIF probe |
+| `/onvif/device_service` | ONVIF |
 | `/api/v1/status` | Ubiquiti UniFi |
 
-- Yalnızca "Derin tara" modu açıkken ve HTTP port açıkken çağrılır.
+Yalnızca "Derin tara" + HTTP port açıkken çağrılır.
 
----
+## SnmpFingerprintService.cs
 
-## PdfReportService.cs (yeni — #12)
+SNMP v1/v2c `sysDescr` / `sysName` (UDP 161, community `public`). Manuel ASN.1 DER.
 
-QuestPDF ile gerçek PDF raporu üretimi.
+```csharp
+static Task<string?> SysDescrAsync(string ip, CancellationToken, int timeoutMs = 1500)
+static Task<string?> SysNameAsync(string ip, CancellationToken, int timeoutMs = 1500)
+```
+
+OID: `sysDescr = 1.3.6.1.2.1.1.1.0`, `sysName = 1.3.6.1.2.1.1.5.0`.
+
+## UbiquitiDiscoveryService.cs
+
+UDP 10001 — UniFi AP / EdgeRouter / AirOS.
+
+```csharp
+internal sealed record UbiquitiKaydi(Ip, Mac?, Hostname?, Platform?, Firmware?, ModelKodu?)
+static Task<IReadOnlyList<UbiquitiKaydi>> TaraAsync(string subnet, CancellationToken, int dinlemeMs = 2500)
+```
+
+- v1 probe `{0x01,0x00,0x00,0x00}` + v2 probe `{0x02,0x08,0x00,0x00}`.
+- TLV parser unsigned-safe (byte shift integer overflow düzeltildi v0.3.0).
+
+## MndpDiscoveryService.cs
+
+MikroTik Neighbor Discovery (UDP 5678).
+
+```csharp
+internal sealed record MndpKaydi(Ip, Mac?, Identity?, Version?, Platform?, Board?, SoftwareId?)
+static Task<IReadOnlyList<MndpKaydi>> TaraAsync(string subnet, CancellationToken, int dinlemeMs = 3000)
+```
+
+## OuiVendorLookup.cs
+
+MAC OUI prefix → üretici. Lookup sıralaması:
+
+1. **`Req/wireshark-manuf`** (~57K kayıt, MA-L/MA-M/MA-S, Wireshark resmi listesi — full vendor adı `KisaltVendor` ile temizlenir)
+2. **`Req/oui.csv`** (IEEE MA-L, ~30K)
+3. **Built-in fallback** (~100 yaygın OUI)
+
+```csharp
+static string? Bul(string? mac)
+static OuiBilgi? BulDetay(string? mac)   // sealed record(Vendor, TurIpucu, Mobil)
+```
+
+**Phantom guard:** `Bul`/`BulDetay` `IsValidUnicast(mac)` kontrolü — geçersiz MAC (all-zero, multicast) vendor eşlemesi almaz.
+
+**Wireshark manuf:** GPL'li Wireshark projesinin OUI veri kaynağı. https://www.wireshark.org/download/automated/data/manuf adresinden manuel indirilir, `Req/wireshark-manuf` olarak kaydedilir. IEEE listesinin temizlenmiş kısa adlarını + private allocation (MA-M/MA-S) kayıtlarını içerir. Format: `<MAC-prefix>\t<short-vendor>\t<full-vendor> # opsiyonel yorum`. Yalnız /24 (8 char "XX:XX:XX") prefix'leri yüklenir; /28 ve /36 atlanır.
+
+**`KisaltVendor`** — IEEE şirket adından kısa form. Kırpılan: `, Ltd.` ` Ltd` ` Limited` ` Foundation` ` Innovation Limited` ` Innovation` `, Inc.` ` LLC` ` Corporation` ` Corp.` ` GmbH` ` AG` ` Technology` ` Technologies` ` Electronics` ` Networks` ` Communications` ` Systems` ` Solutions` ` International` `(Shenzhen)` `(Shanghai)`.
+
+**Normalize:** "Routerboard.com" / "Mikrotikls" → "MikroTik".
+
+**v0.4.0+ fix:** `3C:46:D8` = "TP-Link" (önceden yanlış "EZVIZ").
+
+## MacUtils.cs
+
+```csharp
+static string? Normalize(string? mac)        // her format → "XX:XX:XX:XX:XX:XX"
+static string? OuiPrefix(string? mac)        // → "XX:XX:XX"
+static bool    IsValidUnicast(string? mac)   // null/zero/multicast → false
+```
+
+Desteklenen format: `AA:BB:CC:DD:EE:FF`, `AA-BB-CC-DD-EE-FF`, `AABB.CCDD.EEFF`, `AABBCCDDEEFF`.
+
+## PdfReportService.cs
+
+QuestPDF ile PDF rapor.
 
 ```csharp
 static byte[] GenerateDeviceScanReport(IEnumerable<DeviceScanRow> rows, ReportMetadata meta)
-// DeviceScanRow: Ip, Ad, Tur, Marka, Model, Ping, Portlar, Kesif, Mac, Uretici, Servis
-// ReportMetadata: Operator, Project
 ```
 
-- Statik constructor'da `QuestPDF.Settings.License = LicenseType.Community`
-- A4 Yatay, kenar boşlukları 18px (yatay) / 14px (dikey)
-- 11 sütunlu tablo, başlık arka planı `#0D3B66`, dönüşümlü satır renkleri `#0D1117`/`#101722`
-- Risk alanları PDF modelinden çıkarılmıştır.
-- Altbilgi: sayfa X/Y numarası
+A4 yatay, kenar 18px/14px, 11 sütun, başlık `#0D3B66`, dönüşümlü satır `#0D1117`/`#101722`, altbilgi sayfa numarası. Statik ctor'da `QuestPDF.Settings.License = LicenseType.Community`.

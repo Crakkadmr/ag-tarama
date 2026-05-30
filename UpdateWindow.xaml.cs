@@ -37,6 +37,8 @@ public partial class UpdateWindow : Window
     private void Kapat()
     {
         _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = null;
         Close();
     }
 
@@ -48,6 +50,7 @@ public partial class UpdateWindow : Window
         ProgressPanel.Visibility = Visibility.Visible;
 
         var zipPath = Path.Combine(Path.GetTempPath(), "AgTaramaUpdate", $"AgTarama-v{_info.Version}.zip");
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
 
         var progress = new Progress<int>(pct =>

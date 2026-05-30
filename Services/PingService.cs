@@ -32,7 +32,7 @@ internal static class PingService
                 s = new PingSonuc(i, sayi, IPStatus.Unknown, 0, 0,
                     px.InnerException?.Message ?? px.Message);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex.GetBaseException() is not OperationCanceledException)
             {
                 s = new PingSonuc(i, sayi, IPStatus.Unknown, 0, 0, ex.Message);
             }

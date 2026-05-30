@@ -1,45 +1,48 @@
-# Mimari ve Klasör Yapısı
+﻿# Mimari ve Klasör Yapısı
 
 ## Klasör Yapısı
 
 ```
-AG TARAMA PROGRAMI/
-└── AgTarama/
-    ├── AgTarama.csproj               ← .NET 10 WPF v0.2.0; NuGet: QuestPDF 2024.12.*, ClosedXML 0.102.*
-    ├── App.xaml / App.xaml.cs        ← Application giriş noktası (boş)
-    ├── AssemblyInfo.cs               ← ThemeInfo
-    ├── MainWindow.xaml               ← Network Sniffer UI tasarımı + stiller (~1254 satır)
-    ├── MainWindow.xaml.cs            ← Ana partial: alanlar, başlangıç, Npcap, ArayuzSecim, UygulaButonSablon (~354 satır)
-    ├── Partials/                     ← C# partial class dosyaları (hepsi `public partial class MainWindow`)
-    │   ├── MainWindow.Capture.cs     ← YakalamaBaslat/Durdur, YakalamaKartiOlustur, WiresharkIleAc (351 satır)
-    │   ├── MainWindow.NetworkTools.cs← MesajEkle, Ping, PortTara, Traceroute, DNS, WoL, ARP, AgBilgi (835 satır)
-    │   ├── MainWindow.Bandwidth.cs   ← Bant grafiği, BandwidthHistoryService entegrasyonu, per-app trafik (347 satır)
-    │   ├── MainWindow.Console.cs     ← F12 komut konsolu, KonsoleToggle, ConsoleInput_KeyDown (yeni)
-    │   ├── MainWindow.Favorites.cs   ← FavoriChipleriniYenile, FavorilerPanelGuncelle (133 satır)
-    │   ├── MainWindow.History.cs     ← GecmisPanelGuncelle, Tekrar Çalıştır, Karşılaştır (235 satır)
-    │   ├── MainWindow.UI.cs          ← BtnAyarlar, RaporKaydet, Toast, Bildirim (141 satır)
-    │   ├── MainWindow.License.cs     ← LisansPanelGuncelle, sticky banner, MachineId, NTP, Kopyala (204 satır)
-    │   ├── MainWindow.Wlan.cs        ← WlanPanelBaşlat, WlanTaramaBaslat, WlanSatir, Evil-Twin tespiti (~180 satır)
-    │   └── MainWindow.DeviceScan.cs  ← KameraTaramaBaslat, 7 paralel keşif protokolü, subnet chip picker, export (2245 satır)
-    ├── Paths.cs                      ← Tüm exe-relative yol sabitleri (static)
-    ├── LogService.cs                 ← %APPDATA%\AgTarama\logs\YYYYMMDD.log
-    ├── obfuscar.xml                  ← Obfuscar yapılandırması (Release post-build)
-    ├── Services/                     ← Bkz. docs/services.md ve docs/licensing.md
-    ├── LicenseWindow.xaml / .cs      ← Lisans aktivasyon ekranı
-    ├── UpdateWindow.xaml / .cs       ← Güncelleme bildirimi + indirme
-    ├── SettingsWindow.xaml / .cs     ← Ayarlar penceresi
-    ├── docs/                         ← Agent referans dosyaları (bu dosya)
-    ├── Req/npcap-1.88.exe            ← Npcap installer
-    ├── tools/WiresharkPortable64/    ← tshark + Wireshark
-    ├── tools/Ip_Scanner/             ← advanced_ip_scanner + mac_interval_tree.txt
-    ├── tools/sadp/                   ← sadptool.exe
-    └── captures/                     ← .pcap dosyaları (otomatik oluşur)
+AG TARAMA PROGRAMI/                   ← repo kökü
+├── AgTarama.slnx                     ← .NET 10 solution (slnx format) — AgTarama + AgTarama.Tests
+├── .gitignore                        ← **/bin/, **/obj/, *.user, .vs/, captures/, TestResults/
+├── master-refactor.md                ← refactor plan özeti
+├── AgTarama/                         ← ana WPF projesi
+│   ├── AgTarama.csproj               ← .NET 10 WPF v0.4.0; bkz. project.md
+│   ├── App.xaml / App.xaml.cs        ← Application giriş noktası
+│   ├── AssemblyInfo.cs               ← ThemeInfo
+│   ├── MainWindow.xaml               ← Network Sniffer UI + stiller (~1986 satır)
+│   ├── MainWindow.xaml.cs            ← Ana partial (~386 satır)
+│   ├── Partials/                     ← 12 partial — bkz. partials.md
+│   ├── Paths.cs                      ← exe-relative yol sabitleri (static)
+│   ├── LogService.cs                 ← %APPDATA%\AgTarama\logs\YYYYMMDD.log
+│   ├── obfuscar.xml                  ← Release post-build obfuscator config
+│   ├── Services/                     ← Core servisler — bkz. services.md
+│   │   ├── Ai/                       ← AI altyapısı — bkz. services-ai.md
+│   │   └── Discovery/                ← Cihaz keşif motoru — bkz. services-discovery.md
+│   ├── LicenseWindow.xaml / .cs      ← Lisans aktivasyon
+│   ├── UpdateWindow.xaml / .cs       ← Güncelleme bildirimi + indirme
+│   ├── SettingsWindow.xaml / .cs     ← Ayarlar penceresi
+│   ├── AiDeviceReportWindow.xaml/.cs ← Cihaz AI rapor modalı
+│   ├── docs/                         ← Doc dosyaları (bu klasör)
+│   ├── Req/npcap-1.88.exe            ← Npcap installer + oui.csv
+│   ├── tools/WiresharkPortable64/    ← tshark + Wireshark
+│   ├── tools/Ip_Scanner/             ← advanced_ip_scanner
+│   ├── tools/sadp/                   ← sadptool.exe
+│   ├── tools/security/               ← hashes.allowlist.sha256 + verify script
+│   └── supabase/                     ← RLS migration SQL'leri
+└── AgTarama.Tests/                   ← xUnit test projesi (net10.0-windows)
+    ├── AgTarama.Tests.csproj         ← xunit 2.9.2 + xunit.runner.visualstudio + coverlet
+    ├── OuiVendorLookupTests.cs
+    ├── MacUtilsTests.cs
+    ├── DeviceStoreTests.cs
+    └── ProbeTests.cs
 ```
 
 **Log:** `%APPDATA%\AgTarama\logs\YYYYMMDD.log`
 **Ayarlar:** `%APPDATA%\AgTarama\settings.json`
-**Favoriler:** `%APPDATA%\AgTarama\favoriler.json`
-**Geçmiş:** `%APPDATA%\AgTarama\history\*.json`
+**Favoriler:** `%APPDATA%\AgTarama\favorites.json` (v0.3.0: IP normalize edilerek saklanır)
+**Geçmiş:** `%APPDATA%\AgTarama\history\*.json` (v0.3.0: ID `{tarih}_{guid8}_{type}`; `SonKayitlariYukle` lazy load)
 
 ---
 
@@ -69,7 +72,8 @@ Ağ iş mantığı `Services/` katmanına ayrılmış. ViewModel veya DI contain
 | `mac_interval_tree.txt` | `tools\Ip_Scanner\` | MAC prefix → üretici veritabanı | Cihaz Tara içinde otomatik |
 | `sadptool.exe` | `tools\sadp\` | Hikvision SADP | Manuel |
 
-> **NuGet:** `QuestPDF 2024.12.*` (PDF raporu) + `ClosedXML 0.102.*` (XLSX). `Lextm.SharpSnmpLib` kaldırıldı — SNMPv1 artık `SnmpFingerprintService` + `CommandRouter` içinde manuel ASN.1 DER ile yapılıyor (NuGet bağımlılığı yok).
+> **NuGet (ana proje):** `QuestPDF 2024.12.*` (PDF raporu) + `ClosedXML 0.102.*` (XLSX). `Lextm.SharpSnmpLib` kaldırıldı — SNMPv1 artık `SnmpFingerprintService` + `CommandRouter` içinde manuel ASN.1 DER ile yapılıyor (NuGet bağımlılığı yok).
+> **NuGet (AgTarama.Tests):** `xunit 2.9.2` + `xunit.runner.visualstudio 2.8.2` + `coverlet.collector 6.0.2`.
 
 ---
 
@@ -92,3 +96,13 @@ MesajEkle("hata",      "...")  // kırmızı, ✖ prefix
 - Stil kaynakları yalnızca `MainWindow.xaml > Window.Resources`'da. `ActiveActionButton`, `ActionButton`'dan **SONRA** tanımlanmalı.
 - .NET 10 / WPF — `LetterSpacing` gibi web CSS özellikleri yoktur.
 - Harici araç başlatma: `HariciAracBaslat(exe, ad)`. Toast: `ToastGoster(mesaj, hata:bool)`.
+
+---
+
+## AI Faz 2 (2026-05-17)
+
+- Yeni partial: `Partials/MainWindow.Ai.cs`.
+- Yeni servis klasörü: `Services/Ai/`.
+- Chatbot alt satırında AI input barı bulunur; istekler `AiClient` ile OpenRouter'a gider.
+- Varsayılan model: `deepseek/deepseek-v4-flash` (`AppSettings.AiModel` üzerinden değiştirilebilir).
+- AI ayar UI'si `SettingsWindow > AI` bölümünde sunulur.

@@ -19,7 +19,8 @@ internal static class InterfaceDiscoveryService
             UseShellExecute        = false,
             CreateNoWindow         = true,
         };
-        using var proc = Process.Start(psi)!;
+        using var proc = Process.Start(psi)
+            ?? throw new InvalidOperationException($"tshark başlatılamadı: {Paths.TsharkExe}");
         var cikti = await proc.StandardOutput.ReadToEndAsync();
         await proc.WaitForExitAsync();
 
@@ -51,7 +52,8 @@ internal static class InterfaceDiscoveryService
                 UseShellExecute        = false,
                 CreateNoWindow         = true,
             };
-            using var proc = Process.Start(psi)!;
+            using var proc = Process.Start(psi);
+            if (proc is null) return 0;
             var stderr = await proc.StandardError.ReadToEndAsync();
             await proc.WaitForExitAsync();
 

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Windows.Input;
 using AgTarama.Services;
+using AgTarama.Services.Ai;
 
 namespace AgTarama;
 
@@ -10,6 +11,7 @@ public partial class MainWindow
 
     private int _konsoleGecmisIndex = -1;
     private CancellationTokenSource? _konsoleCts;
+    private CancellationTokenSource? _aiOneriCts;
     private bool _konsoleCalistiriliyor = false;
 
     private void KonsoleBaslat()
@@ -69,6 +71,7 @@ public partial class MainWindow
                 await Task.Delay(100);
             }
 
+            _konsoleCts?.Dispose();
             _konsoleCts = new CancellationTokenSource();
             _konsoleCalistiriliyor = true;
             try
@@ -103,6 +106,21 @@ public partial class MainWindow
         {
             e.Handled = true;
             var cur = ConsoleInput.Text;
+
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                // Ctrl+Tab → AI komut önerisi; önceki istek varsa önce iptal et
+                if (!string.IsNullOrWhiteSpace(cur))
+                {
+                    _aiOneriCts?.Cancel();
+                    _aiOneriCts?.Dispose();
+                    _aiOneriCts = new CancellationTokenSource();
+                    _ = AiKomutOneriAsync(cur.Trim(), _aiOneriCts.Token);
+                }
+                return;
+            }
+
+            // Normal Tab → klasik autocomplete
             if (string.IsNullOrEmpty(cur)) return;
             var matches = CommandRouter.Names
                 .Where(n => n.StartsWith(cur, StringComparison.OrdinalIgnoreCase))
@@ -120,6 +138,32 @@ public partial class MainWindow
         else if (e.Key == Key.Escape)
         {
             _konsoleCts?.Cancel();
+            _aiOneriCts?.Cancel();
+        }
+    }
+
+    private async Task AiKomutOneriAsync(string metin, CancellationToken ct)
+    {
+        if (!_ayarlar.AiEnabled)
+        {
+            KonsoleYaz("[AI kapalı] Ayarlar > AI bölümünden etkinleştirin.\n");
+            return;
+        }
+        KonsoleYaz($"\n[AI] '{metin}' için komut önerisi bekleniyor...\n");
+        try
+        {
+            var prompt =
+                $"Kullanıcı F12 konsolunda '{metin}' yazdı. " +
+                "Tahminen ne yapmak istiyor? En olası 3 tam komutu öner. " +
+                "Komutlar: help, clear, history, ping, dns, port, traceroute, arp, wol, scan, ssl, banner, web, smb, snmp. " +
+                "Her öneri için tek satır: komut + kısa açıklama. Türkçe, kısa.";
+            var yanit = await AiClient.AskAsync(_ayarlar, "", prompt, ct);
+            KonsoleYaz("[AI Öneri]\n" + yanit + "\n\n");
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            KonsoleYaz($"[AI hata] {ex.Message}\n");
         }
     }
 

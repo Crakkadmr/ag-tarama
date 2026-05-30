@@ -1,171 +1,110 @@
 # AGENTS.md — Proje Master Index
 
-> Bu dosya AI agent'larinin projeye hizli giris noktasidir.
-> Detayli referans bilgi `docs/` klasorunde konuya gore ayrilmistir.
-> Son guncelleme: 2026-05-15 (v0.2.0 — Cihaz Tara genisleme: 5 yeni protokol, subnet chip picker, confidence scoring)
+> AI agent (Codex CLI + Claude Code) giriş noktası.
+> Detaylı referans: `docs/` klasöründe konuya göre ayrılmış.
+> Son güncelleme: 2026-05-19 (v0.4.0 + master-refactor sprinti).
 
 ---
 
-## 1. Proje Kimligi
+## 1. Proje Kimliği
 
-| Alan | Deger |
+| Alan | Değer |
 |---|---|
 | Ad | Network Sniffer (AgTarama) |
-| Tip | WPF Desktop Uygulamasi |
-| Hedef | .NET 10 (`net10.0-windows`), `UseWPF=true`, `Nullable=enable`, `ImplicitUsings=enable` |
-| csproj ek | `tools\**\*` ve `Req\**\*` -> `CopyToOutputDirectory=PreserveNewest` |
+| Tip | WPF Desktop Uygulaması |
+| Hedef | `net10.0-windows`, `UseWPF=true`, `Nullable=enable`, `ImplicitUsings=enable` |
 | Output | `WinExe` |
 | Namespace | `AgTarama` |
-| Surum | v0.2.0 |
-| Branch | `guvenlik-guncellestirmeleri-zirtpirt` (main: `main`) |
+| Sürüm | v0.5.0 |
+| Solution | `C:\Projects\AG TARAMA PROGRAMI\AgTarama.slnx` |
+| Branch | `bugveyeniozellikler` (main: `main`) |
 | Git user | Crakkadmr |
-| Kok yol | `C:\Projects\AG TARAMA PROGRAMI\AgTarama` |
+| Kök yol | `C:\Projects\AG TARAMA PROGRAMI\AgTarama` |
+
+Detay: [docs/project.md](docs/project.md).
 
 ---
 
-## 2. Proje Amaci
+## 2. Proje Amacı
 
-WPF tabanli **Network Sniffer** markali chatbot arayuzlu ag tarama ve paket yakalama uygulamasi.
+WPF tabanlı **Network Sniffer** markalı chatbot arayüzlü ağ tarama ve paket yakalama uygulaması.
 
-Ana ozellikler:
-- Paket yakalama (tshark) ve Wireshark Portable ile analiz
-- Ping, Port Tara (banner), Traceroute, DNS, ARP, Wake-on-LAN
-- Bant genisligi monitoru (gecmis grafik + istatistik)
-- Cihaz Tara (ONVIF+WSD, SSDP, mDNS/25-servis, Ping Sweep, NetBIOS, Advanced IP Scanner, Ubiquiti Discovery UDP-10001, MikroTik MNDP UDP-5678, SNMP sysDescr UDP-161, HTTP Fingerprint vendor-specific endpoint'ler; subnet chip picker; confidence score; QuestPDF/ClosedXML export)
-- Wi-Fi Tarama (SSID/BSSID/sinyal/kanal, Evil-Twin tespiti)
-- F12 komut konsolu (CommandRouter, `&&` zincirleme)
-- Favori IP, gecmis, lisanslama (Supabase)
+Ana özellikler:
+- Paket yakalama (tshark) + Wireshark Portable analizi
+- Ping, Port Tara, Traceroute, DNS, ARP, Wake-on-LAN
+- Bant genişliği monitörü (grafik + istatistik)
+- Cihaz Tara (ONVIF+WSD, SSDP, mDNS, SNMP, MNDP, Ubiquiti, HTTP fingerprint, ARP, NetBIOS, LLMNR)
+- Wi-Fi Tarama (Evil-Twin tespiti)
+- F12 komut konsolu (`CommandRouter`)
+- Favori IP, geçmiş, lisanslama (Supabase)
+- **AI Modu** (OpenRouter / Google / OpenAI / Custom; deepseek/deepseek-v4-flash default)
 
 ---
 
 ## 3. Komutlar
 
 ```powershell
-cd "C:\Projects\AG TARAMA PROGRAMI\AgTarama"
-dotnet build                   # Debug build
-dotnet run                     # Calistir
-dotnet build -c Release        # Release build
+cd "C:\Projects\AG TARAMA PROGRAMI"
+dotnet build AgTarama.slnx              # Debug build
+dotnet run --project AgTarama\AgTarama.csproj
+dotnet test AgTarama.slnx               # 48 test (1 bilinen fail)
+dotnet build AgTarama.slnx -c Release   # Release + Obfuscar
 ```
+
+Detay: [docs/tasks.md](docs/tasks.md).
 
 ---
 
-## 4. Dokumantasyon Haritasi
+## 4. Doküman Haritası
 
-| Ne yapiyorsun? | Oku |
+| Ne yapıyorsun? | Oku |
 |---|---|
-| XAML, stil, renk, buton, sekme degisikligi | [docs/ui.md](docs/ui.md) |
-| Service ekle veya degistir | [docs/services.md](docs/services.md) |
-| MainWindow partial icinde metot bul / degistir | [docs/partials.md](docs/partials.md) |
-| Lisans, Supabase, guvenlik, guncelleme | [docs/licensing.md](docs/licensing.md) |
-| Mimari, klasor yapisi, harici bagimliliklar, kurallar | [docs/architecture.md](docs/architecture.md) |
+| Doc haritası, hızlı başlangıç | [docs/README.md](docs/README.md) |
+| Stack, komut, env, csproj | [docs/project.md](docs/project.md) |
+| Mimari, klasör ağacı | [docs/architecture.md](docs/architecture.md) |
+| C# kuralları, async, naming | [docs/conventions.md](docs/conventions.md) |
+| NuGet paketleri | [docs/nuget-packages.md](docs/nuget-packages.md) |
+| Kararlar, teknik borç | [docs/decisions.md](docs/decisions.md) |
+| Yaygın görevler (servis ekle, probe ekle…) | [docs/tasks.md](docs/tasks.md) |
+| Test ortamı, yeni test yazma | [docs/testing.md](docs/testing.md) |
+| GitHub Release prosedürü | [docs/release.md](docs/release.md) |
+| Versiyon değişiklik geçmişi | [docs/CHANGELOG.md](docs/CHANGELOG.md) |
+| XAML, stil, renk, sekme | [docs/ui.md](docs/ui.md) |
+| MainWindow partial haritası | [docs/partials.md](docs/partials.md) |
+| Core servisler | [docs/services.md](docs/services.md) |
+| AI servisleri | [docs/services-ai.md](docs/services-ai.md) |
+| Cihaz keşif alt sistemi | [docs/services-discovery.md](docs/services-discovery.md) |
+| Lisans + güvenlik + update | [docs/licensing.md](docs/licensing.md) |
+
+Aktif refactor sprinti: [master-refactor.md](master-refactor.md).
 
 ---
 
-## 5. GitHub Release Prosedürü
+## 5. Doküman Güncelleme Politikası
 
-Kullanici **"github release yap"** (veya benzeri: "release et", "yayınla") dediginde asagidaki adimlari **sirayla ve eksiksiz** uy­gu­la:
+**Markdown dosyaları otomatik güncellenmez.** Sadece kullanıcı açıkça `"md guncelle"` veya `"AGENTS.md'yi guncelle"` dediğinde güncellenir. Kod değişiklikleri MD'lere dokunmaz. Kullanıcı `"md guncelle"` dediğinde:
 
-### 5.1 Versiyon Arttirma
-
-1. `AgTarama.csproj` dosyasindaki `<Version>`, `<AssemblyVersion>`, `<FileVersion>` degerlerini **minor basamagi 0.1 arttirarak** guncelle.
-   - Ornek: `0.2.0` → `0.3.0`
-2. `AGENTS.md` §1 tablosundaki `Surum` satirini ve §7 basligini guncelle.
-3. Degisikligi commit et:
-   ```
-   chore: bump version to vX.Y.Z
-   ```
-
-### 5.2 Release Build
-
-```powershell
-cd "C:\Projects\AG TARAMA PROGRAMI\AgTarama"
-dotnet build -c Release
-```
-
-Build basarili olmazsa duraksayip kullaniciya hata mesajini ilet; devam etme.
-
-### 5.3 ZIP Olustur
-
-```powershell
-$ver = "X.Y.Z"   # yeni versiyon
-$src = "bin\Release\net10.0-windows"
-$zip = "bin\AgTarama-v$ver.zip"
-Compress-Archive -Path "$src\*" -DestinationPath $zip -CompressionLevel Optimal
-```
-
-### 5.4 SHA256 Dosyasi Olustur
-
-```powershell
-$hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-$shaFile = "bin\AgTarama-v$ver.zip.sha256"
-[System.IO.File]::WriteAllText($shaFile, "$hash  AgTarama-v$ver.zip", [System.Text.UTF8Encoding]::new($false))
-```
-
-> **Zorunlu:** UpdateService, SHA dosyasi olmayan release'lerde guncelleme bulamaz (`return null`).
-
-### 5.5 GitHub Release Olustur
-
-```bash
-gh release create "vX.Y.Z" "bin/AgTarama-vX.Y.Z.zip" "bin/AgTarama-vX.Y.Z.zip.sha256" \
-  --repo Crakkadmr/ag-tarama \
-  --title "vX.Y.Z — <kisa ozet>" \
-  --notes "<release notlari>" \
-  --latest
-```
-
-- `--latest` mutlaka ekle (UpdateService `/releases/latest` endpoint'ini kullanir).
-- Release notlarina en az "Kurulum" adimi ekle.
-
-### 5.6 Dogrulama
-
-```bash
-gh release view vX.Y.Z --repo Crakkadmr/ag-tarama --json assets --jq '.assets[].name'
-```
-
-Ciktida hem `.zip` hem `.zip.sha256` gozukmeliydi. Ikisi de varsa islemi kullaniciya bildir.
+- Hangi alt dosyaların güncel olmadığını analiz et
+- Sadece etkilenen dosyaları düzenle
 
 ---
 
-## 6. Dokumantasyon Guncelleme Politikasi
-
-**Markdown dosyalari (AGENTS.md, docs/*.md) her degisiklikte otomatik guncellenmez.**
-Sadece kullanici acikca `"md guncelle"` veya `"AGENTS.md'yi guncelle"` dediginde guncellenir.
-Kod degisiklikleri yapilirken bu dosyalara dokunulmaz.
-
-Kullanici `"md guncelle"` dediginde:
-- Hangi alt dosyalarin guncel olmadigini analiz et
-- Sadece etkilenen dosyalari duzenle
-
----
-
-## 6. Gelistirme Kurallari (ozet)
+## 6. Geliştirme Kuralları (özet)
 
 - `async/await` + `CancellationToken` zorunlu; UI thread bloke edilmemeli.
-- Panel sonuclari kendi `XxxResultPanel`'e; ana chat'e yazilmaz.
-- Sekme gecisi: `MainTabControl.SelectedIndex = TabXxx`.
-- Stil kaynaklari yalnizca `MainWindow.xaml > Window.Resources`.
-- Harici arac baslatma: `HariciAracBaslat(exe, ad)`.
-- Toast: `ToastGoster(mesaj, hata:bool)`.
+- `OperationCanceledException` yutulmaz, propagate edilir.
+- Panel sonuçları kendi `XxxResultPanel`'e; ana chat'e yazılmaz.
+- Sekme geçişi: `MainTabControl.SelectedIndex = TabXxx`.
+- Stil kaynakları yalnızca `MainWindow.xaml > Window.Resources`.
+- Harici araç başlatma: `HariciAracBaslat(exe, ad)`. Toast: `ToastGoster(mesaj, hata:bool)`.
+- **Versiyon yükseltme** yalnızca kullanıcı `"release et"` / `"versiyon yükselt"` derse.
+- **Commit** kullanıcı manuel yapacak — AI otomatik commit atmaz.
+
+Detay: [docs/conventions.md](docs/conventions.md).
 
 ---
 
-## 7. Son Degisiklik Notu (2026-05-15) — v0.2.0
+## 7. Release Prosedürü
 
-**Cihaz Tara buyuk genisleme:**
-- 5 yeni keşif protokolü: Ubiquiti Discovery (UDP 10001 TLV), MikroTik MNDP (UDP 5678 TLV), SNMP sysDescr/sysName (UDP 161 ASN.1), HTTP vendor-specific endpoint fingerprinting, WSD `wsdp:Device` probe.
-- 5 yeni servis dosyasi: `UbiquitiDiscoveryService.cs`, `MndpDiscoveryService.cs`, `SnmpFingerprintService.cs`, `OuiVendorLookup.cs`, `HttpFingerprintService.cs`.
-- Subnet chip picker: NIC'lere gore ToggleButton chip'leri (WrapPanel), "Derin tara" CheckBox, ⟳ yenile butonu.
-- Confidence score (`Guven` 0-100): DataGrid'de yeni sutun.
-- `KesifKaynaklari HashSet<string>`: hangi protokolun cihaziı keşfettigini izler.
-- mDNS servis listesi 12 → 25 servise genisletildi.
-- `MarkaTablosu` ~40 → ~100 anahtar kelimeye genisletildi.
-- `KimlikBelirle` heuristikleri iyilestirildi: Linux IoT, Akilli Cihaz, Router DNS/DHCP, yazici sikilasmasi.
-- `GuvenSkoru()` yeni metodu.
-- `KesifSira()` yeni metodu.
-- NetbiosService: `nbtstat`/`ping` ciktisi icin OEM kod sayfasi kodlamasi duzeltildi.
-- HTTP 200 kontrolu `HttpBannerOku`'ya eklendi.
-- `AcikPortlar` race condition duzeltildi (`KameraWebUrlSec`).
-- CIDR aralik dogrulamasi genisetildi: /16-/30.
-- Filtre secenekleri genisletildi: Bilinmiyor, Linux IoT, Router/AP, Erisim Noktasi, Switch, Akilli TV, Akilli Cihaz, Telefon, Hoparlor.
-- DataGrid `Kesif` sutunu 130px, yeni `Guven` sutunu 60px.
-- Sag tik menusune "Bu cihazi yeniden tara" eklendi.
+Kullanıcı `"github release yap"` (veya benzeri) dediğinde sırayla uygulanır.
+Tam adım listesi: [docs/release.md](docs/release.md).

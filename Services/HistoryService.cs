@@ -37,9 +37,10 @@ internal static class HistoryService
     {
         Directory.CreateDirectory(Paths.HistoryKlasor);
         var now = DateTimeOffset.Now;
+        var suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
         var record = new HistoryRecord
         {
-            Id = $"{now:yyyyMMdd_HHmmss_fff}_{TemizDosyaParcasi(type)}",
+            Id = $"{now:yyyyMMdd_HHmmss_fff}_{suffix}_{TemizDosyaParcasi(type)}",
             CreatedAt = now,
             Type = type,
             Target = target,
@@ -56,11 +57,16 @@ internal static class HistoryService
     public static List<HistoryRecord> SonKayitlariYukle(int limit = 100)
     {
         Directory.CreateDirectory(Paths.HistoryKlasor);
-        return Directory.EnumerateFiles(Paths.HistoryKlasor, "*.json")
-            .Select(Yukle)
+        // Lazy load: önce dosyaları son değiştirilme tarihine göre sırala,
+        // sadece ilk `limit` dosyayı deserialize et (1000+ kayitta bellek kazanci).
+        if (limit <= 0) return new List<HistoryRecord>();
+        return new DirectoryInfo(Paths.HistoryKlasor)
+            .EnumerateFiles("*.json")
+            .OrderByDescending(f => f.LastWriteTimeUtc)
+            .Take(limit)
+            .Select(f => Yukle(f.FullName))
             .OfType<HistoryRecord>()
             .OrderByDescending(r => r.CreatedAt)
-            .Take(limit)
             .ToList();
     }
 

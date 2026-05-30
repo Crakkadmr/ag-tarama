@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -11,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using AgTarama.Services;
+using AgTarama.Services.Ai;
 
 namespace AgTarama;
 
@@ -18,7 +20,8 @@ public partial class MainWindow
 {
     private CancellationTokenSource? _wlanCts;
     private readonly ObservableCollection<WlanSatir> _wlanSatirlar = new();
-    private readonly Dictionary<string, HashSet<string>> _wlanBilinenBssid = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _wlanBilinenBssid =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly List<WlanSonuc> _sonWlanSonuclar = new();
     private DispatcherTimer? _wlanOtoTimer;
     private int _wlanSayac;
@@ -28,9 +31,14 @@ public partial class MainWindow
     private void WlanPanelBaslat()
     {
         WlanGrid.ItemsSource = _wlanSatirlar;
-        _wlanAdaptorVar = WlanService.WifiAdaptorVarMi();
         WlanSayacText.Text = "";
         WlanKanalOzetText.Text = "Kanal dagilimi hazir degil.";
+        // Adaptör kontrolü UI thread'ini bloke etmemek için Loaded sonrasında async yapılıyor.
+    }
+
+    private async Task WlanAdaptorKontrolAsync()
+    {
+        _wlanAdaptorVar = await WlanService.WifiAdaptorVarMiAsync();
 
         if (!_wlanAdaptorVar)
         {
@@ -55,6 +63,56 @@ public partial class MainWindow
         _wlanCts?.Cancel();
         WlanOtoTimerDurdur();
         WlanOtoYenileCheck.IsChecked = false;
+    }
+
+    private async void WlanAiBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_ayarlar.AiEnabled)
+        {
+            ToastGoster("AI özellikleri Ayarlar > AI bölümünden kapalı.", hata: true);
+            return;
+        }
+        if (_wlanSatirlar.Count == 0)
+        {
+            ToastGoster("Önce Wi-Fi taraması yapın.", hata: true);
+            return;
+        }
+
+        WlanAiBtn.IsEnabled = false;
+        WlanAiBtn.Content   = "⏳  AI...";
+        try
+        {
+            var wlanJson = JsonSerializer.Serialize(
+                _wlanSatirlar.Select(w => new
+                {
+                    ssid        = w.Ssid,
+                    bssid       = w.Bssid,
+                    auth        = w.Auth,
+                    encryption  = w.Encryption,
+                    signal      = w.Signal,
+                    channel     = w.Channel,
+                    radioType   = w.RadioType,
+                    evilTwin    = w.SupheliEvilTwin,
+                }),
+                new JsonSerializerOptions { WriteIndented = false });
+
+            var userPrompt = $"Wi-Fi tarama sonucu ({_wlanSatirlar.Count} ağ):\n{wlanJson}";
+            var yanit = await AiClient.AskAsync(
+                _ayarlar, AiPrompts.WlanSystemPrompt, userPrompt, MasterCts.Token);
+
+            MainTabControl.SelectedIndex = TabChatbot;
+            MesajEkle("sonuc", "📶 Wi-Fi Güvenlik Raporu\n\n" + yanit);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            ToastGoster("Wi-Fi AI raporu hatası: " + ex.Message, hata: true);
+        }
+        finally
+        {
+            WlanAiBtn.IsEnabled = _wlanSatirlar.Count > 0 && _ayarlar.AiEnabled;
+            WlanAiBtn.Content   = "✨  Rapor";
+        }
     }
 
     private void WlanOtoYenile_Changed(object sender, RoutedEventArgs e)
@@ -133,6 +191,7 @@ public partial class MainWindow
             if (supheli > 0)
                 ToastGoster($"{supheli} agda supheli Evil-Twin sinyali var.", hata: true);
 
+            WlanAiBtn.IsEnabled = sonuclar.Count > 0 && _ayarlar.AiEnabled;
             WlanTaramaGecmiseYaz(sonuclar, supheli, coklu);
         }
         catch (OperationCanceledException)
@@ -256,13 +315,14 @@ public partial class MainWindow
 
             if (_wlanBilinenBssid.TryGetValue(ssid, out var bilinenler))
             {
+                int sinyalEsigi = Math.Clamp(SettingsService.Yukle().EvilTwinSinyalEsigi, 50, 90);
                 foreach (var s in grup)
                 {
                     if (string.IsNullOrWhiteSpace(s.Bssid)) continue;
-                    if (bilinenler.Contains(s.Bssid)) continue;
+                    if (bilinenler.ContainsKey(s.Bssid)) continue;
 
                     SupheNedeniEkle(s, "Ayni SSID altinda beklenmeyen BSSID");
-                    if (s.Signal >= 75)
+                    if (s.Signal >= sinyalEsigi)
                         SupheNedeniEkle(s, "Yuksek sinyal ile yeni BSSID");
                 }
             }
@@ -273,15 +333,12 @@ public partial class MainWindow
             var ssid = grup.Key;
             if (string.IsNullOrWhiteSpace(ssid)) continue;
 
-            if (!_wlanBilinenBssid.TryGetValue(ssid, out var bssidler))
-            {
-                bssidler = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                _wlanBilinenBssid[ssid] = bssidler;
-            }
+            var bssidler = _wlanBilinenBssid.GetOrAdd(ssid,
+                _ => new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase));
 
             foreach (var s in grup)
                 if (!string.IsNullOrWhiteSpace(s.Bssid))
-                    bssidler.Add(s.Bssid);
+                    bssidler.TryAdd(s.Bssid, 0);
         }
     }
 

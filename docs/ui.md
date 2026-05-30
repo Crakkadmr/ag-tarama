@@ -1,11 +1,11 @@
-# UI Referansı — MainWindow.xaml
+﻿# UI Referansı — MainWindow.xaml
 
 ## UI Düzeni
 
 **Versiyon:** v0.2.0
 
 - `WindowState="Maximized"` — uygulama tam ekran açılır
-- **3 satırlı kök Grid:** Satır 0 (Auto) = başlık kartı; Satır 1 (Auto) = `LisansBanner` (gizli, < 7 gün kaldığında görünür); Satır 2 (`*`) = iç Grid
+- **3 satırlı kök Grid:** Satır 0 (Auto) = başlık kartı; Satır 1 (Auto) = `LisansBanner` (gizli, < 7 gün kaldığında görünür); Satır 2 (`*`) = iç Grid (**önemli:** kök Grid Row 2 kesinlikle `Height="*"` olmalı; `Auto` yapılırsa tüm tab ScrollViewer'ları scrolllanamaz hale gelir)
 - **İç Grid (Grid.Row=2):** Satır 0 (`*`) = `MainTabControl`; Satır 1 (Auto) = `ConsolePanel` (F12 toggle)
 - **Toast:** `Grid.RowSpan="3"` — tüm satırları kapsar
 - **Başlık kartı** (`#161B22`, CornerRadius=12): sol — ikon + `NETWORK SNIFFER` + `StatusText`; orta — araç WrapPanel; sağ — versiyon yazısı
@@ -17,8 +17,8 @@
 
 | # | Başlık | Panel x:Name | CTS | İçerik |
 |---|---|---|---|---|
-| 0 | 💬 Chatbot | `ChatPanel` + `FavoriChipleri` | — | ChatScrollViewer; header butonları Chatbot'u kontrol eder |
-| 1 | ◎ Cihaz Tara | `KameraPanel` | `_kameraCts` | NIC chip picker + "Derin tara" checkbox + ⟳ yenile; Subnet TextBox, Tara/Durdur, filtreler, DataGrid (Güven sütunu eklendi, Risk kaldırıldı) |
+| 0 | 💬 Chatbot | `ChatPanel` + `FavoriChipleri` | — | **DockPanel** (LastChildFill): üst araç çubuğu (Dock="Top"), alt AI input barı (Dock="Bottom"), ortada `ChatScrollViewer` (fill). `AiInputBorder` (koyu çerçeve, GotFocus/LostFocus ile mavi) → `AiInputBox` (`AiInputStyle`) + `AiGonderBtn` + `AiTemizleBtn`. |
+| 1 | ◎ Cihaz Tara | `KameraPanel` | `_kameraCts` | NIC chip picker + "Derin tara" checkbox + ⟳ yenile; Subnet TextBox, Tara/Durdur, **✨ AI** (`KameraAiBtn` — tarama bitince enabled), filtreler, DataGrid (Güven sütunu, Risk kaldırıldı) |
 | 2 | ◈ Ping Testi | `PingPanel` | `_pingCts` | IP giriş, chip'ler, PingResultPanel |
 | 3 | ⊞ Port Tara | `PortPanel` | `_portScanCts` | IP + port aralığı, chip'ler, PortResultPanel |
 | 4 | ⇢ Traceroute | `TracePanel` | `_traceCts` | IP giriş, TraceResultPanel |
@@ -29,6 +29,7 @@
 | 9 | ◷ Geçmiş | `GecmisPanel` | — | JSON geçmiş kayıtları, aç/tekrar çalıştır/karşılaştır |
 | 10 | 📶 Wi-Fi | `WlanPanel` | `_wlanCts` | Tara/Durdur, otomatik yenile (10s), DataGrid (SSID/BSSID/Sinyal/Kanal/Kimlik/Şifreleme/Radyo/Durum), Evil-Twin göstergesi; Wi-Fi adaptörü yoksa `WlanTab.IsEnabled=false` |
 | 11 | ⊙ Lisans | `LisansPanel` | — | Lisans durumu, kalan süre (renk kodlu), son online doğrulama UTC, NTP zamanı, MachineId (8 char), sticky banner (< 7 gün), kopyala butonu |
+| 12 | ◫ Harita | `HaritaCanvas` | — | Gateway-merkezli topoloji haritası. Düğümlere tıklayınca detay paneli. Detay için [harita.md](harita.md). |
 
 **Cihaz Tara sekme detayı (v0.2.0):**
 
@@ -36,8 +37,9 @@ Satır 1 — NIC chip picker:
 ```
 [ ScrollViewer > WrapPanel x:Name="KameraSubnetChips" ]  [☐ Derin tara]  [⟳]
 ```
-- Her aktif NIC için `ToggleButton` chip: `192.168.1.0/24 (Ethernet)` formatı; seçim subnet TextBox'a senkronize edilir.
-- `KameraDerinTaraCheck` (CheckBox) — Ubiquiti, MikroTik, SNMP, HTTP endpoint probe'larını etkinleştirir.
+- Her aktif NIC için `ToggleButton` chip (v0.3.0: `DarkChip` stilini kullanır): `192.168.1.0/24 (Ethernet)` formatı; seçim subnet TextBox'a senkronize edilir.
+- `KameraDerinTaraCheck` (CheckBox; v0.3.0: `DarkCheckBox` stiliyle koyu tema) — Ubiquiti, MikroTik, SNMP, HTTP endpoint probe'larını etkinleştirir.
+- Subnet TextBox kabul ettiği formatlar (v0.3.0): `192.168.1` (3-oktet), `192.168.1.0/24`, `10.0.0.0/16` (256 alt /24'e açılır), `192.168.1.0/30` (2 host), virgül/satırla ayrılmış liste.
 - `KameraNicYenileBtn` (⟳) — `KameraNicChipleriniYenile(seciliVarsayilan: false)` çağırır.
 
 Satır 2 — Manuel subnet + butonlar:
@@ -52,6 +54,8 @@ Filtre seçenekleri (`KameraTurFiltreBox`):
 DataGrid sütunları: IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif (130px), MAC, Üretici, Servis, **Güven** (60px, SortMemberPath=Guven).
 
 Sağ tık menüsü: Web Arayüzü Aç, Ping Testi, Port Tara, Traceroute, DNS Lookup, IP Kopyala, Favorilere Ekle, **Bu cihazı yeniden tara**, Export (Excel/PDF/TXT/CSV/JSON).
+
+**Tarama ilerleme paneli (`ScanProgressPanel`, Grid.Row=5 — DataGrid altı):** Tarama süresince görünür sticky panel (mavi `#1F6FEB` çerçeve). `ScanProgressAsama` (aşama + host sayısı), `ScanProgressYuzde` (sağ-üst bold, `%67 · 8 cihaz`), `ScanProgressBar` (6px ProgressBar), `ScanProgressDetay` (probe/listener bazlı son işlem). `ScanOverlayShow/Update/Hide` (`MainWindow.DeviceScan.cs`) `Progress<ScanProgress>` akışından beslenir. Tarama bitince Collapsed.
 
 **TabItem stili:** Consolas 12pt, `#8B949E` fg, transparent. Seçilince alt kenarlık `#2F81F7` (2px), bg `#0D1F2F`, metin `#58A6FF`. Hover: bg `#161B22`, metin `#C9D1D9`. CornerRadius=6,6,0,0.
 
@@ -85,8 +89,11 @@ Sekme geçişi: `MainTabControl.SelectedIndex = TabXxx` (sabitler `MainWindow.xa
 | `ActiveActionButton` | Button | Aktif — yeşil çerçeve (#3FB950, 2px). **`ActionButton`'dan SONRA tanımlanmalı** |
 | `PrimaryButton` | Button | Yeşil "Başlat" butonu (48px, BasedOn ActionButton) |
 | `DangerButton` | Button | Kırmızı "Durdur" butonu (BasedOn ActionButton) |
-| `PingInputBox` | TextBox | IP/değer giriş kutusu |
+| `PingInputBox` | TextBox | IP/değer giriş kutusu (OverridesDefaultStyle + custom template + CornerRadius=6) |
+| `AiInputStyle` | TextBox | AI input kutusunun minimal iç stili — sadece PART_ContentHost ScrollViewer; görsel çerçeve `AiInputBorder` Border'dan gelir. v0.4.0 |
 | `ChipButton` | Button | Hızlı seçim chip'leri (CornerRadius=12) |
+| `DarkChip` | ToggleButton | Subnet NIC chip'i (CornerRadius=12, mavi seçili durumu). v0.3.0 |
+| `DarkCheckBox` | CheckBox | Koyu temalı CheckBox (16×16 kutucuk + mavi Path tik). v0.3.0 — `TargetType="CheckBox"` boş stili ile tüm CheckBox'lara otomatik uygulanır |
 | `DarkComboBox` | ComboBox | Cihaz Tara tür filtresi; koyu açılır liste |
 | `DarkComboBoxItem` | ComboBoxItem | Koyu dropdown satırları |
 | `DarkDataGrid` | DataGrid | Cihaz Tara tablo; koyu tema, sıralanabilir |
@@ -110,3 +117,49 @@ Yeşil:       #3FB950 (başarı), #1A4A2E (PrimaryButton bg), #238636
 Kırmızı:     #F85149 (hata), #3D1A1A (DangerButton bg), #8B1A1A
 Metin:       #E6EDF3 (parlak), #C9D1D9 (orta), #8B949E (silik), #484F58 (devre dışı)
 ```
+
+---
+
+## AI Modu UI Notları (v0.4.0)
+
+### Chatbot sekmesi — AI input barı
+
+```
+DockPanel LastChildFill
+├── Border Dock="Top"       — araç çubuğu (tshark, ARP, ağ bilgisi, ayarlar…)
+├── Border Dock="Bottom"    — AI input barı (Background="#111827")
+│   └── Grid (3 sütun)
+│       ├── Border x:Name="AiInputBorder" (CornerRadius=6, GotFocus→#58A6FF, LostFocus→#30363D)
+│       │   └── TextBox x:Name="AiInputBox" Style="{StaticResource AiInputStyle}"
+│       ├── Button  x:Name="AiGonderBtn"  (PrimaryButton, "✨ Sor")
+│       └── Button  x:Name="AiTemizleBtn" (ChipButton, "Temizle")
+└── Border              — ChatScrollViewer (fill, LastChildFill)
+```
+
+`AiInputStyle`: `OverridesDefaultStyle=True`, `Background=Transparent`, `BorderThickness=0`, sadece `PART_ContentHost` ScrollViewer template. Metin rengi (#E6EDF3) style setter'dan gelir; görsel çerçeve parent `AiInputBorder`'dan.
+
+### AiDeviceReportWindow — Cihaz Tara AI Modalı
+
+`KameraAiBtn` ("✨ AI") tıklanınca açılan koyu temalı bağımsız pencere:
+
+- **Preset chip'ler:** 🛡️ Güvenlik riski, 📷 Kamera/NVR, 📡 AP/Router, ❓ Bilinmeyen, 🔍 Sonraki tarama + ✏️ Serbest metin TextBox.
+- **Analiz başlayınca:** `AnalizeBasla(talep, etiket)` → spinner → AI yanıtı `ResultText` TextBox'a yazılır.
+- **Alt butonlar:** [📋 Kopyala] [💾 TXT Kaydet] [🔁 Yeniden Sor] [Kapat].
+- **IP tespiti:** AI yanıtında IP adresi bulunursa "🔁 Bu IP'leri yeniden tara (N IP)" butonu görünür; `_yenidenTaraCallback` aracılığıyla `MainWindow.DeviceScan.cs`'deki `TekIpTaraAsync` çağrılır.
+- Stiller: `PresetChipStyle` (inline tanımlı), `DarkCheckBox`/`PingInputBox` ile uyumlu koyu tema.
+
+### Yakalama Kartı — AI Butonu
+
+`YakalamaKartiOlustur → Tamamla` delegesi:
+- Wireshark butonu altına "✨ AI ile analiz et" eklenir.
+- Tıklanınca `AiPcapAnalyzer.AnalyzeAsync(pcapPath, _ayarlar, MasterCts.Token)` → `MesajEkle("sonuc", "🤖 AI Analizi\n\n" + yanit)` + `HistoryService.Kaydet("AI ANALIZ", ...)`.
+
+### Ayarlar > AI Bölümü
+
+`SettingsWindow.xaml` AI section:
+- Sağlayıcı: `DarkComboBox` (OpenRouter / Google AI / OpenAI / Özel) — preset seçince BaseUrl + Model auto-fill.
+- API Anahtarı: `PasswordBox` koyu inline template; [Değiştir] modal, [Sıfırla] vault siler.
+- Model + Base URL metin kutuları.
+- Günlük/aylık token limiti.
+- Yerel IP maskele checkbox, AI etkinleştir checkbox.
+- [Test Et] → `AiClient.TestConnectionAsync` → "✓ model: …, 142ms" / "✗ 401: …".

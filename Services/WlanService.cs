@@ -169,20 +169,21 @@ public static class WlanService
     private static string Normalize(string value)
         => Regex.Replace(value ?? "", "\\s+", " ").Trim();
 
-    public static bool WifiAdaptorVarMi()
+    public static async Task<bool> WifiAdaptorVarMiAsync()
     {
         try
         {
             var psi = new ProcessStartInfo("netsh", "wlan show interfaces")
             {
                 RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
+                RedirectStandardError  = true,
+                UseShellExecute        = false,
+                CreateNoWindow         = true,
             };
             using var proc = Process.Start(psi)!;
-            var output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit();
+            var outputTask = proc.StandardOutput.ReadToEndAsync();
+            await proc.WaitForExitAsync();
+            var output = await outputTask;
             return output.Contains("Name", StringComparison.OrdinalIgnoreCase)
                 && !output.Contains("There are 0 interfaces", StringComparison.OrdinalIgnoreCase);
         }

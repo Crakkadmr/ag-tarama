@@ -1,11 +1,42 @@
-# MainWindow Partial Dosya Haritası
+﻿# MainWindow Partial Dosya Haritası
 
 > Satır numaraları ±20 satır toleransla doğrudur. Kod değişiklikleri sonrası eskime olabilir.
 > "md güncelle" talimatı geldiğinde haritalar yeniden hesaplanır.
-> Harita ile gerçek dosya arasında büyük sapma görülürse dosyayı `offset` yerine baştan oku ve haritayı güncelle.
+> Harita ile gerçek dosya arasında büyük sapma görülürse dosyayı baştan oku ve haritayı güncelle.
 
-`MainWindow.xaml.cs` + 10 partial dosya derleyici tarafından tek `MainWindow` sınıfında birleştirilir.
-Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` NetworkTools'ta tanımlı, her partial'dan çağrılabilir).
+`MainWindow.xaml.cs` + 12 partial derleyici tarafından tek `MainWindow` sınıfında birleştirilir.
+Cross-partial metot çağrıları sorunsuz (örn. `MesajEkle` NetworkTools'ta tanımlı, her partial'dan çağrılabilir).
+
+## Mevcut Boyut Tablosu (2026-05-19, Faz 4 sonrası)
+
+| Dosya | Satır | Sorumluluk |
+|---|---|---|
+| `MainWindow.xaml.cs` | 386 | Constructor, başlangıç, Npcap, ArayuzSecim, OuiAra |
+| `Partials/MainWindow.Ai.cs` | 131 | Chatbot AI input + sohbet |
+| `Partials/MainWindow.Bandwidth.cs` | 347 | Bant grafiği, BandwidthHistoryService |
+| `Partials/MainWindow.Capture.cs` | 413 | tshark yakalama + Wireshark açma |
+| `Partials/MainWindow.Console.cs` | 175 | F12 komut konsolu |
+| `Partials/MainWindow.DeviceClassifier.cs` | 617 | MarkaNormalize, KimlikBelirleV2 |
+| `Partials/MainWindow.DeviceScan.cs` | 693 | Cihaz Tara ana akış, KameraTaramaBaslat, datagrid handlers, TekIpTaraAsync |
+| `Partials/MainWindow.DeviceScan.Export.cs` | 224 | CSV/XLSX/PDF/TXT/JSON dışa aktarma |
+| `Partials/MainWindow.DeviceScan.Row.cs` | 208 | KameraSatirOlustur + KameraSatir view model |
+| `Partials/MainWindow.DeviceScan.SubnetPicker.cs` | 198 | NIC subnet picker + chip UI |
+| `Partials/MainWindow.Favorites.cs` | 133 | Favori IP chip + panel |
+| `Partials/MainWindow.History.cs` | 340 | Geçmiş kayıtları, tekrar çalıştır, karşılaştır |
+| `Partials/MainWindow.License.cs` | 204 | Lisans paneli, sticky banner, kopyala |
+| `Partials/MainWindow.NetworkTools.cs` | 171 | MesajEkle (chat), tab geçişi, IP/hostname/OtomatikNokta helpers |
+| `Partials/MainWindow.Tools.Ping.cs` | 157 | Ping panel + PingBaslat |
+| `Partials/MainWindow.Tools.PortScan.cs` | 217 | Port tara panel + PortTaraBaslat + AI yorumla |
+| `Partials/MainWindow.Tools.Misc.cs` | 391 | Trace/DNS/WoL/ARP/AğBilgi + HariciAracBaslat |
+| `Partials/MainWindow.UI.cs` | 148 | Ayarlar, RaporKaydet, Toast, Bildirim, DragDrop |
+| `Partials/MainWindow.Wlan.cs` | 477 | Wi-Fi tarama + Evil-Twin |
+
+**Kural:** > 600 satıra çıkan partial bölünür. DeviceScan.cs (693) sınırı hafif aşıyor; sonraki refactor turunda DataGrid handler bloğu ayrı partial'a çekilebilir.
+
+**Faz 4 sonuçları:**
+- `DeviceScan.cs`: 1414 → 693 (-51%); 3 yeni partial (Export, Row, SubnetPicker)
+- `NetworkTools.cs`: 901 → 171 (-81%); 3 yeni partial (Tools.Ping, PortScan, Misc)
+- Toplam 6 yeni partial, MainWindow class derleyici tarafından tek sınıfta birleşiyor (XAML referans bozulmadı).
 
 ---
 
@@ -56,45 +87,85 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 
 ---
 
-## Partials/MainWindow.DeviceScan.cs (2245 satır — v0.2.0 ile büyük genişleme)
+## Partials/MainWindow.DeviceScan.cs (engine-based — v0.4.0+)
+
+Eski ~2340 satırlık inline sweep kodu `DeviceDiscoveryEngine`'e taşındı. Bu partial artık UI bağlama katmanıdır.
 
 | Satır | İçerik |
 |---|---|
-| L1–L27 | using/namespace |
-| L28–L86 | `KameraBilgi` sealed class — 30+ alan (Ubiquiti, MikroTik, SNMP, HTTP-FP, WSD, `KesifKaynaklari HashSet<string>`), `CihazKimlik` sealed class |
-| L88–L220 | `KameraPorts` array, `MarkaTablosu` static array (~100 anahtar kelime → marka/tür) |
-| L222–L420 | `KimlikBelirle(KameraBilgi) static` — vendor-specific yüksek güven kaynakları → mDNS → yazıcı/NVR/PC heuristikleri → MarkaTablosu → port-based fallback → TTL fallback |
-| L422–L520 | `GuvenSkoru(b, k) static`, `CihazAdiBilgisayarGibi`, `KayitCihaziIpuclariVar`, `YaziciIpuclariVar`, `CihazAdiSec`, `IlkDolu`, `KisaHostAdi`, `AnlamliSayfaBasligi`, `TemizKimlikMetni` |
-| L517–L640 | `TaramaSubneti` sealed class, `YerelSubnetleriBul`, `NicSubneti` record, `YerelNicSubnetleriniBul`, `YerelSubnetiBul`, `SanalAdaptorMu`, `SubnetGirdisiniCoz` |
-| L641–L759 | `_subnetBoxChipSenkronu` bool, `BtnKamera_Click`, `KameraNicYenileBtn_Click`, `KameraNicChipleriniYenile(bool)`, `KameraChipOlustur(NicSubneti)`, `KameraChipDegisti`, `KameraChipleriSenkronizeEt` |
-| L760–L984 | DataGrid event handler'ları: panel kapat, subnet textbox sync, kolon filtre, tür filtresi, filtre temizle, çift tık, sağ tık; `KameraMenuYenidenTara_Click`, `TekIpTaraAsync(ip)` |
-| L985–L1210 | Sağ tık menü aksiyon handler'ları (web, ping, port, trace, dns, kopyala, favori, export); `KameraWebArayuzunuAc`, `KameraDisariAktar`, `KameraGorunenSatirlariAl` |
-| L1084–L1210 | Export: `IpSiralamaAnahtari`, `KameraExportSatirlari`, `KameraCsvOlustur`, `KameraJsonOlustur`, `KameraTxtOlustur`, `KameraExcelXlsxOlustur`, `KameraPdfQuestOlustur`, `MetniKirp` |
-| L1212–L1213 | `KameraBaslatBtn_Click`, `KameraDurdurBtn_Click` |
-| L1215–L1271 | `NetbiosBilgileriniGuncelleAsync`, `NetbiosSweepAsync` |
-| L1272–L1392 | `MdnsServisler` static array (25 servis), `MdnsSweepAsync`, `OlusturMdnsSorgusu`, `MdnsPaketCoz` |
-| L1394–L1736 | **`KameraTaramaBaslat()`** — 4+3 paralel görev; `derinTara` flag kontrolü; `KesifKaynaklari` güncelleme |
-| L1737–L1813 | `UbiquitiSweepAsync`, `MndpSweepAsync`, `SnmpSweepAsync` — ek keşif protokolleri |
-| L1814–L1950 | `HttpBannerOku` (HTTP 200 kontrolü), `ServisDetaylariniGundelleAsync`, `PortBannerOku`, `BannerTemizle`, `RtspHizliKontrol` |
-| L1913–L1990 | `HttpBasliklariniParse`, `SsdpDetayOku`, `XmlEtiketiOku`, `AdvancedScannerKayitlariniIsleAsync` |
-| L1971–L2065 | `ArpBilgileriniTopluGuncelleAsync` (OUI fallback), `ArpTablosuOkuAsync`, `UreticiAra`, `IpScannerMacDbYukle`, `MacFormatla` |
-| L2066–L2185 | `KameraKartEkleVeyaGuncelle`, `KesifSira()`, `KameraWebUrlSec` (snapshot lock), `KameraFiltreleriUygula`, `KameraSatirFiltredenGecer`, `Icerir`, `KameraKutucugaYaz` |
-| L2186–L2245 | `KameraSatir` sealed class (INotifyPropertyChanged) — `Guven` (int) dahil tüm alanlar |
+| L1–L44 | using/namespace + `CihazKimlik` sealed class (Marka, Model, Tur, TurIkon) |
+| L44 | `_engine = new DeviceDiscoveryEngine()` — `IDeviceDiscoveryEngine` alanı |
+| L47–L73 | `KimlikBelirle(DeviceInfo)` → `KimlikBelirleV2(b)` (DeviceClassifier'a delege); `GuvenSkoru(DeviceInfo, CihazKimlik)` — KararIzi varsa KararIzi skoru, yoksa kanıt sayımı; 0-100 clamp |
+| L75–L121 | Kimlik yardımcıları: `CihazAdiSec`, `IlkDolu`, `KisaHostAdi`, `AnlamliSayfaBasligi`, `TemizKimlikMetni` |
+| L122–L201 | `TaramaSubneti` sealed class (Prefix, HostStart, HostEnd, OriginalCidr, Cidr, HostCount); `YerelSubnetleriBul`, `NicSubneti` record, `YerelNicSubnetleriniBul`, `YerelSubnetiBul`, `SanalAdaptorMu` |
+| L203–L318 | `SubnetGirdisiniCoz` (virgül/noktalı virgül/boşluk ayrımlı, CIDR /16-/32 + prefix + tam IP); `CidrAraligaCoz` |
+| L320–L425 | Subnet chip picker: `_subnetBoxChipSenkronu` bool, `KameraNicYenileBtn_Click`, `KameraNicChipleriniYenile`, `KameraChipOlustur(NicSubneti)` (DarkChip ToggleButton), `KameraChipDegisti`, `KameraChipleriSenkronizeEt` |
+| L426–L880 | DataGrid event handler'ları: panel kapat, subnet textbox sync, kolon filtreler, tür filtresi, filtre temizle, çift tık, sağ tık menüsü; `SeciliKameraSatiri`, `TekIpTaraAsync`; sağ tık aksiyon handler'ları (web, ping, port, trace, dns, kopyala, favori, export); `KameraGorunenSatirlariAl` |
+| L881–L933 | `KameraBaslatBtn_Click`, `KameraDurdurBtn_Click` |
+| L935–L1049 | **`KameraTaramaBaslat()`** — subnet parse, `_engine.StartLiveAsync` / `_engine.StartScanAsync`, `DeviceChanged` subscribe/unsubscribe, `HistoryService.Kaydet` |
+| L1051–L1052 | `OnEngineDeviceChanged` — `Dispatcher.BeginInvoke(() => KameraKartEkleVeyaGuncelle(dev))` |
+| L1054–L1083 | `HttpBannerOku(ip, port, token)` — HTTP/200 sunucu başlığı + sayfa başlığı |
+| L1085–L1164 | `KameraKartEkleVeyaGuncelle(DeviceInfo)` — ObservableCollection'a ekle veya `Kopyala` ile güncelle, `KameraFiltreleriUygula` |
+| L1166–L1212 | **`KameraSatirOlustur(DeviceInfo)`** — `KimlikBelirle`, `CihazAdiSec`, port/servis listeleri, `KesifSira` sıralaması, Durum/SonGorulen/Online hesabı |
+| L1214–L1280 | `KesifSira`, `KameraWebUrlSec`, `KameraFiltreleriUygula`, `KameraSatirFiltredenGecer`, `Icerir`, `KameraKutucugaYaz` |
+| L1282– | `KameraSatir` sealed class (INotifyPropertyChanged) + export metotları (CSV, JSON, TXT, XLSX, PDF) |
 
-**`KameraTaramaBaslat` paralel görevler (L1394):**
-1. Port tarama — 1–254 IP, SemaphoreSlim(80), 800ms, `KameraPorts` = {554,8000,8080,37777,80,8443,22,23,139,443,445,3389,9000,34567}; `HttpFingerprintService.ProbeAsync` derin modda
-2. ONVIF WS-Discovery (`239.255.255.250:3702`) + WSD `wsdp:Device` ikinci probe → yazıcı/PC
-3. SSDP/UPnP (`239.255.255.250:1900`) + mDNS (`224.0.0.251:5353`)
-4. Ping Sweep — SemaphoreSlim(64), 1000ms
-5. *(Derin mod)* `UbiquitiSweepAsync` — UDP 10001
-6. *(Derin mod)* `MndpSweepAsync` — UDP 5678
-7. *(Derin mod)* `SnmpSweepAsync` — UDP 161
+**`KameraTaramaBaslat()` akışı:**
+1. Subnet parse → `ScanOptions { DeepScan, LiveMode }` hazırla
+2. `_engine.Store.DeviceChanged += OnEngineDeviceChanged`
+3. Live mod → `_engine.StartLiveAsync`; Normal mod → `_engine.StartScanAsync` + tamamlama sonrası `Store.All` ile `KameraKartEkleVeyaGuncelle`
+4. `Progress<ScanProgress>` → `KameraIlerlemeText`, `KameraFiltreSayacText` güncelleme
+5. Finally: `DeviceChanged` unsubscribe, butonlar restore, `KameraAiBtn.IsEnabled = count > 0`
 
-**`KameraBilgi` yeni alanlar (v0.2.0):** `UbntPlatform`, `UbntFirmware`, `UbntHostname`, `MikroTikBoard`, `MikroTikVersion`, `MikroTikIdentity`, `SnmpSysDescr`, `SnmpSysName`, `HttpFpMarka`, `HttpFpTur`, `HttpFpModel`, `WsdTipi`, `KesifKaynaklari HashSet<string>`.
+**`KameraSatir` alanları:** `Ip`, `Ad`, `Tur`, `Marka`, `Model`, `Os`, `Durum` ("Online"/"Offline"), `SonGorulen` (bugün → "HH:mm:ss", önceki gün → "dd.MM HH:mm"), `Online` (bool), `Ping`, `PingMs` (int — sıralama için), `Portlar`, `Kesif` (kaynağa göre öncelikli sıralı), `Mac`, `Uretici`, `Servis`, `WebUrl`, `Guven` (0-100), `KararIzi` (özet metin).
 
-**Cihaz Tara DataGrid sütunları:** IP, Ad, Tür, Marka, Model, Ping, Portlar, Keşif (130px), MAC, Üretici, Servis, **Güven** (60px — `Guven` confidence score 0-100).
-**Not:** Risk sütunu kaldırıldı. Sütun başlıklarında `ⓘ` tooltip kullanılır.
-**Dışa aktarma formatları:** Excel (`.xlsx` ClosedXML), PDF (QuestPDF A4 Yatay), TXT, CSV (UTF-8 `;`), JSON — sağ tık menüsünden.
+**DataGrid sütunları:** IP, Ad, Tür, Marka, Model, OS, Durum, Son Görülen, Ping, Portlar, Keşif, MAC, Üretici, Servis, **Güven** (0-100).
+
+**Dışa aktarma:** Excel (`.xlsx` ClosedXML), PDF (QuestPDF A4 Yatay), TXT, CSV (UTF-8 `;`), JSON — sağ tık menüsünden.
+
+---
+
+## Partials/MainWindow.DeviceClassifier.cs
+
+Kanıt tabanlı ağırlıklı cihaz sınıflandırıcı. `DeviceScan.cs`'teki `KimlikBelirle(DeviceInfo)` → `KimlikBelirleV2(b)` çağrısını karşılar.
+
+```csharp
+private static string MarkaNormalize(string marka)
+// → "Hikvision" / "Dahua" / "Axis" / "Reolink" / "EZVIZ" / "Ubiquiti" /
+//   "MikroTik" / "TP-Link" / "D-Link" / "NETGEAR" / "ASUS" / "Cisco" / "Aruba" /
+//   "HP" / "Epson" / "Brother" / "Canon" / "Kyocera" / "Xerox" /
+//   "Apple" / "Samsung" / "Xiaomi" / "Huawei" / "Google" / "Amazon" /
+//   "Synology" / "QNAP" / "Sonos" / "Raspberry Pi" / "Espressif" / "VMware" / "Windows"
+
+private static CihazKimlik KimlikBelirleV2(DeviceInfo b)
+// → CihazKimlik { Marka, Model, Tur, TurIkon }
+```
+
+**`MarkaNormalize` routerboard/mikrotikls fix (v0.4.0+):** `lower.Contains("routerboard")` ve `lower.Contains("mikrotikls")` → "MikroTik" eklendi (IEEE OUI kayıtlarında bu alt-string'ler geçer).
+
+**`KimlikBelirleV2` kanıt sırası (yüksek güven → düşük güven):**
+1. Ubiquiti TLV (UbntPlatform / UbntHostname)
+2. MikroTik identity / RouterOS board
+3. HTTP Fingerprint (HttpFpMarka — vendor-specific endpoint)
+4. SNMP sysDescr
+5. ONVIF + WSD birlikte
+6. mDNS türü (MdnsTur)
+7. SSDP manufacturer
+8. NetBIOS + SMB
+9. OUI vendor (MAC prefix → `OuiVendorLookup.BulDetay`)
+10. Port pattern fallback (kamera portları / yazıcı portları / router portları)
+
+`KimlikKararIzi` (Services/Discovery/Classification/) — sınıflandırma gerekçesini saklar; `GuvenSkoru` hesaplamasında `TurSiralama[0].Skor` + `MarkaSiralama` bonusu kullanılır.
+
+**Sınıflandırma düzeltmeleri (2026-05-19):**
+
+- **`KanitTopla_Llmnr`:** LLMNR hostname artık körce "Bilgisayar" eklemez. `epson`, `brother`, `canon`, `kyocera`, `ricoh`, `lexmark`, `xerox`, `brn` (Brother Network), `npi` (HP JetDirect) ön ekleriyle başlayan hostname'ler → **Yazıcı** + marka kanıtı ekler (ağırlık: `LlmnrHostname=15`). Böylece `EPSON0SE587` gibi hostname'ler doğru sınıflandırılır.
+
+- **`KanitTopla_Ssdp`:** `blob.Contains("storage/nas")` dalı artık NVR belirteçleri (`nvr`, `dvr`, `xvr`, `recorder`, `dahua`, `hikvision`, `xmeye`) varsa `"NAS"` yerine `"NVR/DVR"` ekler. Dahua NVR gibi cihazlar video depolama için "storage" kelimesiyle UPnP yayın yapsa da artık NAS olarak sınıflandırılmaz.
+
+- **`SnmpImzalari`:** Axis/Hikvision/Dahua girişlerinden önce iki yeni regex eklendi:
+  - `Dahua.*NVR|NVR.*Dahua` → Dahua / NVR/DVR (SNMP sysDescr'da hem Dahua hem NVR geçerse)
+  - `\b(NVR|DVR|XVR|Video Recorder)\b` → NVR/DVR (marka bağımsız genel eşleme)
 
 ---
 
@@ -166,12 +237,12 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 
 ---
 
-## Partials/MainWindow.Wlan.cs (~180 satır)
+## Partials/MainWindow.Wlan.cs (~420 satır — v0.3.0 ConcurrentDictionary)
 
 | Satır | İçerik |
 |---|---|
-| L1–L10 | using/namespace |
-| L11–L18 | Alanlar: `_wlanCts`, `_wlanSatirlar` (ObservableCollection), `_wlanOtoTimer`, `_wlanSayac` (int), `_wlanAdaptorVar` (bool) |
+| L1–L14 | using/namespace (System.Collections.Concurrent dahil) |
+| L17–L26 | Alanlar: `_wlanCts`, `_wlanSatirlar` (ObservableCollection), `_wlanBilinenBssid` **`ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>`** (v0.3.0), `_wlanOtoTimer`, `_wlanSayac` (int), `_wlanAdaptorVar` (bool) |
 | L20–L30 | `WlanPanelBaşlat()` — `WlanGrid.ItemsSource` bağla, `WifiAdaptorVarMi()` kontrol; adaptör yoksa `WlanTab.IsEnabled=false` + ToolTip |
 | L32–L50 | `WlanTaraBtn_Click`, `WlanDurdurBtn_Click`, `WlanOtoYenile_Changed` |
 | L52–L80 | `WlanOtoTimerBaslat()` / `WlanOtoTimerDurdur()` — DispatcherTimer(1s), geri sayım WlanSayacText |
@@ -183,6 +254,8 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 - WPA (1. nesil) → sarı `#E3B341` + "⚠ Orta"
 - WEP / Open → kırmızı `#F85149` + "✖ Güvensiz"
 - Evil-Twin → sarı `#E3B341` + "⚠ Evil-Twin" (öncelikli)
+
+**Evil Twin eşiği (v0.3.0):** `SupheliEvilTwinSinyalleriniGuncelle` artık sabit 75 yerine `Math.Clamp(SettingsService.Yukle().EvilTwinSinyalEsigi, 50, 90)` kullanıyor.
 
 **XAML öğeleri:** `WlanTab` (x:Name, IsEnabled kontrolü için), `WlanPanel`, `WlanDurumText`, `WlanTaraBtn`, `WlanDurdurBtn`, `WlanOtoYenileCheck`, `WlanSayacText`, `WlanGrid` (DataGrid)
 
@@ -202,3 +275,18 @@ Cross-partial metot çağrıları sorunsuz çalışır (örn. `MesajEkle` Networ
 | L180–L204 | `LisansKopyala_Click` — destek metni (durum, tür, bitiş, MachineId 16-char, son doğrulama, NTP) → `Clipboard.SetText` |
 
 **Yeni XAML öğeleri:** `LisansBanner` (sticky, Grid.Row=1), `LisansBannerMetin`, `LisansBannerKapatBtn`, `LisansSonDogrulamaMetin`, `LisansNtpMetin`, "📋 Lisans Bilgilerini Kopyala" butonu
+
+---
+
+## AI Faz 2 Eki (2026-05-17)
+
+- `Partials/MainWindow.Ai.cs` eklendi.
+- Sorumluluklar:
+  - `AiGonderBtn_Click`
+  - `AiInputBox_KeyDown`
+  - `AiTemizleBtn_Click`
+  - `AiSoruGonderAsync`
+- `MainWindow.xaml.cs` içindeki AI alanları:
+  - `_aiSohbetGecmisi`
+  - `_aiSohbetCts`
+  - `_aiSohbetCalisiyor`

@@ -157,7 +157,7 @@ public static class LicenseService
         {
             if (!File.Exists(CacheFile)) return null;
             var machineKey = SHA256.HashData(Encoding.UTF8.GetBytes(GetMachineId()));
-            var plain = DecryptAesHmac(File.ReadAllBytes(CacheFile), machineKey);
+            var plain = CryptoHelper.DecryptAesHmac(File.ReadAllBytes(CacheFile), machineKey);
             if (plain is null) return null;
             var payload = JsonSerializer.Deserialize<CachePayload>(Encoding.UTF8.GetString(plain), JsonOpts);
             return payload?.CachedAt;
@@ -296,7 +296,7 @@ public static class LicenseService
             var data = new CachePayload(info.Key, info.Type, info.ExpiresAt, trustedNow);
             var json = JsonSerializer.Serialize(data, JsonOpts);
             var machineKey = SHA256.HashData(Encoding.UTF8.GetBytes(GetMachineId()));
-            File.WriteAllBytes(CacheFile, EncryptAesHmac(Encoding.UTF8.GetBytes(json), machineKey));
+            File.WriteAllBytes(CacheFile, CryptoHelper.EncryptAesHmac(Encoding.UTF8.GetBytes(json), machineKey));
         }
         catch (Exception ex) { LogService.Hata("LicenseService.SaveCache", ex); }
     }
@@ -307,7 +307,7 @@ public static class LicenseService
         {
             if (!File.Exists(CacheFile)) return null;
             var machineKey = SHA256.HashData(Encoding.UTF8.GetBytes(GetMachineId()));
-            var plain = DecryptAesHmac(File.ReadAllBytes(CacheFile), machineKey);
+            var plain = CryptoHelper.DecryptAesHmac(File.ReadAllBytes(CacheFile), machineKey);
             if (plain is null) return null;
 
             var payload = JsonSerializer.Deserialize<CachePayload>(Encoding.UTF8.GetString(plain), JsonOpts);
@@ -324,42 +324,6 @@ public static class LicenseService
             LogService.Hata("LicenseService.LoadCache", ex);
             return null;
         }
-    }
-
-    // Format: [16 IV | AES ciphertext | 32 HMAC]
-    private static byte[] EncryptAesHmac(byte[] data, byte[] key)
-    {
-        using var aes = Aes.Create();
-        aes.Key = key;
-        aes.GenerateIV();
-        using var enc = aes.CreateEncryptor();
-        var cipher = enc.TransformFinalBlock(data, 0, data.Length);
-
-        var payload = new byte[16 + cipher.Length];
-        Buffer.BlockCopy(aes.IV, 0, payload, 0, 16);
-        Buffer.BlockCopy(cipher, 0, payload, 16, cipher.Length);
-
-        var hmac = HMACSHA256.HashData(key, payload);
-        return payload.Concat(hmac).ToArray();
-    }
-
-    private static byte[]? DecryptAesHmac(byte[] data, byte[] key)
-    {
-        if (data.Length < 16 + 32) return null;
-
-        var payloadLen = data.Length - 32;
-        var storedHmac = data[payloadLen..];
-        var payload = data[..payloadLen];
-
-        var expectedHmac = HMACSHA256.HashData(key, payload);
-        if (!CryptographicOperations.FixedTimeEquals(storedHmac, expectedHmac))
-            return null;
-
-        using var aes = Aes.Create();
-        aes.Key = key;
-        aes.IV = payload[..16];
-        using var dec = aes.CreateDecryptor();
-        return dec.TransformFinalBlock(payload, 16, payload.Length - 16);
     }
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };

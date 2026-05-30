@@ -151,11 +151,18 @@ public partial class MainWindow
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
     }
 
+    private static string NormalizeTip(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return string.Empty;
+        // Türkçe büyük harf farkını giderir: İ→I, ı→I, vd.
+        return s.ToUpperInvariant().Replace('İ', 'I').Replace('Ş', 'S').Replace('Ğ', 'G').Replace('Ü', 'U').Replace('Ö', 'O').Replace('Ç', 'C');
+    }
+
     private void GecmisKaydiTekrarCalistir(HistoryRecord kayit)
     {
         _gecmisdenCalistiriliyor = true;
 
-        switch (kayit.Type.ToUpperInvariant())
+        switch (NormalizeTip(kayit.Type))
         {
             case "PING":
                 MainTabControl.SelectedIndex = TabPing;
@@ -171,7 +178,6 @@ public partial class MainWindow
                 _ = PortTaraBaslat(kayit.Target, PortScanService.Parse(portlar ?? PortAralikBox.Text));
                 break;
 
-            case "CİHAZ TARA":
             case "CIHAZ TARA":
                 MainTabControl.SelectedIndex = TabCihazTara;
                 if (kayit.Metadata.TryGetValue("SubnetInput", out var subnetInput) && !string.IsNullOrWhiteSpace(subnetInput))

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:prim="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
         mc:Ignorable="d"
         Title="Network Sniffer - Made by Demircan" Height="720" Width="1180"
         Icon="pack://application:,,,/app.ico"
@@ -175,6 +176,7 @@
 
         <!-- Ping giriş kutusu -->
         <Style x:Key="PingInputBox" TargetType="TextBox">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="Background" Value="#161B22"/>
             <Setter Property="Foreground" Value="#E6EDF3"/>
             <Setter Property="BorderBrush" Value="#30363D"/>
@@ -183,21 +185,53 @@
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="CaretBrush" Value="#58A6FF"/>
             <Setter Property="SelectionBrush" Value="#1F6FEB"/>
+            <Setter Property="SelectionTextBrush" Value="#E6EDF3"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
-                        <Border Background="{TemplateBinding Background}"
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="6"
                                 Padding="{TemplateBinding Padding}">
-                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False"/>
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Focusable="False"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsFocused" Value="True">
-                                <Setter Property="BorderBrush" Value="#58A6FF"/>
+                                <Setter TargetName="Root" Property="BorderBrush" Value="#58A6FF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- AI input kutusunun minimal iç stili — görsel çerçeve parent Border'dan gelir -->
+        <Style x:Key="AiInputStyle" TargetType="TextBox">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#E6EDF3"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CaretBrush" Value="#58A6FF"/>
+            <Setter Property="SelectionBrush" Value="#1F6FEB"/>
+            <Setter Property="SelectionTextBrush" Value="#E6EDF3"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Focusable="False"
+                                      Background="Transparent"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden"/>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -461,6 +495,116 @@
             </Setter>
         </Style>
 
+        <!-- Koyu temalı ToggleButton (subnet chip'i için) -->
+        <Style x:Key="DarkChip" TargetType="{x:Type prim:ToggleButton}">
+            <Setter Property="Background" Value="#1F2933"/>
+            <Setter Property="Foreground" Value="#E6EDF3"/>
+            <Setter Property="BorderBrush" Value="#30363D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type prim:ToggleButton}">
+                        <Border x:Name="ChipBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ChipBorder" Property="Background" Value="#0F376D"/>
+                                <Setter TargetName="ChipBorder" Property="BorderBrush" Value="#2F81F7"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="ChipBorder" Property="Background" Value="#243140"/>
+                                <Setter TargetName="ChipBorder" Property="BorderBrush" Value="#58A6FF"/>
+                            </MultiTrigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Koyu temalı CheckBox: Windows varsayılan görsel/temasını override eder -->
+        <Style x:Key="DarkCheckBox" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#8B949E"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="6,0,0,0"/>
+            <Setter Property="Background" Value="#0D1117"/>
+            <Setter Property="BorderBrush" Value="#30363D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <Border x:Name="Box"
+                                    Width="16" Height="16"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="3"
+                                    VerticalAlignment="Center"
+                                    SnapsToDevicePixels="True">
+                                <Path x:Name="CheckMark"
+                                      Stroke="#58A6FF" StrokeThickness="2"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      Data="M 3 8 L 7 12 L 13 4"
+                                      Stretch="None"
+                                      Visibility="Collapsed"
+                                      SnapsToDevicePixels="True"/>
+                            </Border>
+                            <ContentPresenter x:Name="Content"
+                                              Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"
+                                              RecognizesAccessKey="True"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="#58A6FF"/>
+                                <Setter TargetName="Box" Property="Background" Value="#0D3B66"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="#58A6FF"/>
+                                <Setter Property="Foreground" Value="#C9D1D9"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Tum CheckBox'lara varsayilan olarak koyu temayi uygula -->
+        <Style TargetType="CheckBox" BasedOn="{StaticResource DarkCheckBox}"/>
+
         <Style x:Key="FlatContextMenu" TargetType="ContextMenu">
             <Setter Property="Background" Value="#161B22"/>
             <Setter Property="Foreground" Value="#C9D1D9"/>
@@ -525,8 +669,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Başlık (tam genişlik) -->
@@ -619,7 +762,7 @@
                                 <TabPanel IsItemsHost="True"/>
                             </ScrollViewer>
                         </Border>
-                        <ContentPresenter Grid.Row="1" ContentSource="SelectedContent"/>
+                        <ContentPresenter Grid.Row="2" ContentSource="SelectedContent"/>
                     </Grid>
                 </ControlTemplate>
             </TabControl.Template>
@@ -665,14 +808,10 @@
                 <TabItem.Header>
                     <TextBlock FontFamily="Consolas" FontSize="12" Text="●  Chatbot"/>
                 </TabItem.Header>
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+                <DockPanel LastChildFill="True">
                     <!-- Araç çubuğu -->
-                    <Border Grid.Row="0" Background="#111827" BorderBrush="#243147" BorderThickness="1"
+                    <Border DockPanel.Dock="Top"
+                            Background="#111827" BorderBrush="#243147" BorderThickness="1"
                             CornerRadius="8" Padding="10,6" Margin="0,0,0,8">
                         <WrapPanel>
                             <Button x:Name="BtnTaramaBaslat" Style="{StaticResource PrimaryButton}"
@@ -732,8 +871,61 @@
                             </Button>
                         </WrapPanel>
                     </Border>
-                    <!-- Chat alanı -->
-                    <Border Grid.Row="1" Background="#0B1220" BorderBrush="#243147" BorderThickness="1" CornerRadius="10">
+                    <!-- AI input barı -->
+                    <Border DockPanel.Dock="Bottom"
+                            Background="#111827"
+                            BorderBrush="#243147"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="8"
+                            Margin="0,8,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border x:Name="AiInputBorder"
+                                    Grid.Column="0"
+                                    Background="#161B22"
+                                    BorderBrush="#30363D"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="10,8">
+                                <TextBox x:Name="AiInputBox"
+                                         Style="{StaticResource AiInputStyle}"
+                                         Height="20"
+                                         VerticalContentAlignment="Center"
+                                         GotFocus="AiInputBox_GotFocus"
+                                         LostFocus="AiInputBox_LostFocus"
+                                         KeyDown="AiInputBox_KeyDown"/>
+                            </Border>
+
+                            <Button x:Name="AiGonderBtn"
+                                    Grid.Column="2"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Height="36"
+                                    Padding="12,0"
+                                    HorizontalContentAlignment="Center"
+                                    Click="AiGonderBtn_Click">
+                                <TextBlock Text="✨ Sor" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                            </Button>
+
+                            <Button x:Name="AiTemizleBtn"
+                                    Grid.Column="4"
+                                    Style="{StaticResource ChipButton}"
+                                    Height="36"
+                                    Padding="12,0"
+                                    Click="AiTemizleBtn_Click">
+                                <TextBlock Text="Temizle" FontFamily="Consolas" FontSize="12"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                    <!-- Chat alanı — LastChildFill kalan tüm alanı doldurur -->
+                    <Border Background="#0B1220" BorderBrush="#243147" BorderThickness="1" CornerRadius="10">
                         <ScrollViewer x:Name="ChatScrollViewer"
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled"
@@ -741,7 +933,7 @@
                             <StackPanel x:Name="ChatPanel" Margin="8,8,4,8"/>
                         </ScrollViewer>
                     </Border>
-                </Grid>
+                </DockPanel>
             </TabItem>
 
             <!-- ═══ Sekme 1: Cihaz Tara ═══ -->
@@ -757,6 +949,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0" Margin="0,0,0,14">
                             <Grid.ColumnDefinitions>
@@ -783,23 +976,37 @@
                                 <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxHeight="64">
                                     <WrapPanel x:Name="KameraSubnetChips" Orientation="Horizontal"/>
                                 </ScrollViewer>
-                                <CheckBox x:Name="KameraDerinTaraCheck" Grid.Column="1" Content="Derin tara"
-                                          Foreground="#8B949E" FontFamily="Consolas" FontSize="11"
-                                          VerticalAlignment="Center" Margin="10,0,8,0"
-                                          ToolTip="Ubiquiti, MikroTik, SNMP ve WSD ek keşif protokollerini etkinleştirir. Daha yavaş ama daha kapsamlı."/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <CheckBox x:Name="KameraDerinTaraCheck" Content="Derin tara"
+                                              Foreground="#8B949E" FontFamily="Consolas" FontSize="11"
+                                              Margin="10,0,8,0"
+                                              ToolTip="Ubiquiti, MikroTik, SNMP ve WSD ek keşif protokollerini etkinleştirir. Daha yavaş ama daha kapsamlı."/>
+                                    <CheckBox x:Name="KameraLiveCheck" Content="Sürekli izle"
+                                              Foreground="#3FB950" FontFamily="Consolas" FontSize="11"
+                                              Margin="0,0,8,0"
+                                              ToolTip="Sürekli izleme modu — ARP sweep periyodik çalışır, cihazlar çevrimiçi/çevrimdışı takip edilir."/>
+                                    <CheckBox x:Name="KameraDusukGuvenCheck" Content="Düşük güveni göster"
+                                              Foreground="#484F58" FontFamily="Consolas" FontSize="11"
+                                              Margin="0,0,8,0"
+                                              ToolTip="Güven skoru 12 altındaki ve çevrimdışı cihazları da listele. Varsayılan: gizli."
+                                              Checked="KameraDusukGuvenCheck_Changed"
+                                              Unchecked="KameraDusukGuvenCheck_Changed"/>
+                                </StackPanel>
                                 <Button x:Name="KameraNicYenileBtn" Grid.Column="2" Content="⟳"
                                         Width="34" Height="30" FontSize="14"
                                         Background="#1F2933" Foreground="#58A6FF" BorderBrush="#2F81F7" BorderThickness="1"
                                         Click="KameraNicYenileBtn_Click"
                                         ToolTip="Ağ arayüzlerini yeniden tara"/>
                             </Grid>
-                            <!-- Manuel subnet input + Tara/Durdur -->
+                            <!-- Manuel subnet input + Tara/Durdur + AI -->
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="112"/>
                                     <ColumnDefinition Width="46"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid Grid.Column="0">
                                     <TextBox x:Name="KameraSubnetBox" Style="{StaticResource PingInputBox}"
@@ -817,6 +1024,15 @@
                                         Style="{StaticResource DangerButton}" Height="38"
                                         HorizontalContentAlignment="Center"
                                         Visibility="Collapsed" Click="KameraDurdurBtn_Click"/>
+                                <Button x:Name="KameraAiBtn" Grid.Column="5"
+                                        Style="{StaticResource ActionButton}"
+                                        Height="38" Padding="12,0"
+                                        IsEnabled="False"
+                                        HorizontalContentAlignment="Center"
+                                        Click="KameraAiBtn_Click"
+                                        ToolTip="Taranan cihazları AI ile analiz et (tarama tamamlandıktan sonra aktif olur)">
+                                    <TextBlock Text="✨ AI" FontFamily="Consolas" FontSize="12"/>
+                                </Button>
                             </Grid>
                         </StackPanel>
                         <Grid Grid.Row="2" Margin="0,0,0,10">
@@ -952,6 +1168,21 @@
                                             <TextBlock Text="Model ⓘ" ToolTip="Algılanan model/hardware metni."/>
                                         </DataGridTextColumn.Header>
                                     </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Os}" SortMemberPath="Os" Width="90">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="OS ⓘ" ToolTip="İşletim sistemi (SSH banner, SMB veya SNMP'den algılanır)."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Durum}" SortMemberPath="Durum" Width="75">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Durum ⓘ" ToolTip="Cihazın ağdaki güncel durumu (Online / Offline)."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding SonGorulen}" SortMemberPath="SonGorulen" Width="80">
+                                        <DataGridTextColumn.Header>
+                                            <TextBlock Text="Son Görülme ⓘ" ToolTip="Cihazın son yanıt verdiği zaman."/>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
                                     <DataGridTextColumn Binding="{Binding Ping}" SortMemberPath="PingMs" Width="70">
                                         <DataGridTextColumn.Header>
                                             <TextBlock Text="Ping ⓘ" ToolTip="ICMP gecikme süresi (ms)."/>
@@ -967,11 +1198,35 @@
                                             <TextBlock Text="Keşif ⓘ" ToolTip="Cihazı tanımlayan keşif protokolleri (ONVIF, mDNS, SNMP vb.)."/>
                                         </DataGridTextColumn.Header>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Binding="{Binding Guven}" SortMemberPath="Guven" Width="60">
-                                        <DataGridTextColumn.Header>
+                                    <DataGridTemplateColumn SortMemberPath="Guven" Width="60">
+                                        <DataGridTemplateColumn.Header>
                                             <TextBlock Text="Güven ⓘ" ToolTip="Cihaz tanıma güven skoru (0-100). Birden çok kaynaktan doğrulanan cihazlar yüksek skor alır."/>
-                                        </DataGridTextColumn.Header>
-                                    </DataGridTextColumn>
+                                        </DataGridTemplateColumn.Header>
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Guven}" FontFamily="Consolas" FontSize="11"
+                                                           Padding="4,2" TextAlignment="Center"
+                                                           ToolTip="{Binding KararIzi}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="#8B949E"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding GuvenRenk}" Value="Kirmizi">
+                                                                    <Setter Property="Foreground" Value="#F85149"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding GuvenRenk}" Value="Sari">
+                                                                    <Setter Property="Foreground" Value="#D29922"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding GuvenRenk}" Value="Yesil">
+                                                                    <Setter Property="Foreground" Value="#3FB950"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTextColumn Binding="{Binding Mac}" SortMemberPath="Mac" Width="130">
                                         <DataGridTextColumn.Header>
                                             <TextBlock Text="MAC ⓘ" ToolTip="Cihazın MAC adresi."/>
@@ -989,6 +1244,42 @@
                                     </DataGridTextColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
+                        </Border>
+
+                        <!-- Tarama ilerleme paneli — DataGrid altı, sticky -->
+                        <Border x:Name="ScanProgressPanel" Grid.Row="5"
+                                Background="#0D1117" BorderBrush="#1F6FEB" BorderThickness="1"
+                                CornerRadius="8" Padding="14,10" Margin="0,10,0,0"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" x:Name="ScanProgressAsama"
+                                               Text="Başlatılıyor..."
+                                               Foreground="#C9D1D9"
+                                               FontFamily="Consolas" FontSize="11"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" x:Name="ScanProgressYuzde"
+                                               Text="%0"
+                                               Foreground="#58A6FF"
+                                               FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                                               VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                </Grid>
+                                <ProgressBar x:Name="ScanProgressBar"
+                                             Height="6" Minimum="0" Maximum="100" Value="0"
+                                             Foreground="#58A6FF" Background="#1C2128"
+                                             BorderThickness="0"/>
+                                <TextBlock x:Name="ScanProgressDetay"
+                                           Text=""
+                                           Foreground="#6E7681"
+                                           FontFamily="Consolas" FontSize="10"
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
                         </Border>
                     </Grid>
                 </Border>
@@ -1515,6 +1806,11 @@
                                         Style="{StaticResource DangerButton}"
                                         Height="36" Padding="16,0" IsEnabled="False"
                                         Click="WlanDurdurBtn_Click"/>
+                                <Button x:Name="WlanAiBtn" Content="✨  Rapor"
+                                        Style="{StaticResource ActionButton}"
+                                        Height="36" Margin="8,0,0,0" Padding="14,0"
+                                        IsEnabled="False" Click="WlanAiBtn_Click"
+                                        ToolTip="Tarama sonuçlarını AI ile analiz et: güvenlik, Evil-Twin, kanal çakışması"/>
                             </StackPanel>
                             <!-- Otomatik Yenile -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
@@ -1749,6 +2045,105 @@
                 </Border>
             </TabItem>
 
+            <!-- ═══ Sekme 12: Harita ═══ -->
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Text="◫  Harita"/>
+                </TabItem.Header>
+                <DockPanel LastChildFill="True">
+                    <!-- Araç çubuğu -->
+                    <Border DockPanel.Dock="Top"
+                            Background="#111827" BorderBrush="#243147" BorderThickness="1"
+                            CornerRadius="8" Padding="10,6" Margin="0,0,0,8">
+                        <WrapPanel>
+                            <Button x:Name="HaritaYenileBtn" Style="{StaticResource PrimaryButton}"
+                                    Height="36" Padding="14,0" Margin="0,2,6,2"
+                                    HorizontalContentAlignment="Center" Click="HaritaYenileBtn_Click"
+                                    ToolTip="Son Cihaz Tara sonucunu haritaya çizer.">
+                                <TextBlock Text="🔄  Tara / Yenile" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                            </Button>
+                            <Button x:Name="HaritaZoomSifirlaBtn" Style="{StaticResource ActionButton}"
+                                    Height="36" Padding="12,0" Margin="0,2,6,2"
+                                    HorizontalContentAlignment="Center" Click="HaritaZoomSifirlaBtn_Click"
+                                    ToolTip="Yakınlaştırma ve kaydırmayı sıfırlar.">
+                                <TextBlock Text="⊙  Görünümü Sıfırla" FontFamily="Consolas" FontSize="12"/>
+                            </Button>
+                            <Button x:Name="HaritaPngBtn" Style="{StaticResource ActionButton}"
+                                    Height="36" Padding="12,0" Margin="0,2,6,2"
+                                    HorizontalContentAlignment="Center" Click="HaritaPngBtn_Click"
+                                    ToolTip="Haritayı PNG görüntüsü olarak kaydeder.">
+                                <TextBlock Text="▤  PNG" FontFamily="Consolas" FontSize="12"/>
+                            </Button>
+                            <Button x:Name="HaritaPdfBtn" Style="{StaticResource ActionButton}"
+                                    Height="36" Padding="12,0" Margin="0,2,0,2"
+                                    HorizontalContentAlignment="Center" Click="HaritaPdfBtn_Click"
+                                    ToolTip="Haritayı PDF raporu olarak kaydeder.">
+                                <TextBlock Text="▦  PDF" FontFamily="Consolas" FontSize="12"/>
+                            </Button>
+                        </WrapPanel>
+                    </Border>
+
+                    <!-- Harita alanı + detay paneli -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Çizim tuvali -->
+                        <Border Grid.Column="0" Background="#0B1220" BorderBrush="#243147"
+                                BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+                            <Grid>
+                                <Canvas x:Name="HaritaCanvas" Background="Transparent"
+                                        MouseWheel="HaritaCanvas_MouseWheel"
+                                        MouseLeftButtonDown="HaritaCanvas_MouseLeftButtonDown"
+                                        MouseMove="HaritaCanvas_MouseMove"
+                                        MouseLeftButtonUp="HaritaCanvas_MouseLeftButtonUp">
+                                    <Canvas.RenderTransform>
+                                        <TransformGroup>
+                                            <ScaleTransform x:Name="HaritaScale" ScaleX="1" ScaleY="1"/>
+                                            <TranslateTransform x:Name="HaritaPan" X="0" Y="0"/>
+                                        </TransformGroup>
+                                    </Canvas.RenderTransform>
+                                </Canvas>
+                                <TextBlock x:Name="HaritaBosMesaj"
+                                           Text="Önce 'Cihaz Tara' sekmesinde bir tarama çalıştırın, sonra burada Tara / Yenile'ye basın."
+                                           Foreground="#8B949E" FontFamily="Consolas" FontSize="13"
+                                           TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="Visible"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Detay paneli (başta gizli) -->
+                        <Border x:Name="HaritaDetayPanel" Grid.Column="1" Width="280"
+                                Background="#161B22" BorderBrush="#243147" BorderThickness="1"
+                                CornerRadius="10" Margin="8,0,0,0" Padding="12"
+                                Visibility="Collapsed">
+                            <DockPanel LastChildFill="True">
+                                <Grid DockPanel.Dock="Top">
+                                    <TextBlock x:Name="HaritaDetayBaslik" Text="" FontFamily="Consolas"
+                                               FontSize="14" FontWeight="Bold" Foreground="#58A6FF"
+                                               TextWrapping="Wrap" Margin="0,0,24,8"/>
+                                    <Button Content="✕" Width="22" Height="22"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Style="{StaticResource ChipButton}"
+                                            Click="HaritaDetayKapat_Click"/>
+                                </Grid>
+                                <Button x:Name="HaritaDetayAiBtn" DockPanel.Dock="Bottom"
+                                        Style="{StaticResource PrimaryButton}" Height="34" Margin="0,8,0,0"
+                                        HorizontalContentAlignment="Center" Click="HaritaDetayAiBtn_Click">
+                                    <TextBlock Text="🤖 AI Rapor" FontFamily="Consolas" FontSize="12" FontWeight="Bold"/>
+                                </Button>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel x:Name="HaritaDetayIcerik"/>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </DockPanel>
+            </TabItem>
+
         </TabControl>
 
         <!-- ═══ F12 Komut Konsolu ═══ -->
@@ -1833,6 +2228,7 @@
                            TextWrapping="Wrap" VerticalAlignment="Center"/>
             </StackPanel>
         </Border>
+
     </Grid>
 </Window>
 
